@@ -1,120 +1,100 @@
 # Flame Atlas
 
-Khung dự án dashboard tra cứu và tổng hợp bằng chứng về cháy trong vi trọng lực từ NASA Physical Sciences Informatics (PSI), phục vụ NASA Space Apps Challenge.
+A research explorer for NASA's microgravity combustion data, built for the NASA Space Apps Challenge 2026 challenge **Flame in Freefall: SI-Powered Fire Safety Insights from Microgravity Combustion Data**.
 
-Người dùng sẽ tìm theo nhu cầu **phòng ngừa, phát hiện, dập cháy**, xem nghiên cứu phù hợp, so sánh điều kiện và truy ngược từng kết luận về nguồn.
+Flame Atlas lets engineers and researchers find NASA Physical Sciences Informatics (PSI) combustion investigations by **fuel or material, oxygen level, test environment and hardware**, and check every extracted condition against the original experiment table.
 
-## Phạm vi hiện tại
+## What it does
 
-- Web React + TypeScript + Vite: hai danh mục **Nghiên cứu** và **Công bố**, tìm kiếm, phân trang, trạng thái dữ liệu trống và lỗi kết nối.
-- API FastAPI: health check, thống kê, tìm hồ sơ/công bố và xem quan hệ giữa chúng; tài liệu OpenAPI tự sinh.
-- Pipeline Python: tải metadata công khai của NASA PSI hoặc xử lý snapshot ngoại tuyến; lưu nguồn và bản chuẩn hóa.
-- Kiểm tra hợp đồng dữ liệu và quan hệ nhiều–nhiều; GitHub Actions kiểm tra API và build web.
+- **Overview dashboard.** Pick a cabin atmosphere (Apollo 1 at 100% O₂, the ISS at 21%, NASA's proposed 34% exploration atmosphere) or any oxygen level, and see which investigations' tested oxygen ranges cover it, with solid materials called out separately. Also: which fuels were burned most, computed evidence gaps (no partial-gravity tests; solids stop at 22.2% chamber oxygen) and when the investigations ran. Every chart has a hover/focus readout and a table view.
+- **Search and filter** the 24 PSI Combustion Science investigations: fuel and material (gas, liquid, solid), oxygen range, test environment (ISS, Cygnus, ground), hardware (CIR, MSG, MDCA…), topic and experiment program. Filters are kept in the URL, so a filtered view can be shared.
+- **Conditions from the source data, not from prose.** Fuel and oxygen come from the 22 PSI experiment tables (about 2,000 test runs). Every value shows the table and column it came from.
+- **Honest gaps.** Chamber oxygen is kept apart from oxygen fed through a burner (inverse flames reach 85%). Investigations without an oxygen column say "not recorded" instead of guessing.
+- **Investigation pages** with the test conditions, the full experiment table (with the columns used highlighted), the PSI description, related investigations and linked publications.
 
-Phần SI/RAG, trích toàn văn, số đo thí nghiệm, so sánh định lượng và dự đoán được mô tả trong roadmap để triển khai tiếp. Repo khởi đầu với kho dữ liệu trống. Các tệp phân tích từ phiên làm việc trước chưa nằm trong checkout này.
+The left rail lists seven modules. Overview and the Experiment library are built; 3D flame chamber, Material comparison, Research assistant, Habitat check and Test run lab have pages that say "Not built yet" and what each will do.
 
-## Chạy local
+Planned next: SI summaries, scenario-based ranking ("which experiments matter for a PMMA fire in an ISS cabin at 21% O₂?") and evidence-gap interpretation.
 
-Yêu cầu: **Node.js 24** (hoặc >=22.12), **Python 3.11+**; CI dùng Python 3.13. Các lệnh `make` dành cho macOS/Linux.
+## NASA data used
 
-```sh
-cp .env.example .env
-make install
-```
+| Resource | Use |
+| --- | --- |
+| [NASA PSI](https://psi.nasa.gov/physci/repo/search?q=combustion&data_source=psi&data_type=investigation) investigation metadata (`geode-py/ws/repo` endpoints) | Titles, objectives, approach, hardware, flight program, related investigations, publication lists, dataset DOIs |
+| PSI experiment tables (`experimentalTable` CSV files, downloaded through PSI's public download endpoint) | Fuel, oxygen and run counts per investigation |
 
-Mở hai terminal tại thư mục gốc:
+No raw data, video or publication full text is downloaded.
 
-```sh
-make dev-api
-```
-
-```sh
-make dev-web
-```
-
-- Web: <http://127.0.0.1:5173>
-- API docs: <http://127.0.0.1:8000/docs>
-- Health: <http://127.0.0.1:8000/health>
-
-Web development server chuyển các request `/api` sang FastAPI. Cấu hình địa chỉ và đường dẫn dữ liệu trong `.env`; đọc [hướng dẫn phát triển](docs/development.md) nếu chạy hai dịch vụ trên máy khác nhau hoặc cấu hình production.
-
-## Nhập metadata NASA PSI
-
-Thử với một hồ sơ:
-
-```sh
-.venv/bin/flame-ingest-psi --accession PSI-117
-```
-
-Nhập các hồ sơ thuộc **Combustion Science** trong kết quả tìm kiếm `combustion`:
-
-```sh
-make ingest
-```
-
-Chuẩn hóa lại snapshot đã tải, không cần Internet:
-
-```sh
-.venv/bin/flame-ingest-psi --input-dir data/raw/<snapshot-directory>
-```
-
-Pipeline ghi metadata gốc và manifest URL/SHA-256 vào `data/raw/<timestamp>/`, sau đó xuất `data/processed/catalog.json`. API đọc catalog ở mỗi request nên không cần khởi động lại khi nhập dữ liệu mới. Đường dẫn catalog có thể đổi bằng `FLAME_CATALOG_PATH`.
-
-Mỗi lần nhập thay thế catalog chuẩn hóa bằng kết quả của lần đó; snapshot gốc vẫn giữ riêng theo thời điểm. Lệnh này chỉ nhập metadata, chưa tải abstract/toàn văn hoặc dữ liệu video. [Quy trình pipeline](pipelines/README.md).
-
-## Cấu trúc
+## How it works
 
 ```text
-apps/
-  web/                  React + TypeScript dashboard
-  api/
-    src/flame_api/
-      routes/           HTTP API
-      ingestion/        PSI acquisition and normalization
-      models.py         Investigation, Publication, PublicationLink
-      repository.py     JSON catalog adapter
-    tests/              API and data-integrity checks
-data/
-  raw/                  Original metadata snapshots, ignored by Git
-  processed/            Normalized catalogs, ignored by Git
-  documents/            Future abstract/full-text storage
-  indexes/              Future retrieval indexes
-knowledge/              Knowledge ingestion and retrieval plan
-pipelines/              Pipeline entrypoint and usage
-docs/                   Architecture, data model, development, roadmap
-.github/                CI and pull-request template
+NASA PSI ──▶ flame-ingest-psi ──▶ data/processed/catalog.json ──▶ flame-export-static ──▶ apps/web/public/data/*.json ──▶ static web app
+            (metadata + tables,        (validated schema)              (index + one tables file
+             raw snapshot + SHA-256)                                    per investigation)
 ```
 
-## Mô hình dữ liệu
+- `apps/api/src/flame_api/ingestion/psi.py` fetches metadata and experiment tables, keeps a raw snapshot with SHA-256 hashes, and normalizes everything into one validated catalog.
+- `apps/api/src/flame_api/ingestion/tables.py` reads each table. Column layouts differ per table, so the fuel and oxygen columns are declared by hand in `TABLE_SPECS`. Fuels are matched with a dictionary (so "C2H4" and "100% C2H4" are both Ethylene, and spreadsheet artifacts like "CH7" are ignored). Oxygen is normalized to percent by volume from fractions, percents, ranges, lists and text.
+- The web app (React, TypeScript, Vite) reads the exported JSON and filters in the browser, so the deployed site needs no server.
+- A FastAPI service (`apps/api`) exposes the same catalog with filters and facets at `/api/v1`, for future SI features that need a backend.
 
-**Investigation** là một đề tài/hồ sơ nghiên cứu. **Publication** là một tài liệu liên quan. Hai thực thể được nối bởi **PublicationLink**, vì một hồ sơ có nhiều công bố và một công bố có thể xuất hiện ở nhiều hồ sơ.
+## Run locally
 
-Quan hệ `listed_in_psi` chỉ xác nhận tài liệu được liệt kê trong hồ sơ, không mặc định tài liệu là kết quả trực tiếp của đề tài. DOI của hồ sơ dữ liệu và DOI bài báo được lưu riêng. Bản ghi chưa có DOI được giữ riêng để tránh gộp nhầm bài hội nghị và bài tạp chí cùng tên. [Mô hình chi tiết](docs/data-model.md).
-
-## Kiểm tra
+Requirements: Node.js 22.12+ and Python 3.11+.
 
 ```sh
-make check
+python -m venv .venv
+.venv/bin/python -m pip install -r apps/api/requirements.lock      # Windows: .venv\Scripts\python
+.venv/bin/python -m pip install --no-deps -e apps/api
+npm ci
 ```
 
-Hoặc chạy riêng:
+Fetch data from PSI and export it for the web app:
 
 ```sh
-.venv/bin/python -m pytest apps/api/tests
-npm run typecheck
-npm run build
+.venv/bin/flame-ingest-psi --query combustion
+.venv/bin/flame-export-static
 ```
 
-Dependency JavaScript được khóa trong `package-lock.json`; dependency Python dùng `apps/api/requirements.lock`.
+The exported JSON is committed in `apps/web/public/data`, so this step is only needed to refresh the data. Then:
 
-## Tài liệu
+```sh
+npm run dev:web        # http://127.0.0.1:5173
+npm run build          # static site in apps/web/dist
+```
 
-- [Phạm vi sản phẩm và roadmap](docs/product.md)
-- [Kiến trúc](docs/architecture.md)
-- [Mô hình dữ liệu và quy tắc đối chiếu](docs/data-model.md)
-- [Kho tri thức và SI](knowledge/README.md)
-- [Phát triển local và đóng góp](docs/development.md)
+Optional API: `.venv/bin/python -m uvicorn flame_api.main:app --port 8000` (docs at `/docs`).
 
-Nguồn dữ liệu chính: [NASA PSI combustion search](https://psi.nasa.gov/physci/repo/search?q=combustion&data_source=psi&data_type=investigation). Tài liệu công nghệ: [Vite](https://vite.dev/guide/), [FastAPI](https://fastapi.tiangolo.com/tutorial/bigger-applications/).
+Tests: `.venv/bin/python -m pytest apps/api/tests` and `npm run build`.
 
-Đây là dự án độc lập sử dụng nguồn dữ liệu NASA PSI; chưa cấu hình triển khai dịch vụ hoặc provider mô hình AI.
+## Deployment
+
+`.github/workflows/pages.yml` builds `apps/web` and publishes it to GitHub Pages on every push to `main`. Enable Pages with source "GitHub Actions" in the repository settings.
+
+## Use of Super Intelligence (SI)
+
+- **Code.** Most of the code in this repository was written with an AI coding assistant (Claude, by Anthropic, through Claude Code), directed and reviewed by the team. Commits made with it carry a `Co-Authored-By: Claude` trailer.
+- **Data extraction rules.** The table column mapping (`TABLE_SPECS`), the fuel dictionary and the oxygen parser were drafted with the same assistant and checked against every PSI experiment table; the cases are covered by unit tests in `apps/api/tests/test_explorer.py`.
+- **Research.** A chat assistant (ChatGPT) was used to summarize the challenge statement and discuss feature priorities.
+- **No SI-generated images, audio or video** are used. The deployed site does not call any AI model at runtime.
+
+## Repository layout
+
+```text
+apps/web/            React + TypeScript explorer (static build)
+apps/web/public/data Exported catalog read by the web app
+apps/api/            FastAPI service, PSI ingestion, table extraction, static export, tests
+data/                Local raw snapshots and processed catalog (ignored by Git)
+docs/                Architecture and data model notes
+pipelines/           Pipeline usage notes
+```
+
+## References
+
+- NASA Physical Sciences Informatics: <https://psi.nasa.gov>
+- Challenge: <https://www.spaceappschallenge.org/2026/challenges/flame-in-freefall/>
+- Libraries: React, Vite, TypeScript, FastAPI, Pydantic, Uvicorn (see `package.json` and `apps/api/requirements.lock`)
+
+## License
+
+Code: [MIT](LICENSE). Data: NASA PSI, under the license listed on each PSI record.
