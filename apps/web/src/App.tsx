@@ -7,6 +7,7 @@ import { isPlainClick, linkHandler, readRoute, routeUrl } from "./lib/route";
 import type { Route } from "./lib/route";
 import { AssistantPage } from "./pages/AssistantPage";
 import { ExplorerPage } from "./pages/ExplorerPage";
+import { ForecastPage } from "./pages/ForecastPage";
 // The graph library is large; load it only when the knowledge map is opened.
 const KnowledgeMapPage = lazy(() => import("./pages/KnowledgeMapPage").then((m) => ({ default: m.KnowledgeMapPage })));
 import { OverviewPage } from "./pages/OverviewPage";
@@ -64,6 +65,8 @@ export default function App() {
     page = <AssistantPage onLink={onLink} />;
   } else if (route.view === "explorer") {
     page = <ExplorerPage route={route} navigate={navigate} summary={summary} facets={facets} onOpen={openInvestigation} />;
+  } else if (route.view === "forecast") {
+    page = <ForecastPage />;
   } else {
     page = <PlaceholderPage view={route.view} onLink={onLink} />;
   }

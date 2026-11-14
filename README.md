@@ -68,6 +68,18 @@ npm run build          # static site in apps/web/dist
 
 Optional API: `.venv/bin/python -m uvicorn flame_api.main:app --port 8000` (docs at `/docs`).
 
+### Burn-time forecast demo
+
+Start the API and the Vite app in separate terminals, then open
+`http://127.0.0.1:5173/?view=forecast`. The page calls
+`POST /api/v1/forecast`, which loads
+`ml_modelling/psi159_psi69_source_specific_burn_time_models.joblib` lazily on
+the first request. It is real local inference, not a browser-side mock.
+
+The serialized PSI-159 model requires `xgboost==2.1.4`; this version is pinned
+in `apps/api/pyproject.toml` and `apps/api/requirements.lock` for artifact
+compatibility.
+
 Tests: `.venv/bin/python -m pytest apps/api/tests` and `npm run build`.
 
 ## Deployment

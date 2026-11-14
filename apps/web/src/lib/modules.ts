@@ -18,6 +18,7 @@ export const modules: Module[] = [
     planned: "A view of flame shape and spread in microgravity, driven by the conditions recorded in a selected experiment run.",
   },
   { view: "explorer", label: "Experiment library", built: true },
+  { view: "forecast", label: "Burn time forecaster", built: true },
   {
     view: "compare", label: "Material comparison", built: false,
     planned: "Two or three investigations or materials side by side: fuels, oxygen ranges, run counts, hardware and publications.",
