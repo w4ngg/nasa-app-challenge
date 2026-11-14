@@ -2,10 +2,12 @@ import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import type { MouseEvent } from "react";
 import { InvestigationDetail } from "./components/InvestigationDetail";
 import { SideNav } from "./components/SideNav";
+import { ThemeSwitcher } from "./design";
 import { getFacets, getSummary } from "./lib/data";
 import { isPlainClick, linkHandler, readRoute, routeUrl } from "./lib/route";
 import type { Route } from "./lib/route";
 import { AssistantPage } from "./pages/AssistantPage";
+import { ChamberPage } from "./pages/ChamberPage";
 import { ExplorerPage } from "./pages/ExplorerPage";
 // The graph library is large; load it only when the knowledge map is opened.
 const KnowledgeMapPage = lazy(() => import("./pages/KnowledgeMapPage").then((m) => ({ default: m.KnowledgeMapPage })));
@@ -59,6 +61,8 @@ export default function App() {
     );
   } else if (route.view === "overview") {
     page = <OverviewPage summary={summary} onLink={onLink} />;
+  } else if (route.view === "chamber") {
+    page = <ChamberPage onLink={onLink} />;
   } else if (route.view === "map") {
     page = <Suspense fallback={<p className="state" role="status">Loading the knowledge map…</p>}><KnowledgeMapPage onLink={onLink} /></Suspense>;
   } else if (route.view === "assistant") {
@@ -75,6 +79,7 @@ export default function App() {
     <div className="layout">
       <SideNav current={route.id ? null : route.view} onLink={onLink} />
       <div className="content">
+        <ThemeSwitcher />
         <main>{page}</main>
         <footer>
           <span>Flame Atlas, a NASA Space Apps Challenge 2026 project for “Flame in Freefall”</span>

@@ -16,6 +16,7 @@ class Chunk:
     is_mock: bool = False
     page: int | None = None  # trang PDF (1-based) nếu đoạn lấy từ PDF
     pdf_url: str = ""        # link PDF gốc; kết hợp với page -> page_url
+    license: str = ""        # bài open access (data/raw/oa): cc-by, public-domain... ; trống = nguồn NASA / chưa rõ
 
     @classmethod
     def from_dict(cls, d: dict) -> "Chunk":

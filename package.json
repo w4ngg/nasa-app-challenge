@@ -8,6 +8,7 @@
   "scripts": {
     "test:web": "npm run test --workspace @flame-atlas/web",
     "dev:web": "npm run dev --workspace @flame-atlas/web",
+    "serve:web": "node apps/web/server.ts",
     "build": "npm run build --workspace @flame-atlas/web",
     "typecheck": "npm run typecheck --workspace @flame-atlas/web",
     "preview:web": "npm run preview --workspace @flame-atlas/web"

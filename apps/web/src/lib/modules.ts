@@ -14,7 +14,7 @@ export const modules: Module[] = [
   { view: "overview", label: "Overview", built: true },
   { view: "map", label: "Knowledge map", built: true },
   {
-    view: "chamber", label: "3D flame chamber", built: false,
+    view: "chamber", label: "3D flame chamber", built: true,
     planned: "A view of flame shape and spread in microgravity, driven by the conditions recorded in a selected experiment run.",
   },
   { view: "explorer", label: "Experiment library", built: true },

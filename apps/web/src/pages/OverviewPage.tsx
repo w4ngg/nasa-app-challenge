@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import type { MouseEvent } from "react";
 import { FuelRuns, OxygenCoverage, Timeline } from "../components/charts";
+import { EmberMascot } from "../components/EmberMascot";
+import { Flame3D } from "../components/Flame3D";
+import { ChamberSvg, RocketSvg, SatelliteSvg, ShieldSvg } from "../components/SpaceObjects";
+import { Zone3PhaseMap } from "../components/Zone3PhaseMap";
 import { getAllInvestigations } from "../lib/data";
 import { emptyFilters } from "../lib/filters";
 import { percentRange } from "../lib/labels";
@@ -35,6 +39,7 @@ export function OverviewPage({ summary, onLink }: {
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const [level, setLevel] = useState(34);
+  const [gravity, setGravity] = useState(0.0);
   const [showAllFuels, setShowAllFuels] = useState(false);
 
   useEffect(() => {
@@ -112,10 +117,44 @@ export function OverviewPage({ summary, onLink }: {
         </p>
       </header>
 
+      <div className="chamber-grid">
+        <Flame3D gravity={gravity} o2={level} fuelName={mission ? `${mission.name} (${level}% O₂)` : `Custom (${level}% O₂)`} />
+        <div style={{ display: "grid", gap: 16 }}>
+          <section className="panel" aria-label="3D Gravity & Telemetry Controls">
+            <div className="level-control" style={{ marginBottom: 8 }}>
+              <label htmlFor="hero-g-level">Gravity (0g–1g)</label>
+              <input
+                id="hero-g-level"
+                type="range"
+                min={0}
+                max={1}
+                step={0.01}
+                value={gravity}
+                onChange={(e) => setGravity(Number(e.target.value))}
+              />
+              <output className="level-value" htmlFor="hero-g-level">{gravity.toFixed(2)}g</output>
+            </div>
+            <div className="segmented" role="group" aria-label="Gravity presets">
+              {[
+                { label: "0.00g ISS", g: 0.0 },
+                { label: "0.17g Moon", g: 0.17 },
+                { label: "0.38g Mars", g: 0.38 },
+                { label: "1.00g Earth", g: 1.0 },
+              ].map((p) => (
+                <button key={p.label} type="button" aria-pressed={Math.abs(gravity - p.g) < 0.02} onClick={() => setGravity(p.g)}>
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          </section>
+          <EmberMascot gravity={gravity} o2={level} />
+        </div>
+      </div>
+
       <div className="dash-grid">
         <section className="panel" aria-labelledby="missions-title">
           <PanelHead num={1} id="missions-title" title="Mission atmospheres" />
-          <p className="panel-lede">Pick a cabin atmosphere or set any oxygen level. The coverage map in panel 3 follows your choice.</p>
+          <p className="panel-lede">Pick a cabin atmosphere or set any oxygen level. The 3D Flame Chamber and coverage map follow your choice.</p>
           <div className="missions" role="group" aria-label="Mission atmospheres">
             {missions.map((m) => (
               <button key={m.id} type="button" className="mission" aria-pressed={level === m.o2} onClick={() => setLevel(m.o2)}>
@@ -147,6 +186,9 @@ export function OverviewPage({ summary, onLink }: {
                 ? <>{solidsNear.length > 0 ? <>runs within ±{NEAR} point in {list(solidsNear)}</> : <>range only, in {list(solids)}</>}.</>
                 : <span className="readout-gap">no data at this level.{stats.topSolid && <> The highest chamber oxygen for a burned solid is {percentRange(stats.topSolid.max, stats.topSolid.max)} ({name(stats.topSolid.r)}).</>}</span>}
             </p>
+          </div>
+          <div style={{ marginTop: 14 }}>
+            <Zone3PhaseMap o2={level} gravity={gravity} onSelectO2={setLevel} onSelectGravity={setGravity} />
           </div>
           <p className="sources">
             Sources: {missions.map((m, i) => <span key={m.id}>{i > 0 && "; "}<a href={m.source.url} target="_blank" rel="noreferrer">{m.name}: {m.source.label}</a></span>)}.
@@ -203,9 +245,19 @@ export function OverviewPage({ summary, onLink }: {
               </li>
             )}
           </ul>
-          <div className="slot-empty">
-            <p className="slot-title">Research assistant</p>
-            <p>Ask follow-up questions; every answer cites NASA PSI records and reports. <a href={viewUrl("assistant")} onClick={onLink}>Open the research assistant</a>.</p>
+          <div className="slot-empty" style={{ display: "grid", gap: 10 }}>
+            <p className="slot-title" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <ChamberSvg size={20} /> 3D Flame Chamber & Source-Grounded SI Assistant
+            </p>
+            <p>
+              Launch the <a href={viewUrl("chamber")} onClick={onLink}>3D WebGL Flame Chamber (24,000 GPU particles)</a> or query the{" "}
+              <a href={viewUrl("assistant")} onClick={onLink}>Source-Grounded Research Assistant</a>.
+            </p>
+            <div style={{ display: "flex", gap: 12, alignItems: "center", color: "var(--muted)", fontSize: 12 }}>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><SatelliteSvg size={16} /> ISS 0g</span>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><RocketSvg size={16} /> Cygnus</span>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><ShieldSvg size={16} /> Zero-Fabrication</span>
+            </div>
           </div>
         </section>
       </div>

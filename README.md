@@ -17,7 +17,7 @@ Flame Atlas lets engineers and researchers find NASA Physical Sciences Informati
 
 - **Data analytics MVP** (`?view=lab`). Five reviewed tables across four investigations: FLEX (274 source rows), BASS-II (129), CFI-G normal flames (179), CFI-G inverse flames (154), and SAFFIRE-II (9 samples, kept separate from 2 flow references and 4 source notes). Numeric tables support material, oxygen, pressure and available test-end/hot-ignition filters, measured X/Y quantities, point groups, original-cell inspection, up to three selected rows and CSV exports with units, quality flags, filters and provenance. CFI-G oxygen bases remain separate; zero burn times are retained and pressure is labelled approximate. SAFFIRE-II offers source-text sample comparisons with geometry and unit warnings, without inventing missing material names or coercing qualitative outcomes into numbers. No predictive model is included.
 
-The left rail lists eight modules. Overview, Knowledge map, Experiment library, Research assistant and Data analytics are built; 3D flame chamber, Material comparison and Habitat check have pages that say "Not built yet" and what each will do.
+The left rail lists eight modules. Overview, Knowledge map, 3D flame chamber, Experiment library, Research assistant and Data analytics are built; Material comparison and Habitat check have pages that say "Not built yet" and what each will do.
 
 Planned next: SI summaries, scenario-based ranking ("which experiments matter for a PMMA fire in an ISS cabin at 21% O₂?") and evidence-gap interpretation.
 

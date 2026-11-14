@@ -688,3 +688,58 @@ def test_dense_query_uses_english_keywords_for_vietnamese():
     from assistant.retriever import dense_query
     assert dense_query("Vì sao ngọn lửa trong vi trọng lực có dạng hình cầu?") == "microgravity flame spherical"
     assert dense_query("How do flames spread in microgravity?") == "How do flames spread in microgravity?"
+
+
+_TEST_BASE = {"nodes": [{"id": "PSI-1", "type": "investigation", "label": "FLEX"},
+                        {"id": "fuel:nomex", "type": "concept", "group": "fuel", "label": "Nomex"},
+                        {"id": "concept:smoke", "type": "concept", "group": "phenomenon", "label": "Smoke"}],
+              "edges": [{"id": "a", "source": "PSI-1", "target": "fuel:nomex", "type": "uses_fuel",
+                         "evidence": "3 experiment-table rows name it", "url": ""}]}
+_TEST_EXT = {"nodes": [{"id": "incident:mir-1997", "type": "incident", "label": "Mir oxygen-generator fire (1997)"},
+                       {"id": "hardware:cir", "type": "hardware", "label": "Combustion Integrated Rack (CIR)"}],
+             "edges": [{"id": "b", "source": "incident:mir-1997", "target": "concept:smoke", "type": "involved",
+                        "evidence": "filled the station's modules with smoke", "url": "", "chunk": "MOCK-DOC-1#1"},
+                       {"id": "c", "source": "PSI-1", "target": "hardware:cir", "type": "uses_hardware",
+                        "evidence": "Hardware: CIR", "url": "", "chunk": None},
+                       {"id": "d", "source": "PSI-1", "target": "missing:node", "type": "x", "evidence": "", "url": ""}]}
+
+
+def test_graph_merges_extension_and_resolves_aliases():
+    from assistant.kg import KnowledgeGraph
+    g = KnowledgeGraph(_TEST_BASE, _TEST_EXT)
+    assert g.resolve("Mir") == ["incident:mir-1997"] and g.resolve("psi 1") == ["PSI-1"]
+    assert g.resolve("FLEX") == ["PSI-1"] and g.resolve("CIR") == ["hardware:cir"]
+    assert {x["node"] for x in g.neighbors("PSI-1")} == {"fuel:nomex", "hardware:cir"}  # edge to missing node dropped
+    assert g.neighbors("concept:smoke")[0]["direction"] == "in"
+
+
+def test_explore_graph_tool_tags_evidence(monkeypatch):
+    from assistant import kg
+    from assistant.agent import Assistant, EvidenceRegistry
+    monkeypatch.setattr(kg, "_GRAPH", kg.KnowledgeGraph(_TEST_BASE, _TEST_EXT))
+    monkeypatch.setattr(integrations, "psi_records", lambda: [{"psi_id": "PSI-1", "title": "FLEX", "link": ""}])
+    bot, reg = Assistant(offline=True), EvidenceRegistry()
+    r = bot._tool_explore_graph(reg, "Mir 1997")
+    assert r["type"] == "incident" and r["links"][0]["tag"] == "[S1]"      # chunk evidence -> [S#]
+    r = bot._tool_explore_graph(reg, "FLEX")
+    tags = {l["node"]: l["tag"] for l in r["links"]}
+    assert tags["Nomex"] == "[I1]" and "3 experiment-table rows" in reg.texts["I1"]  # PSI edge -> [I#]
+    assert "error" in bot._tool_explore_graph(reg, "zzzz")
+
+
+def test_api_paid_mode_needs_key_and_confirmation(monkeypatch):
+    import pytest
+    pytest.importorskip("fastapi")
+    pytest.importorskip("httpx")
+    from fastapi.testclient import TestClient
+    from assistant import api
+    monkeypatch.setattr(config, "DEEPSEEK_API_KEY", "")
+    c = TestClient(api.app)
+    h = c.get("/health").json()
+    assert h["llm_available"] is False and "spent_usd" in h["budget"]
+    assert c.post("/ask", json={"question": "flame spread", "mode": "llm", "confirm_paid": True}).status_code == 503
+    monkeypatch.setattr(config, "DEEPSEEK_API_KEY", "sk-test-not-real")
+    assert c.post("/ask", json={"question": "flame spread", "mode": "llm"}).status_code == 400   # no confirm_paid
+    assert c.post("/ask/stream", json={"question": "flame spread", "mode": "llm"}).status_code == 400
+    r = c.post("/ask", json={"question": "flame spread solid fuel oxygen", "mode": "offline"})
+    assert r.status_code == 200 and r.json()["cost_usd"] == 0
