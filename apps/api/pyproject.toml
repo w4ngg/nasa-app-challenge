@@ -19,6 +19,7 @@ dev = ["httpx==0.28.1", "pytest==9.2.0"]
 
 [project.scripts]
 flame-ingest-psi = "flame_api.ingestion.psi:main"
+flame-export-static = "flame_api.export_static:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

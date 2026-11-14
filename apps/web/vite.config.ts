@@ -8,6 +8,8 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, repositoryRoot, "");
   return {
     plugins: [react()],
+    // Relative asset and data URLs, so the build works from any sub-path (e.g. GitHub Pages /<repo>/).
+    base: "./",
     envDir: repositoryRoot,
     server: {
       port: 5173,
