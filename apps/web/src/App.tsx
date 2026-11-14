@@ -20,6 +20,7 @@ export default function App() {
   const [route, setRoute] = useState<Route>(readRoute);
   const [summary, setSummary] = useState<Summary | null>(null);
   const [facets, setFacets] = useState<Facets | null>(null);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   useEffect(() => {
     const onPop = () => setRoute(readRoute());
@@ -76,8 +77,13 @@ export default function App() {
   }
 
   return (
-    <div className="layout">
-      <SideNav current={route.id ? null : route.view} onLink={onLink} />
+    <div className={sidebarCollapsed ? "layout is-collapsed" : "layout"}>
+      <SideNav
+        current={route.id ? null : route.view}
+        onLink={onLink}
+        collapsed={sidebarCollapsed}
+        onToggleCollapse={() => setSidebarCollapsed((v) => !v)}
+      />
       <div className="content">
         <ThemeSwitcher />
         <main>{page}</main>

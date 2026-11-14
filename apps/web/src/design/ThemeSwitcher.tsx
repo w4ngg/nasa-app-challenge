@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { GalaxyBackdrop, useGpuBackendInfo } from "./GalaxyBackdrop";
 import { getThemeTokens } from "./tokens";
 import type { ThemeMode } from "./tokens";
@@ -34,7 +35,9 @@ export function ThemeSwitcher() {
 
   return (
     <>
-      <GalaxyBackdrop theme={theme} />
+      {typeof document !== "undefined"
+        ? createPortal(<GalaxyBackdrop theme={theme} />, document.body)
+        : <GalaxyBackdrop theme={theme} />}
       <div className="obsidian-theme-bar" role="region" aria-label="3D Galaxy & Adaptive Theme Controls">
         <div className="obsidian-swatches">
           <strong style={{ color: "var(--link)", marginRight: 4, fontFamily: "var(--font-display)" }}>
