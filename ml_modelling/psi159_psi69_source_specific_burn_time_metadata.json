@@ -1,0 +1,135 @@
+{
+  "created_at_utc": "2026-11-14T12:44:02.964882+00:00",
+  "task": "Predict positive burn time in seconds from pre-test conditions",
+  "training_sources": {
+    "psi159_normal": "/kaggle/input/datasets/nhihhunhth/nasa-psi/691f7ea117f78b371b26f6fa.csv",
+    "psi159_inverse": "/kaggle/input/datasets/nhihhunhth/nasa-psi/691f7ea117f78b371b26f6fb.csv",
+    "psi69_flex": "/kaggle/input/datasets/nhihhunhth/nasa-psi/6792be99b7b6ff8e65037e3a.csv"
+  },
+  "models": {
+    "PSI-159": {
+      "rows_used": 161,
+      "features": [
+        "flame_type",
+        "fuel",
+        "pressure_bar",
+        "o2_fraction",
+        "fuel_fraction",
+        "hc_flow_mg_s",
+        "tad_k",
+        "zst"
+      ],
+      "numeric_features": [
+        "pressure_bar",
+        "o2_fraction",
+        "fuel_fraction",
+        "hc_flow_mg_s",
+        "tad_k",
+        "zst"
+      ],
+      "champion": "xgboost",
+      "grouping": "base_fuel",
+      "natural_only": true,
+      "prediction_meaning": "estimated duration conditional on natural extinction",
+      "prediction_interval": {
+        "coverage": 0.9,
+        "radius_s": 42.34319496154785,
+        "calibration_rows": 161,
+        "method": "symmetric OOF absolute-residual conformal-style interval",
+        "validation": "LeaveOneGroupOut(base_fuel)"
+      }
+    },
+    "PSI-69": {
+      "rows_used": 268,
+      "features": [
+        "flame_type",
+        "fuel",
+        "pressure_bar",
+        "o2_fraction",
+        "n2_fraction",
+        "co_fraction",
+        "he_fraction",
+        "initial_droplet_diameter_mm"
+      ],
+      "numeric_features": [
+        "pressure_bar",
+        "o2_fraction",
+        "n2_fraction",
+        "co_fraction",
+        "he_fraction",
+        "initial_droplet_diameter_mm"
+      ],
+      "champion": "extra_trees",
+      "grouping": "Test Date",
+      "natural_only": false,
+      "prediction_meaning": "observed duration under the historical protocol",
+      "prediction_interval": {
+        "coverage": 0.9,
+        "radius_s": 7.319736879489048,
+        "calibration_rows": 268,
+        "method": "symmetric OOF absolute-residual conformal-style interval",
+        "validation": "GroupKFold(Test Date)"
+      }
+    }
+  },
+  "feature_sets": {
+    "full_legacy": [
+      "source_study",
+      "flame_type",
+      "fuel",
+      "pressure_bar",
+      "o2_fraction",
+      "n2_fraction",
+      "co_fraction",
+      "he_fraction",
+      "fuel_fraction",
+      "hc_flow_mg_s",
+      "o2_flow_mg_s",
+      "initial_droplet_diameter_mm",
+      "tad_k",
+      "zst",
+      "inert_fraction",
+      "composition_sum",
+      "o2_to_inert_ratio"
+    ],
+    "clean": [
+      "source_study",
+      "flame_type",
+      "fuel",
+      "pressure_bar",
+      "o2_fraction",
+      "n2_fraction",
+      "co_fraction",
+      "he_fraction",
+      "fuel_fraction",
+      "hc_flow_mg_s",
+      "initial_droplet_diameter_mm",
+      "tad_k",
+      "zst"
+    ],
+    "clean_no_hc_flow": [
+      "source_study",
+      "flame_type",
+      "fuel",
+      "pressure_bar",
+      "o2_fraction",
+      "n2_fraction",
+      "co_fraction",
+      "he_fraction",
+      "fuel_fraction",
+      "initial_droplet_diameter_mm",
+      "tad_k",
+      "zst"
+    ]
+  },
+  "exclude_flash": true,
+  "target_transform": "log1p (inverse expm1 is applied inside predict)",
+  "known_limits": [
+    "Primary models are source-specific; pooled estimates are comparison-only.",
+    "PSI-159 is conditional on natural extinction; FT is handled separately by the survival sensitivity analysis.",
+    "PSI-69 Completion is not a classifier or survival label until its meaning is verified.",
+    "PSI-159 has only three independent base-fuel groups; leave-one-fuel-out results remain unstable.",
+    "Prediction intervals are marginal OOF-residual intervals and may not attain nominal coverage for new fuel groups.",
+    "Predictions do not establish causality or operational safety."
+  ]
+}
