@@ -15,7 +15,7 @@ from typing import Callable
 
 from . import config
 
-_TAG = re.compile(r"\[[SIP]\d+\]")
+_TAG = re.compile(r"\[[SIPR]\d+\]")
 _CACHE: dict[str, str] = {}
 _CACHE_MAX = 256
 

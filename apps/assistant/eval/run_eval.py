@@ -9,6 +9,9 @@
 Checks per question:
   behavior  – answered vs refused matches "expect" ("partial" = answered with a Limitations line; counts as answer)
   sources   – at least one citation's source_id starts with one of "expect_sources" (if given)
+  tool      – the model called "expect_tool" (compare_investigations / rank_investigations), if given
+  english   – the answer contains no Vietnamese letters (output must be English, also for Vietnamese questions)
+Questions may carry "history" (scripted earlier turns) to test multi-turn follow-ups and history summarization.
 Three RAG criteria (assistant/evaluate.py, all free):
   faithfulness          share of claims derivable from ANY retrieved context
   citation correctness  share of cited claims supported by the sources they are tagged with
@@ -26,7 +29,17 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from assistant.agent import Assistant  # noqa: E402
+import re  # noqa: E402
+
 from assistant.evaluate import evaluate, pin_saved_citations, rebuild_evidence, score_facts  # noqa: E402
+
+
+_VI = re.compile(r"[ăâđêôơưạảấầẩẫậắằẳẵặẹẻẽếềểễệỉịọỏốồổỗộớờởỡợụủứừửữựỳỵỷỹ]", re.I)
+
+
+def is_english(text: str) -> bool:
+    """Không có chữ cái tiếng Việt (bỏ qua phần trích nguyên văn trong ngoặc kép)."""
+    return not _VI.search(re.sub(r"[\"“][^\"”]*[\"”]", " ", text))
 
 
 def _avg(xs):
@@ -83,7 +96,7 @@ def main() -> None:
     if "--estimate" in sys.argv:
         tot = defaultdict(float)
         for q in questions:
-            for s in bot.preview_context(q["question"])["scenarios"]:
+            for s in bot.preview_context(q["question"], q.get("history"))["scenarios"]:
                 tot[s["scenario"]] += s["cost_usd"]
         print(f"{len(questions)} questions, estimated DeepSeek cost: direct ${tot['direct']:.3f} | "
               f"typical ${tot['typical']:.3f} | worst ${tot['worst']:.3f}  (no API calls made)")
@@ -97,14 +110,18 @@ def main() -> None:
     total_cost, passed = 0.0, 0
     with open(out_path, "w", encoding="utf-8") as out:
         for q in questions:
-            a = bot.ask(q["question"])
+            a = bot.ask(q["question"], q.get("history"))
             got = "refuse" if a.refused else "answer"
             behavior_ok = got == q["expect"]
             exp = q.get("expect_sources")
             source_ok = None
             if exp and not a.refused:
                 source_ok = any(c.source_id.startswith(p) for c in a.citations for p in exp)
-            ok = behavior_ok and source_ok is not False
+            tool_ok = None
+            if q.get("expect_tool") and not bot.offline:
+                tool_ok = any(t["name"].startswith(q["expect_tool"]) and not t.get("error") for t in a.tool_calls)
+            english_ok = is_english(a.answer)
+            ok = behavior_ok and source_ok is not False and tool_ok is not False and english_ok
             passed += ok
             total_cost += a.cost_usd
             stats[q.get("category", "-")][0] += ok
@@ -124,11 +141,12 @@ def main() -> None:
             partial = (not a.refused) and "limitation" in a.answer.lower()
             print(f"{'PASS' if ok else 'FAIL'} {q['id']} {q.get('category', ''):<10} expect={q['expect']:<6} "
                   f"got={got:<6}{'(partial)' if partial else '':<9} sources={src:<4} cites={len(a.citations):<2} "
-                  f"searches={searches} facts={fs:<4} "
+                  f"searches={searches} facts={fs:<4} {'' if tool_ok is None else ('tool=ok ' if tool_ok else 'tool=MISS ')}"
+                  f"{'' if english_ok else 'NOT-ENGLISH '}"
                   f"${a.cost_usd:.4f} | {q['question'][:45]}")
             out.write(json.dumps({**q, "got": got, "partial": partial, "searches": searches,
                                   "behavior_ok": behavior_ok, "source_ok": source_ok, "ok": ok,
-                                  "criteria": crit, "facts": facts,
+                                  "criteria": crit, "facts": facts, "tool_ok": tool_ok, "english_ok": english_ok,
                                   **a.to_dict()}, ensure_ascii=False, default=str) + "\n")
     print(f"\n{passed}/{len(questions)} passed | " +
           " | ".join(f"{k} {v[0]}/{v[1]}" for k, v in stats.items()) +

@@ -483,6 +483,111 @@ def test_gold_facts_are_grounded_in_their_source_chunks():
     for line in qfile.read_text(encoding="utf-8").splitlines():
         q = json.loads(line)
         for f in q.get("reference_facts", []):
-            c = chunks[f["source"]]
-            text = (c["title"] + " " + c["text"]).lower()
+            if f["source"].startswith("SCENARIO:"):  # scenario conditions quoted from the challenge statement
+                text = ranking.SCENARIOS[f["source"].split(":", 1)[1]]["conditions"].lower()
+            else:
+                c = chunks[f["source"]]
+                text = (c["title"] + " " + c["text"]).lower()
             assert all(re.search(k, text) for k in f["keywords"]), (q["id"], f["fact"])
+
+
+# ---------- streaming, search cap, scenario ranking ----------
+from assistant import ranking  # noqa: E402
+
+
+class StreamLLM(UsageLLM):
+    """Fake LLM with chat_stream: emits the reply content word by word."""
+
+    def chat_stream(self, messages, tools=None, on_text=None):
+        msg, cost = self.chat(messages, tools)
+        for w in (msg.content or "").split(" "):
+            if on_text and w:
+                on_text(w + " ")
+        return msg, cost
+
+
+def test_streaming_emits_status_deltas_and_final_answer():
+    llm = StreamLLM([
+        NS(content="Let me search.", tool_calls=[_tool_call("search_documents", {"query": "ventilation airflow"})]),
+        NS(content="Ventilation airflow strongly enhances flames [S1].", tool_calls=None),
+    ])
+    events = []
+    a = Assistant(llm=llm).ask("Should ventilation be turned off?", on_event=events.append)
+    kinds = [e["type"] for e in events]
+    assert "status" in kinds and "delta" in kinds and "reset" in kinds
+    assert kinds.index("reset") < len(kinds) - 1  # pre-tool chatter discarded, final text streamed after it
+    streamed = "".join(e["text"] for e in events[kinds.index("reset") + 1:] if e["type"] == "delta")
+    assert "enhances flames" in streamed and a.answer.startswith("Ventilation")
+    assert any("Searching documents" in e.get("text", "") for e in events)
+
+
+def test_no_callback_means_no_streaming_call():
+    llm = StreamLLM([NS(content="Flames are spherical [S1].", tool_calls=None)])
+    llm.chat_stream = None  # would crash if used
+    assert Assistant(llm=llm).ask("Why are flames spherical?").answer
+
+
+def test_search_cap_blocks_extra_searches(monkeypatch):
+    monkeypatch.setattr(config, "MAX_SEARCHES", 2)
+    calls = [_tool_call("search_documents", {"query": f"flame spread {i}"}, id_=f"c{i}") for i in range(4)]
+    llm = UsageLLM([NS(content="", tool_calls=calls), NS(content="Flame spread depends on airflow [S1].", tool_calls=None)])
+    a = Assistant(llm=llm).ask("How does airflow affect flame spread?")
+    errs = [t for t in a.tool_calls if t["name"] == "search_documents" and t.get("error")]
+    assert len(errs) == 2 and "search limit" in errs[0]["error"]
+
+
+def test_resolve_scenario_aliases():
+    assert ranking.resolve_scenario("moon_base") == "moon_base"
+    assert ranking.resolve_scenario("Which studies matter for a lunar habitat?") == "moon_base"
+    assert ranking.resolve_scenario("căn cứ trên sao Hỏa") == "mars_base"
+    assert ranking.resolve_scenario("ISS cabin") == "spacecraft"
+    assert ranking.resolve_scenario("pressurized rover") == "rover"
+
+
+def test_builtin_rank_is_transparent_and_need_aware():
+    recs = [
+        {"psi_id": "PSI-1", "title": "Smoke detection study", "sub_area": "Spacecraft Fire Safety",
+         "keywords": "smoke, aerosol, particulate, detector", "objective": "measure smoke particle size in microgravity on the ISS"},
+        {"psi_id": "PSI-2", "title": "Suppression of cotton fabric flames", "sub_area": "Spacecraft Fire Safety",
+         "keywords": "extinguish, CO2, inert gas, cotton, fabric", "objective": "extinguishing agent effect on flame spread with forced flow"},
+        {"psi_id": "PSI-3", "title": "Soot in gas jets", "sub_area": "Combustion", "keywords": "soot", "objective": "soot"},
+    ]
+    det = ranking.builtin_rank(recs, {}, "spacecraft", need="detection")
+    sup = ranking.builtin_rank(recs, {}, "spacecraft", need="suppression")
+    assert det[0]["psi_id"] == "PSI-1" and sup[0]["psi_id"] == "PSI-2" and det[-1]["psi_id"] == "PSI-3"
+    assert all(0 <= r["score"] <= 100 and r["reasons"] for r in det)
+    assert any("detection" in why for why in det[0]["reasons"])
+
+
+def test_psi_word_is_not_a_pressure_unit():
+    assert not ranking._hits(ranking._PRESSURE, "PSI-25 metadata in the PSI database")
+    assert ranking._hits(ranking._PRESSURE, "tests at 0.5-1.5 atm and 10.2 psia")
+
+
+def test_rank_tool_table_tags_and_restore():
+    llm = UsageLLM([
+        NS(content="", tool_calls=[_tool_call("rank_investigations", {"scenario": "moon_base", "top_k": 3})]),
+        NS(content="Ranking [R1]:\n| Rank | Investigation | Relevance (0-100) | Publications in PSI | Why it ranks here |\n"
+                   "|---|---|---|---|---|\n| 1 | edited [I1] | 99 | 1 | x |\nPSI has no partial-gravity data [R1].",
+           tool_calls=None),
+    ])
+    a = Assistant(llm=llm).ask("Which investigations are most relevant for a Moon base?")
+    assert any(c.ref == "R1" and c.kind == "scenario" for c in a.citations)
+    assert "edited" not in a.answer and any("Restored" in w for w in a.warnings)
+    tc = [t for t in a.tool_calls if t["name"] == "rank_investigations"][0]
+    assert not tc.get("error")
+
+
+def test_rank_uses_module4_when_configured(monkeypatch):
+    import types
+    mod = types.ModuleType("fake_module4")
+    mod.rank = lambda scenario, need=None, top_k=5: [{"psi_id": "PSI-69", "score": 88.0, "reasons": ["module 4"]}]
+    monkeypatch.setitem(sys.modules, "fake_module4", mod)
+    monkeypatch.setattr(config, "RANK_IMPORT", "fake_module4:rank")
+    res = ranking.rank([{"psi_id": "PSI-69", "title": "FLEX"}], {}, "spacecraft")
+    assert res["is_placeholder"] is False and res["rows"][0]["title"] == "FLEX"
+
+
+def test_offline_rank_question_builds_table():
+    a = Assistant(offline=True).ask("Which investigations are most relevant for a spacecraft cabin?")
+    assert "| Rank |" in a.answer and any(c.kind == "scenario" for c in a.citations)

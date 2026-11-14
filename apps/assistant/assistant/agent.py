@@ -9,11 +9,12 @@ from __future__ import annotations
 import json
 import math
 import re
+import threading
 import time
 from dataclasses import replace
-from typing import Any
+from typing import Any, Callable
 
-from . import config, integrations
+from . import config, integrations, ranking
 from .context import SUMMARY_SYSTEM, prepare_history, transcript
 from .prompts import REFUSAL_MARKER, SYSTEM_PROMPT, TOOLS
 from .retriever import DocumentRetriever, expand_query
@@ -23,9 +24,10 @@ from .verify import verify_answer
 
 OFFLINE_TOP_K = 3
 _STUDY_WORDS = ("nghiên cứu", "thí nghiệm", "investigation", "study", "studies", "experiment")
+_RANK_WORDS = re.compile(r"\b(rank|ranking|most relevant|prioriti[sz]e|top \d+|which investigations? (?:are|is|matter|should))|xếp hạng|phù hợp nhất|quan trọng nhất", re.I)
 _COMPARE_WORDS = re.compile(r"\b(compare|comparison|versus|vs\.?|differ|difference|similarit)|so sánh", re.I)
 
-_TAG_GROUP = re.compile(r"\[((?:[SIP]\d+)(?:\s*[,;]\s*[SIP]\d+)*)\]")
+_TAG_GROUP = re.compile(r"\[((?:[SIPR]\d+)(?:\s*[,;]\s*[SIPR]\d+)*)\]")
 
 
 def _refusal_text(question: str) -> str:
@@ -44,11 +46,12 @@ class EvidenceRegistry:
     def __init__(self) -> None:
         self.items: dict[str, Citation] = {}
         self._keys: dict[tuple, str] = {}
-        self._counters = {"S": 0, "I": 0, "P": 0}
+        self._counters = {"S": 0, "I": 0, "P": 0, "R": 0}
         self.texts: dict[str, str] = {}  # nhãn -> toàn văn bằng chứng (để kiểm tra trích dẫn)
         self.tables: list[str] = []      # bảng so sánh do tool tạo (để khôi phục nếu LLM sửa)
         self.sent_chunks: set[str] = set()
         self.sent_chars = 0
+        self.searches = 0                # số lần search_documents do model gọi (trần MAX_SEARCHES)
         self.deduped = 0
         self.truncated = 0
 
@@ -87,6 +90,15 @@ class Assistant:
             mode = config.OFFLINE_MODE
             offline = mode == "1" or (mode == "auto" and llm is None and not config.DEEPSEEK_API_KEY)
         self.offline = offline
+        self._tls = threading.local()  # callback streaming riêng cho từng request (server đa luồng)
+
+    def _emit(self, event: dict) -> None:
+        cb = getattr(self._tls, "emit", None)
+        if cb:
+            try:
+                cb(event)
+            except Exception:  # client ngắt kết nối không được làm hỏng câu trả lời
+                self._tls.emit = None
 
     @property
     def llm(self):
@@ -99,7 +111,13 @@ class Assistant:
     def _chat(self, messages: list[dict], tools: list | None, ans: Answer, trace: Trace,
               purpose: str, round_: int = 0):
         t0 = time.perf_counter()
-        msg, cost = self.llm.chat(messages, tools=tools)
+        streaming = purpose == "answer" and getattr(self._tls, "emit", None) is not None \
+            and hasattr(self.llm, "chat_stream")
+        if streaming:
+            msg, cost = self.llm.chat_stream(messages, tools=tools,
+                                             on_text=lambda t: self._emit({"type": "delta", "text": t}))
+        else:
+            msg, cost = self.llm.chat(messages, tools=tools)
         usage = getattr(self.llm, "last_usage", None) or {}
         ans.cost_usd += cost
         ans.prompt_tokens += usage.get("prompt_tokens", 0)
@@ -194,11 +212,69 @@ class Assistant:
             "note": "Metadata only. For sample sizes, conditions and results, call search_documents with source_id.",
         }
 
+    def _psi_doc_texts(self) -> dict[str, str]:
+        if not hasattr(self, "_doc_texts_cache"):
+            texts: dict[str, list[str]] = {}
+            for c in self.retriever.chunks:
+                if c.source_id.startswith("PSI-") and c.section != "Publications":
+                    texts.setdefault(c.source_id, []).append(c.text)
+            self._doc_texts_cache = {k: "\n".join(v) for k, v in texts.items()}
+        return self._doc_texts_cache
+
+    def _tool_rank(self, reg: EvidenceRegistry, scenario: str, need: str | None = None, top_k: int = 5) -> dict:
+        """Xếp hạng nghiên cứu theo kịch bản (Module 4 rank() nếu có, không thì công thức minh bạch tạm)."""
+        key = ranking.resolve_scenario(scenario)
+        if not key:
+            return {"error": f"unknown scenario {scenario!r}; use one of {list(ranking.SCENARIOS)}"}
+        need = need if need in ranking.NEEDS else None
+        sc = ranking.SCENARIOS[key]
+        records = integrations.psi_records()
+        res = ranking.rank(records, self._psi_doc_texts(), key, need, top_k)
+        rtag = reg.add("R", "scenario", ("R", key), source_id="SPACEAPPS-2026-CH8",
+                       title=f"Scenario conditions – {sc['label']} (NASA Space Apps 2026 challenge statement)",
+                       url=ranking.CHALLENGE_URL, page_url=ranking.CHALLENGE_URL, snippet=sc["conditions"][:300])
+        reg.texts[rtag] = sc["conditions"]
+        by_id = {r["psi_id"]: r for r in records}
+        lines = ["| Rank | Investigation | Relevance (0-100) | Publications in PSI | Why it ranks here |",
+                 "|---|---|---|---|---|"]
+        out = []
+        for i, row in enumerate(res["rows"], 1):
+            meta = by_id.get(row["psi_id"], {"psi_id": row["psi_id"]})
+            tag = reg.add("I", "investigation", ("I", row["psi_id"]), source_id=row["psi_id"],
+                          title=meta.get("title", row.get("title", "")), url=meta.get("link", ""),
+                          page_url=meta.get("link", ""), snippet=str(meta.get("objective", ""))[:300],
+                          is_mock=bool(meta.get("is_mock")))
+            reg.texts.setdefault(tag, "\n".join(f"{k}: {v}" for k, v in meta.items() if v not in (None, "")))
+            why = "; ".join(row.get("reasons", []))[:170].replace("|", "/")
+            name = f"{row['psi_id']} {row.get('acronym') or ''}".strip()
+            depth = row.get("evidence_depth", "—")
+            lines.append(f"| {i} | {name} [{tag}] | {row['score']} | {depth} | {why} |")
+            out.append({"rank": i, "tag": f"[{tag}]", **{k: v for k, v in row.items() if k != "title"}})
+        table = "\n".join(lines)
+        reg.tables.append(table)
+        return {
+            "scenario": sc["label"], "scenario_conditions_tag": f"[{rtag}]", "scenario_conditions": sc["conditions"],
+            "gravity_note": sc["gravity_note"], "need": need, "provider": res["provider"],
+            "is_placeholder": res["is_placeholder"], "weights": res.get("weights"),
+            "table_markdown": table, "ranked": out,
+            "note": ("Relevance = weighted, graded keyword evidence in PSI metadata/pages (fire-safety focus, "
+                     "scenario conditions, cabin-type materials, prevention/detection/suppression). It ranks "
+                     "relevance, not measured fire risk. 'Publications in PSI' shows evidence depth separately."
+                     if res["is_placeholder"] else "Ranking from Module 4."),
+        }
+
     def _run_tool(self, name: str, raw_args: str, reg: EvidenceRegistry, trace: Trace) -> dict:
         try:
             args = json.loads(raw_args or "{}")
             if name == "search_documents":
+                if reg.searches >= config.MAX_SEARCHES:
+                    trace.event("search_limit", limit=config.MAX_SEARCHES)
+                    return {"error": f"search limit reached ({config.MAX_SEARCHES} per question). Answer now with "
+                                     "the evidence already retrieved; state briefly what is missing."}
+                reg.searches += 1
                 return self._tool_search_documents(reg, trace, "tool", **args)
+            if name == "rank_investigations":
+                return self._tool_rank(reg, **args)
             if name == "search_investigations":
                 return self._tool_search_investigations(reg, **args)
             if name == "predict_flammability":
@@ -218,10 +294,18 @@ class Assistant:
         return json.dumps(result, ensure_ascii=False, default=str)
 
     # ---------- main ----------
-    def ask(self, question: str, history: list[dict] | None = None) -> Answer:
+    def ask(self, question: str, history: list[dict] | None = None,
+            on_event: Callable[[dict], None] | None = None) -> Answer:
+        """on_event (tuỳ chọn) nhận sự kiện để hiển thị dần (streaming):
+          {"type": "status", "text": "..."}   đang làm gì (search, so sánh, xếp hạng...)
+          {"type": "delta", "text": "..."}    đoạn chữ model vừa sinh ra
+          {"type": "reset"}                   bỏ chữ đã stream (model chuyển sang gọi tool)
+        Câu trả lời cuối (đã hậu kiểm, sửa tag, khôi phục bảng) vẫn là giá trị trả về."""
+        self._tls.emit = on_event
         trace = Trace(question, mode="offline" if self.offline else "llm", history_len=len(history or []))
         try:
             if self.offline:
+                self._emit({"type": "status", "text": "Searching documents (offline)…"})
                 ans = self._ask_offline(question, trace)
             else:
                 try:
@@ -230,6 +314,8 @@ class Assistant:
                     if not config.FALLBACK_OFFLINE:
                         raise
                     trace.event("fallback", error=f"{type(e).__name__}: {e}")
+                    self._emit({"type": "reset"})
+                    self._emit({"type": "status", "text": "DeepSeek failed – falling back to offline mode…"})
                     ans = self._ask_offline(question, trace)
                     ans.warnings.insert(0, f"DeepSeek call failed ({type(e).__name__}: {e}); fell back to offline mode.")
         except Exception as e:
@@ -238,6 +324,7 @@ class Assistant:
         ans.trace_id = trace.id
         ans.latency_ms = trace.elapsed_ms()
         trace.finish(ans)
+        self._tls.emit = None
         return ans
 
     def _ask_offline(self, question: str, trace: Trace) -> Answer:
@@ -257,7 +344,14 @@ class Assistant:
             rows = inv["results"]
 
         table = None
-        if _COMPARE_WORDS.search(question):
+        scen = ranking.resolve_scenario(question) if _RANK_WORDS.search(question) else None
+        if scen:
+            rk = self._tool_rank(reg, scen)
+            trace.event("tool_call", name="rank_investigations(offline)", args=json.dumps({"scenario": scen}),
+                        n_results=len(rk.get("ranked", [])), error=rk.get("error"))
+            table = (f"Ranking for {rk['scenario']} ({'placeholder formula' if rk['is_placeholder'] else rk['provider']}). "
+                     f"Scenario conditions {rk['scenario_conditions_tag']}. {rk['gravity_note']}\n\n{rk['table_markdown']}")
+        elif _COMPARE_WORDS.search(question):
             names = integrations.detect_investigation_names(question)
             if len(names) >= 2 or (names and integrations.resolve_investigations(names)[0][1:]):
                 cmp = self._tool_compare(reg, names)
@@ -269,7 +363,7 @@ class Assistant:
         else:
             lines = []
             if table:
-                lines += ["Comparison (from NASA PSI metadata):", table, ""]
+                lines += [table if scen else "Comparison (from NASA PSI metadata):\n" + table, ""]
             lines += ["Most relevant passages found (offline mode, not synthesized by AI):"]
             for r in docs["results"]:
                 full = r["_full_text"]
@@ -377,6 +471,9 @@ class Assistant:
         trace.event("compression", **stats)
         ans.conversation_summary = summary
 
+        if summary:
+            self._emit({"type": "status", "text": "Summarized earlier conversation turns"})
+        self._emit({"type": "status", "text": "Searching documents…"})
         # 2) Truy xuất sơ bộ bằng chính câu hỏi (hữu ích khi câu hỏi tiếng Anh)
         prefetch = self._tool_search_documents(reg, trace, "prefetch", query=question, k=config.TOP_K)
         ans.tool_calls.append({"name": "search_documents(prefetch)", "args": {"query": question},
@@ -391,6 +488,8 @@ class Assistant:
             calls = getattr(msg, "tool_calls", None) or []
             if not calls:
                 break
+            if msg.content:
+                self._emit({"type": "reset"})
             messages.append({
                 "role": "assistant", "content": msg.content or "",
                 "tool_calls": [{"id": c.id, "type": "function",
@@ -398,6 +497,7 @@ class Assistant:
                                for c in calls],
             })
             for c in calls:
+                self._emit({"type": "status", "text": _describe_call(c.function.name, c.function.arguments)})
                 result = self._run_tool(c.function.name, c.function.arguments, reg, trace)
                 ans.tool_calls.append({"name": c.function.name, "args": c.function.arguments,
                                        "n_results": result.get("n_results"), "error": result.get("error")})
@@ -406,7 +506,8 @@ class Assistant:
                 messages.append({"role": "tool", "tool_call_id": c.id, "content": self._for_llm(result)})
 
         trace.event("evidence_budget", sent_chars=reg.sent_chars, budget=config.EVIDENCE_CHAR_BUDGET,
-                    deduped=reg.deduped, truncated=reg.truncated)
+                    deduped=reg.deduped, truncated=reg.truncated, searches=reg.searches)
+        self._emit({"type": "status", "text": "Checking citations…"})
         self._finalize(ans, (msg.content if msg else "") or "", reg, trace)
         return ans
 
@@ -524,3 +625,22 @@ def ask(question: str, history: list[dict] | None = None) -> dict:
 def preview_context(question: str, history: list[dict] | None = None) -> dict:
     """Xem context sẽ gửi cho LLM + ước lượng token/chi phí, KHÔNG gọi LLM (miễn phí)."""
     return _get_default().preview_context(question, history)
+
+
+def _describe_call(name: str, raw_args: str) -> str:
+    """Mô tả ngắn cho người dùng thấy bot đang làm gì (streaming status)."""
+    try:
+        a = json.loads(raw_args or "{}")
+    except json.JSONDecodeError:
+        a = {}
+    if name == "search_documents":
+        return f"Searching documents: “{a.get('query', '')}”" + (f" in {a['source_id']}" if a.get("source_id") else "")
+    if name == "compare_investigations":
+        return f"Comparing {', '.join(map(str, a.get('investigations', [])))}"
+    if name == "rank_investigations":
+        return f"Ranking investigations for scenario: {a.get('scenario', '')}"
+    if name == "search_investigations":
+        return "Filtering the investigations table"
+    if name == "predict_flammability":
+        return "Running the flammability model (Module 5)"
+    return f"Calling {name}"

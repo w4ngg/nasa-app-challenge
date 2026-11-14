@@ -34,7 +34,7 @@ uvicorn assistant.api:app --port 8003   # HTTP API cho Module 6
 python eval/run_eval.py --estimate      # ước lượng chi phí eval (miễn phí)
 python eval/run_eval.py --offline       # eval chỉ dùng BM25 (miễn phí) -> eval/results_offline.jsonl
 python eval/run_eval.py --rescore eval/results_v3_deepseek.jsonl   # chấm 3 tiêu chí cho kết quả DeepSeek đã lưu (miễn phí)
-python eval/run_eval.py                 # eval với DeepSeek (TỐN QUOTA, khoảng $0.07 cho 17 câu)
+python eval/run_eval.py                 # eval với DeepSeek (TỐN QUOTA, khoảng $0.10 cho 35 câu)
 ```
 
 `eval/results_v3_deepseek.jsonl` là kết quả DeepSeek tham chiếu: 17/17 đạt, faithfulness 0.97, citation correctness 0.97, answer correctness 0.96.
@@ -97,6 +97,60 @@ Kết quả chấm lại 17 câu DeepSeek (13 câu trả lời, 4 câu bẫy đ�
 Có 1 câu không có trong context (q05, model tự suy đoán tên PI bị lỗi OCR), 1 câu gắn nhầm tag và 4 câu chứa từ suy luận.
 
 Đây là heuristic dựa trên từ ngữ, con số và thuật ngữ, **không kiểm logic**. Mọi câu bị gắn cờ và mọi câu suy luận vẫn cần người đọc kiểm tra. Answer correctness chỉ đo độ phủ gold fact, không phát hiện được câu sai nằm ngoài bộ gold.
+
+**Hiển thị dần (streaming).** `Assistant.ask(question, history, on_event=cb)` gửi từng sự kiện ra callback:
+- `status`: bot đang làm gì, ví dụ "Searching documents: …" hay "Ranking investigations…";
+- `delta`: đoạn chữ model vừa sinh ra;
+- `reset`: bỏ phần chữ model viết trước khi chuyển sang gọi tool.
+
+Câu trả lời cuối, đã qua hậu kiểm (sửa tag, khôi phục bảng, kiểm định), vẫn là giá trị trả về. Hai endpoint stream dùng Server-Sent Events (`data: {...}`) và kết thúc bằng sự kiện `done` chứa câu trả lời đã chốt:
+- `POST /api/ask_stream` của demo server;
+- `POST /ask/stream` của FastAPI.
+
+Giao diện demo hiện chữ ngay khi model sinh ra, kèm chip "first word … ms".
+
+**Xếp hạng theo kịch bản** (`assistant/ranking.py`, tool `rank_investigations`). Tool trả lời mục tiêu đầu tiên của đề bài: "Identify investigations most relevant to the fire safety needs of…".
+- **Kịch bản:** `spacecraft`, `moon_base`, `mars_base`, `rover`. Có thể thêm nhu cầu `prevention`, `detection` hoặc `suppression`.
+- **Điều kiện cabin:** trích nguyên văn từ đề bài NASA, gắn tag `[R#]` (ví dụ Moon Base: ≥30% O2 ở ≤10.2 psi). Mars dùng giả định của Moon và được ghi rõ là giả định.
+- **Kết nối Module 4:** khi Hân có `rank()`, đặt `RANK_IMPORT=package.module:function` trong `.env`. Hợp đồng hàm ghi trong docstring của `ranking.py`.
+- **Công thức tạm, minh bạch** (gắn nhãn `is_placeholder`): relevance 0–100 là tổng có trọng số của 4 thành phần, mỗi thành phần chấm theo mức độ bằng chứng từ khóa trong metadata và trang PSI. Bốn thành phần là trọng tâm an toàn cháy, điều kiện kịch bản (O2 cao, áp suất thấp, dòng khí…), vật liệu kiểu cabin, và phòng ngừa/phát hiện/dập lửa. Mỗi hàng ghi kèm lý do.
+- **Độ đầy đủ bằng chứng** (số công bố trong PSI) được báo riêng, không cộng vào điểm, theo `docs/product.md`.
+- **Khoảng trống dữ liệu:** bảng luôn ghi chú PSI chưa có dữ liệu trọng lực một phần.
+
+**Gọn câu trả lời.**
+- Dòng "Limitations:" chỉ xuất hiện khi một phần câu hỏi thật sự không có bằng chứng.
+- Lời nhắc "verify" chỉ xuất hiện với câu hỏi về thiết kế hoặc an toàn.
+- Mỗi câu hỏi có tối đa `MAX_SEARCHES=3` lần search, không tính prefetch.
+- Bot ưu tiên trả lời trực tiếp, khoảng dưới 250 từ.
+
+**Bộ eval có 35 câu:**
+
+| Nhóm | Số câu | Ghi chú |
+|---|---|---|
+| Lookup, khoa học, ngữ cảnh | 13 | |
+| So sánh 2 nghiên cứu | 2 | |
+| So sánh 3 nghiên cứu | 4 | |
+| Xếp hạng theo kịch bản | 4 | |
+| Câu hỏi tiếng Việt | 5 | Câu trả lời phải là tiếng Anh |
+| Hội thoại nhiều lượt | 3 | 2 câu có 5 lượt lịch sử, đủ để kích hoạt tóm tắt bằng LLM |
+| Câu bẫy | 6 | Bot phải từ chối |
+
+Kết quả DeepSeek v4 (`eval/results_v4_deepseek.jsonl`, $0.098): **đạt 35/35**, gồm 6/6 câu bẫy, 5/5 câu tiếng Việt trả lời bằng tiếng Anh, 3/3 hội thoại nhiều lượt (tóm tắt lịch sử giữ đúng ngữ cảnh), và gọi đúng tool so sánh/xếp hạng 8/8.
+
+So với v3 trên cùng 17 câu cũ:
+
+| | v3 | v4 |
+|---|---|---|
+| Chi phí | $0.069 | $0.039 |
+| Độ trễ trung bình | 5.0 s | 3.1 s |
+| Số lần search mỗi câu | 2.2 | 0.9 |
+| Faithfulness | 0.97 | 0.97 |
+| Citation correctness | 0.97 | 0.96 |
+| **Answer correctness** | **0.96** | **0.83** |
+
+Câu trả lời ngắn hơn nên bỏ sót một số ý, ví dụ q07 không còn nhắc "spread rate tăng tuyến tính theo dòng khí".
+
+Ngoài hành vi và nguồn, runner còn kiểm tra `expect_tool` (đúng tool so sánh hoặc xếp hạng) và `english` (không có chữ tiếng Việt).
 
 **Link mở đúng trang PDF.** Đoạn lấy từ PDF (Researcher's Guide, NTRS) có `page` và `page_url` dạng `…pdf#page=N`. Trong giao diện có nút "Open PDF p.N".
 
