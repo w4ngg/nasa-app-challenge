@@ -69,7 +69,7 @@ def test_invented_citation_is_removed_and_refused():
     llm = FakeLLM([NS(content="Ngọn lửa cháy mạnh hơn [S99].", tool_calls=None)])
     a = Assistant(llm=llm).ask("xin chào")
     assert a.refused and not a.citations
-    assert any("không hợp lệ" in w for w in a.warnings)
+    assert any("invalid" in w for w in a.warnings)
 
 
 def test_refusal_marker():
@@ -228,6 +228,45 @@ def test_evidence_budget_truncates():
         assert budget["truncated"] > 0
     finally:
         config.EVIDENCE_CHAR_BUDGET = old
+
+
+# ---------------- preview context / ước lượng chi phí ----------------
+from assistant import cost  # noqa: E402
+
+
+def test_preview_matches_real_first_call():
+    q = "Có nên tắt quạt thông gió khi cháy không?"
+    hist = _history(2)
+    p = Assistant(llm=BrokenLLM()).preview_context(q, hist)       # preview không gọi LLM
+    llm = UsageLLM([NS(content="Tắt thông gió [S1].", tool_calls=None)])
+    Assistant(llm=llm).ask(q, hist)
+    assert p["messages"] == llm.seen[0]                            # context giống hệt request thật
+
+
+def test_preview_parts_and_scenarios():
+    p = Assistant(llm=BrokenLLM()).preview_context("flame spread solid fuel oxygen")
+    names = [x["part"] for x in p["parts"]]
+    assert names[0] == "system_prompt" and names[1] == "tool_schema"
+    assert p["first_call_input_tokens"] > 0 and p["prefetch_hits"]
+    costs = {s["scenario"]: s for s in p["scenarios"]}
+    assert costs["direct"]["cost_usd"] < costs["typical"]["cost_usd"] < costs["worst"]["cost_usd"]
+    assert costs["worst"]["llm_calls"] == config.MAX_TOOL_ROUNDS + 1
+
+
+def test_preview_long_history_does_not_touch_summary_cache():
+    hist = _history(9)
+    p = Assistant(llm=BrokenLLM()).preview_context("next question", hist)
+    assert p["history"]["needs_llm_summary"] is True
+    typical_with = next(s for s in p["scenarios"] if s["scenario"] == "typical")
+    assert typical_with["llm_calls"] == 3                          # + 1 lượt tóm tắt
+    _, _, stats = prepare_history(hist, summarize_fn=lambda older: "real summary")
+    assert stats["method"] == "llm"                                # preview không ghi cache
+
+
+def test_estimate_tokens_vietnamese_costs_more():
+    en, vi = "flame spread over solid fuel", "ngọn lửa lan trên nhiên liệu rắn"
+    assert cost.estimate_tokens(vi) / len(vi) > cost.estimate_tokens(en) / len(en)
+    assert cost.estimate_tokens("abcd" * 10, chars_per_token=4) == 10
 
 
 if __name__ == "__main__":

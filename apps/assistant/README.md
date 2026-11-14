@@ -18,8 +18,33 @@ python -m pytest tests -q     # test offline, không cần key
 python -m assistant.cli --debug   # chat thử trên terminal (không có key -> tự chạy offline)
 python -m assistant.cli --offline # ép chế độ offline
 uvicorn assistant.api:app --port 8003   # HTTP API cho Module 6
-python eval/run_eval.py       # chạy bộ câu hỏi kiểm thử (tốn ít tiền API)
+python -m assistant.demo_server   # giao diện demo cho dev: http://127.0.0.1:8765
+python eval/run_eval.py --estimate  # ước lượng chi phí eval (miễn phí)
+python eval/run_eval.py --offline   # eval chỉ dùng BM25 (miễn phí)
+python eval/run_eval.py       # eval với DeepSeek (TỐN QUOTA, khoảng $0.04 cho 17 câu)
 ```
+
+## Ngôn ngữ
+
+Mọi output cho người dùng đều bằng **tiếng Anh**: câu trả lời, câu từ chối, cảnh báo, kể cả khi câu hỏi viết bằng tiếng Việt (quy tắc 7 trong `prompts.py`). Bộ eval `eval/questions.jsonl` cũng toàn bằng tiếng Anh. Câu hỏi tiếng Việt vẫn tìm được tài liệu nhờ từ điển `VI_EN_GLOSSARY`.
+
+## Giao diện demo (cho dev)
+
+```bash
+python -m assistant.demo_server          # mở http://127.0.0.1:8765
+```
+
+Server chỉ dùng thư viện có sẵn của Python và chỉ chạy trên máy local. Giao diện gồm:
+- **Chat**: bấm vào câu trả lời để xem chi tiết; bấm vào nhãn `[S1]` để mở đúng trích dẫn đó.
+- **Citations**: nguồn, link, đoạn trích của từng nhãn.
+- **Trace**: các đoạn tìm được kèm điểm, từng lượt gọi LLM (token, thời gian, chi phí), tool đã gọi, guardrail, và JSON gốc.
+- **Context & cost**: xem trước messages và chi phí trước khi hỏi (miễn phí).
+- **Retriever**: thử BM25 trực tiếp (query, k, min score, lọc theo nguồn).
+- **Investigations**: lọc bảng nghiên cứu.
+- **Settings**: chỉnh `TOP_K`, `MIN_SCORE`, `MAX_TOOL_ROUNDS`, `EVIDENCE_CHAR_BUDGET`… khi đang chạy. Thay đổi chỉ lưu trong bộ nhớ; muốn giữ lâu dài thì sửa `.env`.
+- **History**: các request trước, lấy từ trace.
+
+**Quota:** mặc định giao diện chạy **Offline (miễn phí)**. Ở chế độ DeepSeek, mỗi câu hỏi hiện hộp xác nhận kèm chi phí ước lượng trước khi gọi. Server cũng từ chối mọi request DeepSeek thiếu `confirm_paid=true`.
 
 ## Chế độ offline (không cần API key)
 
@@ -44,6 +69,22 @@ python -m assistant.trace_view 9d3df2 --json
 ```
 
 `ask()` trả về `trace_id`, `latency_ms`, `prompt_tokens`, `completion_tokens`. HTTP: `GET /trace/{trace_id}`. Log có chứa câu hỏi của người dùng nên **không commit** (`logs/` đã có trong `.gitignore`).
+
+**Xem context và ước lượng chi phí** (không gọi LLM, không tốn tiền):
+
+```bash
+python -m assistant.context_view "So sánh BASS và Saffire"          # bảng token và chi phí
+python -m assistant.context_view "So sánh BASS và Saffire" --full   # in toàn bộ messages
+```
+
+Trong chat CLI gõ `/context <câu hỏi>` (dùng cả lịch sử hiện tại). Python: `from assistant import preview_context`. HTTP: `POST /context` (thêm `?include_messages=true` để lấy cả messages).
+
+Kết quả gồm:
+- số ký tự và token ước lượng của từng phần: system prompt, tool schema, tóm tắt lịch sử, lịch sử gần đây, câu hỏi, bằng chứng tìm trước;
+- chi phí theo 3 kịch bản: `direct` (trả lời ngay), `typical` (1 lần search), `worst` (tối đa số vòng tool), có tính cả lượt tóm tắt lịch sử nếu cần;
+- số tiền còn lại trong ngân sách, quy ra số câu hỏi.
+
+Messages trong bản xem trước giống hệt lượt gọi đầu của `ask()` (có test kiểm chứng). Token được ước lượng bằng heuristic. Khi `logs/traces.jsonl` đã có lượt gọi DeepSeek thật, hệ số ký tự/token được **tự hiệu chỉnh** theo số token thật.
 
 **Nén context** (cấu hình trong `.env`):
 
@@ -125,7 +166,9 @@ assistant/
   ingest.py        tài liệu -> chunks.jsonl
   trace.py         ghi trace từng request; trace_view.py để xem lại
   context.py       nén lịch sử hội thoại
+  cost.py, context_view.py   ước lượng token/chi phí, xem context
   cli.py, api.py   chat terminal / HTTP API
+  demo_server.py, demo/index.html   giao diện demo cho dev
 data/mock/         dữ liệu giả, có nhãn [MOCK]
 eval/              bộ câu hỏi kiểm thử + script chạy
 tests/             test offline với LLM giả

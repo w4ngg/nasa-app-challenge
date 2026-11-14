@@ -82,7 +82,7 @@ def _mock_predict(material: str, o2_percent: float, pressure_kpa: float,
         "confidence_interval": None,
         "in_domain": False,
         "nearest_runs": [],
-        "note": "Module 5 chưa có mô hình. Đây là kết quả giả lập để test luồng, không có giá trị khoa học.",
+        "note": "Module 5 model not available yet. Placeholder result for pipeline testing only; no scientific value.",
         "inputs": {"material": material, "o2_percent": o2_percent, "pressure_kpa": pressure_kpa,
                    "airflow_cm_s": airflow_cm_s, "gravity_g": gravity_g},
     }

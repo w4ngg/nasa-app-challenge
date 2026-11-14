@@ -4,6 +4,7 @@ from __future__ import annotations
 import sys
 
 from .agent import Assistant
+from .context_view import render
 from .llm import UsageTracker
 
 
@@ -15,7 +16,9 @@ def main() -> None:
     if bot.retriever.uses_mock:
         print("⚠️  Đang dùng dữ liệu MOCK (data/mock/). Chạy `python -m assistant.ingest` khi có tài liệu thật.\n")
     history: list[dict] = []
-    print("AstroFlame Research Assistant — gõ 'exit' để thoát.\n")
+    print("AstroFlame Research Assistant — gõ 'exit' để thoát.")
+    print("Lệnh: /context <câu hỏi> xem context + ước lượng chi phí (không gọi LLM); "
+          "/context! <câu hỏi> in kèm toàn bộ messages.\n")
     while True:
         try:
             q = input("Bạn: ").strip()
@@ -24,6 +27,14 @@ def main() -> None:
         if q.lower() in {"exit", "quit", "q"}:
             break
         if not q:
+            continue
+        if q.startswith("/context"):
+            full = q.startswith("/context!")
+            question = q.split(maxsplit=1)[1] if " " in q else ""
+            if not question:
+                print("Cách dùng: /context <câu hỏi>\n")
+                continue
+            print("\n" + render(bot.preview_context(question, history), full=full) + "\n")
             continue
         a = bot.ask(q, history)
         print(f"\nAssistant{' (từ chối)' if a.refused else ''}:\n{a.answer}\n")

@@ -1,0 +1,390 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Assistant Dev Console</title>
+<style>
+:root {
+  --bg: #f6f7f9; --panel: #ffffff; --ink: #1b1f24; --muted: #5b6573; --line: #dfe3e8;
+  --accent: #0b5cad; --accent-ink: #ffffff; --chip: #eef3f9; --warn: #9a5b00; --warn-bg: #fff4e0;
+  --bad: #b3261e; --bad-bg: #fdecea; --ok: #1e7a3c; --ok-bg: #e7f5ec; --code: #f2f4f7;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #111418; --panel: #191d23; --ink: #e6e9ee; --muted: #9aa4b2; --line: #2b313a;
+    --accent: #5aa2ec; --accent-ink: #0b1220; --chip: #1f2833; --warn: #f0b45a; --warn-bg: #2d2416;
+    --bad: #f28b82; --bad-bg: #2f1a19; --ok: #7fd49a; --ok-bg: #16281d; --code: #12161b;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+header { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; padding: 10px 16px; background: var(--panel); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 5; }
+header h1 { font-size: 15px; margin: 0 8px 0 0; }
+.chip { display: inline-flex; gap: 6px; align-items: center; padding: 2px 8px; border-radius: 999px; background: var(--chip); color: var(--muted); font-size: 12px; white-space: nowrap; }
+.chip.warn { background: var(--warn-bg); color: var(--warn); }
+.chip.ok { background: var(--ok-bg); color: var(--ok); }
+.chip.bad { background: var(--bad-bg); color: var(--bad); }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.seg button { border: 0; background: transparent; color: var(--ink); padding: 4px 10px; cursor: pointer; font: inherit; }
+.seg button.on { background: var(--accent); color: var(--accent-ink); }
+.seg button:disabled { opacity: .45; cursor: not-allowed; }
+main { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; padding: 12px 16px; height: calc(100vh - 54px); }
+@media (max-width: 900px) { main { grid-template-columns: 1fr; height: auto; } }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; display: flex; flex-direction: column; min-height: 0; }
+.panel > .head { padding: 8px 12px; border-bottom: 1px solid var(--line); display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.panel > .body { padding: 12px; overflow: auto; flex: 1; min-height: 240px; }
+#chat .body { display: flex; flex-direction: column; gap: 12px; }
+.msg { border-radius: 10px; padding: 10px 12px; max-width: 100%; overflow-wrap: anywhere; }
+.msg.user { background: var(--chip); align-self: flex-end; max-width: 85%; }
+.msg.bot { border: 1px solid var(--line); cursor: pointer; }
+.msg.bot.selected { outline: 2px solid var(--accent); }
+.msg.bot.refused { border-color: var(--warn); }
+.meta { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.warnings { margin-top: 6px; font-size: 12px; color: var(--warn); }
+.cite { border: 1px solid var(--accent); color: var(--accent); background: transparent; border-radius: 6px; padding: 0 4px; font: 600 11px var(--mono); cursor: pointer; margin: 0 1px; }
+.composer { border-top: 1px solid var(--line); padding: 10px 12px; display: grid; gap: 8px; }
+textarea, input, select { font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; }
+textarea { width: 100%; resize: vertical; min-height: 56px; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.btn { border: 1px solid var(--line); background: var(--panel); color: var(--ink); border-radius: 8px; padding: 6px 12px; cursor: pointer; font: inherit; }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.btn:disabled { opacity: .5; cursor: progress; }
+.tabs { display: flex; gap: 2px; flex-wrap: wrap; }
+.tabs button { border: 0; background: transparent; color: var(--muted); padding: 4px 8px; border-radius: 6px; cursor: pointer; font: inherit; }
+.tabs button.on { background: var(--chip); color: var(--ink); font-weight: 600; }
+.tab { display: none; } .tab.on { display: block; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; }
+th, td { text-align: left; padding: 4px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { color: var(--muted); font-weight: 600; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+pre, code { font-family: var(--mono); font-size: 12px; }
+pre { background: var(--code); border: 1px solid var(--line); border-radius: 8px; padding: 8px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 420px; }
+details { border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; margin: 6px 0; }
+summary { cursor: pointer; }
+.ev { border-left: 3px solid var(--line); padding: 4px 10px; margin: 6px 0; }
+.ev.retrieval { border-color: #3b82c4; } .ev.llm_call { border-color: #8b5cf6; } .ev.tool_call { border-color: #0e9f6e; }
+.ev.guardrail { border-color: #d97706; } .ev.fallback, .ev.error { border-color: var(--bad); }
+.muted { color: var(--muted); } .small { font-size: 12px; }
+.card { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; margin: 6px 0; }
+.card.hl { outline: 2px solid var(--accent); }
+.empty { color: var(--muted); padding: 24px 8px; text-align: center; }
+h3 { font-size: 13px; margin: 14px 0 6px; } h3:first-child { margin-top: 0; }
+label.f { display: grid; gap: 2px; font-size: 12px; color: var(--muted); }
+.grid2 { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 8px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Flame in Freefall · Research Assistant <span class="muted">dev console</span></h1>
+  <span class="seg" title="Offline = BM25 only, free. DeepSeek = paid, asks for confirmation.">
+    <button id="mOff" class="on">Offline (free)</button><button id="mLlm">DeepSeek (paid)</button>
+  </span>
+  <span id="sData" class="chip">loading…</span>
+  <span id="sBudget" class="chip">budget</span>
+  <span id="sModel" class="chip"></span>
+</header>
+
+<main>
+  <section class="panel" id="chat">
+    <div class="head">
+      <strong>Chat</strong><span class="muted small">click an answer to inspect it →</span>
+      <span style="flex:1"></span>
+      <button class="btn" id="newChat">New chat</button>
+    </div>
+    <div class="body" id="msgs"><div class="empty">Ask about NASA microgravity combustion experiments.<br>
+      Try: <em>What gaseous suppressants were tested in the FLEX experiment?</em></div></div>
+    <div class="composer">
+      <textarea id="q" placeholder="Ask a question… (Ctrl/⌘+Enter to send)"></textarea>
+      <div class="row">
+        <button class="btn" id="btnPreview" title="Free: no API call">Preview context &amp; cost</button>
+        <button class="btn primary" id="btnAsk">Ask</button>
+        <span id="busy" class="muted small"></span>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="head tabs" id="tabs">
+      <button data-t="cites" class="on">Citations</button>
+      <button data-t="trace">Trace</button>
+      <button data-t="ctx">Context &amp; cost</button>
+      <button data-t="search">Retriever</button>
+      <button data-t="inv">Investigations</button>
+      <button data-t="cfg">Settings</button>
+      <button data-t="hist">History</button>
+    </div>
+    <div class="body">
+      <div class="tab on" id="t-cites"><div class="empty">Select an answer to see its citations.</div></div>
+      <div class="tab" id="t-trace"><div class="empty">Select an answer, or open one from History.</div></div>
+      <div class="tab" id="t-ctx"><div class="empty">Type a question and click “Preview context &amp; cost” (free).</div></div>
+      <div class="tab" id="t-search">
+        <div class="row">
+          <input id="sq" placeholder="BM25 query (English keywords)" style="flex:1;min-width:180px">
+          <label class="small muted">k <input id="sk" type="number" value="8" min="1" max="30" style="width:60px"></label>
+          <label class="small muted">min score <input id="sm" type="number" step="0.1" placeholder="cfg" style="width:70px"></label>
+          <select id="ss"><option value="">all sources</option></select>
+          <button class="btn" id="btnSearch">Search</button>
+        </div>
+        <div id="searchOut"></div>
+      </div>
+      <div class="tab" id="t-inv">
+        <div class="grid2">
+          <label class="f">keywords<input id="iq"></label>
+          <label class="f">fuel type<input id="ifuel" placeholder="solid / liquid / gas"></label>
+          <label class="f">gravity<input id="igrav" placeholder="microgravity / ground"></label>
+          <label class="f">hardware<input id="ihw" placeholder="CIR / MSG"></label>
+          <label class="f">min O₂ %<input id="imin" type="number"></label>
+          <label class="f">limit<input id="ilim" type="number" value="10"></label>
+        </div>
+        <div class="row" style="margin-top:8px"><button class="btn" id="btnInv">Filter</button>
+          <span class="muted small">O₂/material columns are empty until Module 1 fills them.</span></div>
+        <div id="invOut"></div>
+      </div>
+      <div class="tab" id="t-cfg"><div id="cfgForm"></div>
+        <div class="row" style="margin-top:8px"><button class="btn primary" id="btnCfg">Apply</button>
+          <span class="muted small">In memory only – resets on server restart. Edit <code>.env</code> to persist.</span></div>
+        <div id="cfgOut" class="small"></div>
+      </div>
+      <div class="tab" id="t-hist"><div class="row"><button class="btn" id="btnHist">Refresh</button></div><div id="histOut"></div></div>
+    </div>
+  </section>
+</main>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const fmt$ = (x) => "$" + Number(x || 0).toFixed(5);
+let mode = "offline", history = [], answers = [], selected = -1, statusData = null, lastPreview = null;
+
+async function api(path, body) {
+  const r = await fetch(path, body === undefined ? {} : {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)});
+  const data = await r.json().catch(() => ({error: "bad response"}));
+  if (!r.ok) throw new Error(data.error || r.statusText);
+  return data;
+}
+
+// ---------- status / header ----------
+async function loadStatus() {
+  statusData = await api("/api/status");
+  const d = statusData.data;
+  $("#sData").className = "chip " + (d.uses_mock ? "warn" : "ok");
+  $("#sData").textContent = d.uses_mock ? `MOCK data · ${d.chunks} chunks` : `${d.sources} sources · ${d.chunks} chunks`;
+  const b = statusData.budget;
+  $("#sBudget").textContent = `spent $${b.spent_usd.toFixed(4)} / $${b.limit_usd}`;
+  $("#sBudget").className = "chip " + (b.spent_usd >= b.limit_usd ? "bad" : "");
+  $("#sModel").textContent = `${statusData.model} · $${statusData.price_per_m.input}/$${statusData.price_per_m.output} per 1M`;
+  $("#mLlm").disabled = !statusData.llm_available;
+  $("#mLlm").title = statusData.llm_available ? "" : "Set DEEPSEEK_API_KEY in .env";
+  const sel = $("#ss"); sel.length = 1;
+  d.source_ids.forEach((s) => sel.add(new Option(s, s)));
+  renderCfg();
+}
+function setMode(m) { mode = m; $("#mOff").classList.toggle("on", m === "offline"); $("#mLlm").classList.toggle("on", m === "llm"); }
+$("#mOff").onclick = () => setMode("offline");
+$("#mLlm").onclick = () => setMode("llm");
+
+// ---------- tabs ----------
+function showTab(t) {
+  document.querySelectorAll("#tabs button").forEach((b) => b.classList.toggle("on", b.dataset.t === t));
+  document.querySelectorAll(".tab").forEach((x) => x.classList.toggle("on", x.id === "t-" + t));
+}
+document.querySelectorAll("#tabs button").forEach((b) => b.onclick = () => { showTab(b.dataset.t); if (b.dataset.t === "hist") loadHist(); });
+
+// ---------- chat ----------
+function renderAnswerText(text) {
+  let h = esc(text);
+  h = h.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+  h = h.replace(/\[([SIP]\d+)\]/g, '<button class="cite" data-ref="$1">$1</button>');
+  return h.split("\n").map((l) => l.startsWith("- ") ? "• " + l.slice(2) : l).join("<br>");
+}
+function renderMsgs() {
+  const box = $("#msgs");
+  if (!answers.length) return;
+  box.innerHTML = answers.map((a, i) => `
+    <div class="msg user">${esc(a.question)}</div>
+    <div class="msg bot ${a.refused ? "refused" : ""} ${i === selected ? "selected" : ""}" data-i="${i}">
+      ${a.error ? `<span class="chip bad">error</span> ${esc(a.error)}` : renderAnswerText(a.answer)}
+      ${a.error ? "" : `<div class="meta">
+        <span class="chip ${a._mode === "llm" ? "" : "ok"}">${a._mode === "llm" ? "DeepSeek" : "offline"}</span>
+        ${a.refused ? '<span class="chip warn">refused</span>' : `<span class="chip">${a.citations.length} citations</span>`}
+        <span class="chip">${a.latency_ms} ms</span>
+        <span class="chip">tok ${a.prompt_tokens}/${a.completion_tokens}</span>
+        <span class="chip">${fmt$(a.cost_usd)}</span>
+        <span class="chip">trace ${esc(a.trace_id)}</span></div>
+        ${a.warnings.length ? `<div class="warnings">⚠ ${a.warnings.map(esc).join("<br>⚠ ")}</div>` : ""}`}
+    </div>`).join("");
+  box.scrollTop = box.scrollHeight;
+}
+$("#msgs").addEventListener("click", (e) => {
+  const cite = e.target.closest(".cite"), msg = e.target.closest(".msg.bot");
+  if (!msg) return;
+  selectAnswer(+msg.dataset.i, cite ? cite.dataset.ref : null);
+});
+function selectAnswer(i, ref) {
+  selected = i; renderMsgs();
+  const a = answers[i]; if (!a || a.error) return;
+  renderCites(a, ref); loadTrace(a.trace_id);
+  showTab(ref ? "cites" : document.querySelector("#tabs .on").dataset.t === "trace" ? "trace" : "cites");
+}
+function renderCites(a, hl) {
+  const box = $("#t-cites");
+  if (!a.citations.length) { box.innerHTML = '<div class="empty">No citations (refused or no evidence).</div>'; return; }
+  box.innerHTML = a.citations.map((c) => `
+    <div class="card ${c.ref === hl ? "hl" : ""}" id="cite-${c.ref}">
+      <div class="row"><span class="cite">${c.ref}</span><strong>${esc(c.source_id)}</strong>
+        <span class="chip">${esc(c.kind)}</span>${c.is_mock ? '<span class="chip warn">MOCK</span>' : ""}</div>
+      <div>${esc(c.title)}</div>
+      ${c.url ? `<div class="small"><a href="${esc(c.url)}" target="_blank" rel="noopener">${esc(c.url)}</a></div>` : ""}
+      <pre>${esc(c.snippet)}</pre>
+    </div>`).join("");
+  if (hl) document.getElementById("cite-" + hl)?.scrollIntoView({block: "nearest"});
+}
+
+async function ask() {
+  const q = $("#q").value.trim(); if (!q) return;
+  if (mode === "llm") {
+    let est = "";
+    try { const p = await api("/api/preview", {question: q, history}); const s = Object.fromEntries(p.scenarios.map((x) => [x.scenario, x.cost_usd]));
+      est = `\nEstimated cost: ~${fmt$(s.typical)} (range ${fmt$(s.direct)} – ${fmt$(s.worst)}).`; } catch (e) {}
+    if (!confirm("This will call DeepSeek and use paid quota." + est + "\nContinue?")) return;
+  }
+  busy(true);
+  try {
+    const a = await api("/api/ask", {question: q, history, mode, confirm_paid: mode === "llm"});
+    a._mode = mode; answers.push(a);
+    history.push({role: "user", content: q}, {role: "assistant", content: a.answer});
+    $("#q").value = ""; selectAnswer(answers.length - 1);
+  } catch (e) {
+    answers.push({question: q, error: e.message}); renderMsgs();
+  } finally { busy(false); loadStatus(); }
+}
+function busy(on) { $("#btnAsk").disabled = $("#btnPreview").disabled = on; $("#busy").textContent = on ? "working…" : ""; }
+$("#btnAsk").onclick = ask;
+$("#q").addEventListener("keydown", (e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) ask(); });
+$("#newChat").onclick = () => { history = []; answers = []; selected = -1;
+  $("#msgs").innerHTML = '<div class="empty">New conversation.</div>'; };
+
+// ---------- trace ----------
+async function loadTrace(id) {
+  const box = $("#t-trace");
+  try { box.innerHTML = renderTrace(await api("/api/trace/" + id)); }
+  catch (e) { box.innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
+}
+function renderTrace(t) {
+  const tot = t.totals || {};
+  const ev = (t.events || []).map((e) => {
+    const at = `<span class="muted small">${e.t_ms} ms</span>`;
+    if (e.kind === "retrieval") return `<div class="ev retrieval">${at} <strong>retrieval</strong> <span class="chip">${esc(e.origin)}</span>
+      <code>${esc(e.query)}</code>${e.source_id ? ` <span class="chip">${esc(e.source_id)}</span>` : ""}
+      <table><tr><th>tag</th><th>chunk</th><th class="num">score</th></tr>${e.hits.map((h) =>
+        `<tr><td>${esc(h.tag)}</td><td>${esc(h.chunk)}</td><td class="num">${h.score}</td></tr>`).join("") ||
+        '<tr><td colspan="3" class="muted">no hits above min score</td></tr>'}</table></div>`;
+    if (e.kind === "llm_call") return `<div class="ev llm_call">${at} <strong>LLM ${esc(e.purpose)}#${e.round}</strong>
+      ${e.latency_ms} ms · in ${e.prompt_tokens} · out ${e.completion_tokens} · cache hit ${e.cache_hit_tokens ?? 0} · ${fmt$(e.cost_usd)}
+      · context ${Number(e.context_chars).toLocaleString()} chars / ${e.n_messages} msgs · tool calls ${e.n_tool_calls}</div>`;
+    if (e.kind === "tool_call") return `<div class="ev tool_call">${at} <strong>tool ${esc(e.name)}</strong>
+      <code>${esc(e.args || "")}</code> → ${esc(e.n_results)} ${e.error ? `<span class="chip bad">${esc(e.error)}</span>` : ""}</div>`;
+    if (e.kind === "guardrail") return `<div class="ev guardrail">${at} <strong>guardrail</strong> cited ${esc((e.cited || []).join(", ") || "–")}
+      ${e.removed_invalid_tags?.length ? `<span class="chip bad">removed ${esc(e.removed_invalid_tags.join(", "))}</span>` : ""}
+      ${e.model_refused ? '<span class="chip warn">model refused</span>' : ""}${e.forced_refusal ? '<span class="chip bad">forced refusal</span>' : ""}</div>`;
+    if (e.kind === "compression") return `<div class="ev">${at} <strong>history</strong> in ${e.history_in} · kept ${e.kept} · summarized ${e.summarized} (${esc(e.method)})</div>`;
+    if (e.kind === "evidence_budget") return `<div class="ev">${at} <strong>evidence</strong> ${Number(e.sent_chars).toLocaleString()} / ${Number(e.budget).toLocaleString()} chars · deduped ${e.deduped} · truncated ${e.truncated}</div>`;
+    return `<div class="ev ${esc(e.kind)}">${at} <strong>${esc(e.kind)}</strong> <code>${esc(JSON.stringify(e))}</code></div>`;
+  }).join("");
+  return `<div class="row"><strong>${esc(t.trace_id)}</strong><span class="chip">${esc(t.mode)}</span><span class="muted small">${esc(t.ts)}</span></div>
+    <div class="muted">${esc(t.question)}</div>
+    <div class="meta"><span class="chip">${tot.latency_ms} ms</span><span class="chip">${tot.llm_calls} LLM calls</span>
+      <span class="chip">in ${tot.prompt_tokens} / out ${tot.completion_tokens}</span><span class="chip">${fmt$(tot.cost_usd)}</span></div>
+    <h3>Events</h3>${ev}
+    ${t.error ? `<div class="chip bad">${esc(t.error)}</div>` : ""}
+    <details><summary>Raw JSON</summary><pre>${esc(JSON.stringify(t, null, 2))}</pre></details>`;
+}
+
+// ---------- context preview ----------
+$("#btnPreview").onclick = async () => {
+  const q = $("#q").value.trim(); if (!q) return;
+  busy(true);
+  try { lastPreview = await api("/api/preview", {question: q, history}); renderPreview(lastPreview); showTab("ctx"); }
+  catch (e) { $("#t-ctx").innerHTML = `<div class="empty">${esc(e.message)}</div>`; showTab("ctx"); }
+  finally { busy(false); }
+};
+function renderPreview(p) {
+  const h = p.history, b = p.budget;
+  $("#t-ctx").innerHTML = `
+    <div class="muted small">${esc(p.mode)} · ${esc(p.estimation)}</div>
+    <h3>Context parts (first LLM call)</h3>
+    <table><tr><th>part</th><th class="num">chars</th><th class="num">~tokens</th></tr>
+      ${p.parts.map((x) => `<tr><td>${esc(x.part)}</td><td class="num">${x.chars.toLocaleString()}</td><td class="num">${x.tokens.toLocaleString()}</td></tr>`).join("")}
+      <tr><th>total input incl. overhead</th><td></td><th class="num">${p.first_call_input_tokens.toLocaleString()}</th></tr></table>
+    <h3>Cost scenarios</h3>
+    <table><tr><th>scenario</th><th class="num">tool rounds</th><th class="num">LLM calls</th><th class="num">~in</th><th class="num">~out</th><th class="num">~USD</th></tr>
+      ${p.scenarios.map((s) => `<tr><td>${s.scenario}</td><td class="num">${s.tool_rounds}</td><td class="num">${s.llm_calls}</td>
+        <td class="num">${s.input_tokens.toLocaleString()}</td><td class="num">${s.output_tokens.toLocaleString()}</td><td class="num">${fmt$(s.cost_usd)}</td></tr>`).join("")}</table>
+    <div class="meta"><span class="chip">history ${h.history_in} → kept ${h.kept}, summarized ${h.summarized} (${esc(h.method)})</span>
+      <span class="chip">budget left $${b.remaining_usd} ≈ ${b.questions_left_typical} typical questions</span></div>
+    <h3>Prefetched evidence</h3>
+    ${p.prefetch_hits.map((x) => `<span class="chip">${esc(x.tag)} ${esc(x.source_id)} · ${x.score}</span>`).join(" ") || '<span class="muted">none</span>'}
+    <h3>Messages sent to the LLM</h3>
+    ${p.messages.map((m, i) => `<details><summary>[${i}] <strong>${esc(m.role)}</strong> · ${String(m.content).length.toLocaleString()} chars</summary><pre>${esc(m.content)}</pre></details>`).join("")}`;
+}
+
+// ---------- retriever playground ----------
+$("#btnSearch").onclick = async () => {
+  const out = $("#searchOut"); out.innerHTML = '<div class="muted">searching…</div>';
+  try {
+    const r = await api("/api/search", {query: $("#sq").value, k: $("#sk").value, min_score: $("#sm").value, source_id: $("#ss").value});
+    out.innerHTML = r.hits.length ? r.hits.map((h, i) => `<details ${i === 0 ? "open" : ""}><summary><strong>${h.score}</strong> · ${esc(h.chunk)}
+      <span class="muted">${esc(h.section || "")}</span></summary><div class="small muted">${esc(h.title)}</div><pre>${esc(h.text)}</pre></details>`).join("")
+      : '<div class="empty">No hits above min score.</div>';
+  } catch (e) { out.innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
+};
+$("#sq").addEventListener("keydown", (e) => { if (e.key === "Enter") $("#btnSearch").click(); });
+
+// ---------- investigations ----------
+$("#btnInv").onclick = async () => {
+  const out = $("#invOut");
+  try {
+    const r = await api("/api/investigations", {query: $("#iq").value, fuel_type: $("#ifuel").value, gravity: $("#igrav").value,
+      hardware: $("#ihw").value, min_o2: $("#imin").value, limit: $("#ilim").value || 10});
+    out.innerHTML = r.rows.length ? `<table><tr><th>PSI</th><th>name</th><th>sub-area</th><th>gravity</th><th>hardware</th></tr>
+      ${r.rows.map((x) => `<tr><td>${x.link ? `<a href="${esc(x.link)}" target="_blank" rel="noopener">${esc(x.psi_id)}</a>` : esc(x.psi_id)}</td>
+        <td>${esc(x.name)}${x.acronym ? ` <span class="muted">(${esc(x.acronym)})</span>` : ""}</td><td>${esc(x.sub_area || x.fuel_type || "")}</td>
+        <td>${esc(x.gravity)}</td><td class="small">${esc(x.hardware)}</td></tr>`).join("")}</table>` : '<div class="empty">No rows.</div>';
+  } catch (e) { out.innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
+};
+
+// ---------- settings ----------
+function renderCfg() {
+  const c = statusData.config;
+  $("#cfgForm").innerHTML = '<div class="grid2">' + Object.entries(c).map(([k, v]) => typeof v === "boolean"
+    ? `<label class="f">${k}<select data-k="${k}"><option ${v ? "selected" : ""}>true</option><option ${!v ? "selected" : ""}>false</option></select></label>`
+    : `<label class="f">${k}<input data-k="${k}" value="${esc(v)}"></label>`).join("") + "</div>";
+}
+$("#btnCfg").onclick = async () => {
+  const body = {};
+  document.querySelectorAll("#cfgForm [data-k]").forEach((el) => body[el.dataset.k] = el.value);
+  try { const r = await api("/api/config", body); $("#cfgOut").textContent = "Applied: " + JSON.stringify(r.config); loadStatus(); }
+  catch (e) { $("#cfgOut").textContent = e.message; }
+};
+
+// ---------- history ----------
+async function loadHist() {
+  const out = $("#histOut");
+  try {
+    const r = await api("/api/traces?n=50");
+    out.innerHTML = r.traces.length ? `<table><tr><th>time (UTC)</th><th>mode</th><th>question</th><th class="num">ms</th><th class="num">tok in/out</th><th class="num">USD</th><th>result</th></tr>
+      ${r.traces.map((t) => `<tr data-id="${esc(t.trace_id)}" style="cursor:pointer"><td class="small">${esc(t.ts.slice(0, 19).replace("T", " "))}</td>
+        <td>${esc(t.mode)}</td><td>${esc(t.question)}</td><td class="num">${t.latency_ms}</td><td class="num">${t.prompt_tokens}/${t.completion_tokens}</td>
+        <td class="num">${fmt$(t.cost_usd)}</td><td>${t.error ? '<span class="chip bad">error</span>' : t.refused ? '<span class="chip warn">refused</span>' : `${t.n_citations} cites`}</td></tr>`).join("")}</table>`
+      : '<div class="empty">No traces yet.</div>';
+    out.querySelectorAll("tr[data-id]").forEach((tr) => tr.onclick = () => { loadTrace(tr.dataset.id); showTab("trace"); });
+  } catch (e) { out.innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
+}
+$("#btnHist").onclick = loadHist;
+
+loadStatus().catch((e) => { $("#sData").className = "chip bad"; $("#sData").textContent = "server error: " + e.message; });
+</script>
+</body>
+</html>

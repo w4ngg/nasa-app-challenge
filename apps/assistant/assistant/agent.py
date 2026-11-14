@@ -7,6 +7,7 @@ Mọi bước được ghi vào trace (assistant/trace.py).
 from __future__ import annotations
 
 import json
+import math
 import re
 import time
 from typing import Any
@@ -22,17 +23,10 @@ OFFLINE_TOP_K = 3
 _STUDY_WORDS = ("nghiên cứu", "thí nghiệm", "investigation", "study", "studies", "experiment")
 
 _TAG_GROUP = re.compile(r"\[((?:[SIP]\d+)(?:\s*[,;]\s*[SIP]\d+)*)\]")
-_VI_CHARS = re.compile(r"[ăâđêôơưàáảãạằắẳẵặầấẩẫậèéẻẽẹềếểễệìíỉĩịòóỏõọồốổỗộờớởỡợùúủũụừứửữựỳýỷỹỵ]", re.I)
-
-
-def _is_vietnamese(text: str) -> bool:
-    return bool(_VI_CHARS.search(text))
 
 
 def _refusal_text(question: str) -> str:
-    if _is_vietnamese(question):
-        return ("Mình chưa tìm thấy bằng chứng trong dữ liệu NASA đã nạp để trả lời câu này. "
-                "Bạn thử hỏi cụ thể hơn (tên thí nghiệm, vật liệu, nồng độ O₂...) hoặc bổ sung tài liệu nguồn.")
+    """Output luôn bằng tiếng Anh (sản phẩm phục vụ NASA), kể cả khi câu hỏi bằng tiếng Việt."""
     return ("I could not find evidence in the loaded NASA data to answer this. Try a more specific question "
             "(experiment name, material, O₂ level...) or add the relevant source documents.")
 
@@ -109,6 +103,7 @@ class Assistant:
                     prompt_tokens=usage.get("prompt_tokens"), completion_tokens=usage.get("completion_tokens"),
                     cache_hit_tokens=usage.get("cache_hit_tokens"), cost_usd=round(cost, 6),
                     context_chars=sum(len(str(m.get("content") or "")) for m in messages),
+                    tools_chars=len(json.dumps(tools, ensure_ascii=False)) if tools else 0,
                     n_messages=len(messages), n_tool_calls=len(getattr(msg, "tool_calls", None) or []))
         return msg
 
@@ -190,7 +185,7 @@ class Assistant:
                         raise
                     trace.event("fallback", error=f"{type(e).__name__}: {e}")
                     ans = self._ask_offline(question, trace)
-                    ans.warnings.insert(0, f"Gọi DeepSeek lỗi ({type(e).__name__}: {e}) -> đã chuyển sang chế độ offline.")
+                    ans.warnings.insert(0, f"DeepSeek call failed ({type(e).__name__}: {e}); fell back to offline mode.")
         except Exception as e:
             trace.finish(error=f"{type(e).__name__}: {e}")
             raise
@@ -215,26 +210,101 @@ class Assistant:
             trace.event("tool_call", name="search_investigations(offline)", n_results=inv["n_results"])
             rows = inv["results"]
 
-        vi = _is_vietnamese(question)
         if not docs["results"] and not rows:
             text = REFUSAL_MARKER
         else:
-            lines = ["Các đoạn liên quan nhất trong dữ liệu (chế độ offline, chưa được AI tổng hợp):" if vi else
-                     "Most relevant passages found (offline mode, not synthesized by AI):"]
+            lines = ["Most relevant passages found (offline mode, not synthesized by AI):"]
             for r in docs["results"]:
                 full = r["_full_text"]
                 snippet = full if len(full) <= 400 else full[:400].rsplit(" ", 1)[0] + "…"
                 head = f"{r['title']}" + (f" – {r['section']}" if r.get("section") else "")
                 lines.append(f"- **{head}**: {snippet} {r['tag']}")
             if rows:
-                lines.append("\nNghiên cứu có thể liên quan:" if vi else "\nPossibly related investigations:")
+                lines.append("\nPossibly related investigations:")
                 for r in rows:
                     lines.append(f"- {r.get('psi_id')} – {r.get('name')}: {r.get('description', '')} {r['tag']}")
             text = "\n".join(lines)
 
         self._finalize(ans, text, reg, trace)
-        ans.warnings.insert(0, "Chế độ offline: không dùng LLM, chỉ trích đoạn tài liệu khớp nhất (BM25).")
+        ans.warnings.insert(0, "Offline mode: no LLM used; showing the best-matching source passages (BM25).")
         return ans
+
+    def _build_messages(self, question: str, recent: list[dict], summary: str, prefetch: dict) -> list[dict]:
+        """Dựng messages cho lượt gọi đầu. Dùng chung cho ask() và preview_context() để preview luôn khớp."""
+        user_content = question
+        if prefetch["n_results"]:
+            user_content += ("\n\n<prefetched_passages note=\"may be irrelevant; search again if needed\">\n"
+                             + self._for_llm(prefetch) + "\n</prefetched_passages>")
+        messages: list[dict] = [{"role": "system", "content": SYSTEM_PROMPT}]
+        if summary:
+            messages.append({"role": "system", "content":
+                             f"Summary of the earlier conversation (context only, NOT evidence, do not cite): {summary}"})
+        messages += recent
+        messages.append({"role": "user", "content": user_content})
+        return messages
+
+    # ---------- xem trước context + ước lượng chi phí (không gọi LLM) ----------
+    def preview_context(self, question: str, history: list[dict] | None = None) -> dict:
+        from . import cost
+        from .llm import UsageTracker
+
+        reg = EvidenceRegistry()
+        recent, summary, stats = prepare_history(history, None, dry_run=True)
+        older = stats.pop("older_messages", [])
+        prefetch = self._tool_search_documents(reg, None, "preview", query=question, k=config.TOP_K)
+        messages = self._build_messages(question, recent, summary, prefetch)
+
+        cpt = cost.calibrate()
+        tok = lambda s: cost.estimate_tokens(s, cpt)  # noqa: E731
+        evidence_json = self._for_llm(prefetch) if prefetch["n_results"] else ""
+        user_msg = messages[-1]["content"]
+        parts = [
+            {"part": "system_prompt", "chars": len(SYSTEM_PROMPT), "tokens": tok(SYSTEM_PROMPT)},
+            {"part": "tool_schema", "chars": len(json.dumps(TOOLS, ensure_ascii=False)),
+             "tokens": cost.tools_tokens(TOOLS, cpt)},
+            {"part": "history_summary", "chars": len(summary), "tokens": tok(summary)},
+            {"part": f"history_recent ({len(recent)} msgs)", "chars": sum(len(m["content"]) for m in recent),
+             "tokens": cost.messages_tokens(recent, cpt)},
+            {"part": "question", "chars": len(question), "tokens": tok(question)},
+            {"part": f"prefetched_evidence ({prefetch['n_results']} chunks)",
+             "chars": len(user_msg) - len(question), "tokens": tok(user_msg[len(question):])},
+        ]
+        base_in = cost.messages_tokens(messages, cpt) + cost.tools_tokens(TOOLS, cpt)
+
+        # 1 kết quả search_documents điển hình ~ bằng prefetch; nếu prefetch rỗng thì lấy độ dài chunk trung bình
+        if evidence_json:
+            search_tokens = tok(evidence_json)
+        else:
+            avg = sum(len(c.text) for c in self.retriever.chunks) / max(len(self.retriever.chunks), 1)
+            search_tokens = math.ceil(avg * config.TOP_K / 4)
+        summary_in = 0
+        if stats.get("needs_llm_summary"):
+            from .context import SUMMARY_SYSTEM as _S
+            summary_in = tok(_S) + tok(transcript(older)) + 2 * cost.MSG_OVERHEAD_TOKENS
+        scen = cost.scenarios(base_in, search_tokens, summary_in)
+
+        spent = UsageTracker().total_cost()
+        remaining = max(config.BUDGET_USD - spent, 0.0)
+        typical = next(s for s in scen if s["scenario"] == "typical")["cost_usd"]
+        return {
+            "question": question,
+            "mode": "offline (không tốn tiền)" if self.offline else "llm",
+            "model": config.DEEPSEEK_MODEL,
+            "price_per_m": {"input": config.PRICE_INPUT_PER_M, "output": config.PRICE_OUTPUT_PER_M},
+            "estimation": f"calibrated {cpt:.2f} chars/token from traces" if cpt else
+                          "heuristic (ASCII 4 chars/token, non-ASCII 1.5) – chạy vài câu thật để hiệu chỉnh",
+            "parts": parts,
+            "first_call_input_tokens": base_in,
+            "search_result_tokens": search_tokens,
+            "history": stats,
+            "prefetch_hits": [{"tag": r["tag"], "source_id": r["source_id"], "score": r["score"]}
+                              for r in prefetch["results"]],
+            "scenarios": scen,
+            "budget": {"spent_usd": round(spent, 4), "limit_usd": config.BUDGET_USD,
+                       "remaining_usd": round(remaining, 4),
+                       "questions_left_typical": int(remaining / typical) if typical else None},
+            "messages": messages,
+        }
 
     def _ask_llm(self, question: str, history: list[dict] | None, trace: Trace) -> Answer:
         reg = EvidenceRegistry()
@@ -254,17 +324,7 @@ class Assistant:
         prefetch = self._tool_search_documents(reg, trace, "prefetch", query=question, k=config.TOP_K)
         ans.tool_calls.append({"name": "search_documents(prefetch)", "args": {"query": question},
                                "n_results": prefetch["n_results"]})
-        user_content = question
-        if prefetch["n_results"]:
-            user_content += ("\n\n<prefetched_passages note=\"may be irrelevant; search again if needed\">\n"
-                             + self._for_llm(prefetch) + "\n</prefetched_passages>")
-
-        messages: list[dict] = [{"role": "system", "content": SYSTEM_PROMPT}]
-        if summary:
-            messages.append({"role": "system", "content":
-                             f"Summary of the earlier conversation (context only, NOT evidence, do not cite): {summary}"})
-        messages += recent
-        messages.append({"role": "user", "content": user_content})
+        messages = self._build_messages(question, recent, summary, prefetch)
 
         # 3) Vòng gọi tool
         msg = None
@@ -313,11 +373,11 @@ class Assistant:
 
         text = _TAG_GROUP.sub(_fix, text)
         if invalid:
-            ans.warnings.append(f"Đã xóa trích dẫn không hợp lệ: {sorted(set(invalid))}")
+            ans.warnings.append(f"Removed invalid citation tags: {sorted(set(invalid))}")
 
         forced_refusal = False
         if not refused and not cited:
-            ans.warnings.append("Câu trả lời không có trích dẫn hợp lệ -> chuyển thành từ chối.")
+            ans.warnings.append("Answer had no valid citations; converted to a refusal.")
             refused, text, forced_refusal = True, _refusal_text(ans.question), True
         if refused and not text:
             text = _refusal_text(ans.question)
@@ -327,7 +387,7 @@ class Assistant:
         ans.citations = [reg.items[r] for r in dict.fromkeys(cited)]
         ans.uses_mock_data = any(c.is_mock for c in ans.citations)
         if ans.uses_mock_data:
-            ans.warnings.append("Câu trả lời dựa trên dữ liệu MOCK, chưa phải dữ liệu NASA thật.")
+            ans.warnings.append("Answer is based on MOCK placeholder data, not real NASA data.")
         trace.event("guardrail", model_refused=model_refused, forced_refusal=forced_refusal,
                     removed_invalid_tags=sorted(set(invalid)), cited=list(dict.fromkeys(cited)),
                     evidence_available=len(reg.items))
@@ -336,9 +396,18 @@ class Assistant:
 _default: Assistant | None = None
 
 
-def ask(question: str, history: list[dict] | None = None) -> dict:
-    """Hàm giao tiếp cho Module 6 / các module khác. Trả dict (JSON-serializable)."""
+def _get_default() -> Assistant:
     global _default
     if _default is None:
         _default = Assistant()
-    return _default.ask(question, history).to_dict()
+    return _default
+
+
+def ask(question: str, history: list[dict] | None = None) -> dict:
+    """Hàm giao tiếp cho Module 6 / các module khác. Trả dict (JSON-serializable)."""
+    return _get_default().ask(question, history).to_dict()
+
+
+def preview_context(question: str, history: list[dict] | None = None) -> dict:
+    """Xem context sẽ gửi cho LLM + ước lượng token/chi phí, KHÔNG gọi LLM (miễn phí)."""
+    return _get_default().preview_context(question, history)

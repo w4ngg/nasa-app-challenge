@@ -1,13 +1,17 @@
-{"id": "q01", "question": "Why do flames look spherical in microgravity?", "expect": "answer"}
-{"id": "q02", "question": "Tại sao nên tắt quạt thông gió khi có cháy trên tàu vũ trụ?", "expect": "answer"}
-{"id": "q03", "question": "Which PSI investigations studied smoke detection in microgravity?", "expect": "answer"}
-{"id": "q04", "question": "What gaseous suppressants were tested in the FLEX experiment?", "expect": "answer"}
-{"id": "q05", "question": "Sự cố Apollo 1 liên quan gì đến nghiên cứu cháy vật liệu trong môi trường giàu oxy?", "expect": "answer"}
-{"id": "q06", "question": "So sánh BASS và Saffire: vật liệu, quy mô mẫu và mục tiêu khác nhau thế nào?", "expect": "answer"}
-{"id": "q07", "question": "What caused the fire aboard Mir in 1997 and what lessons were learned?", "expect": "answer"}
-{"id": "q08", "question": "Which hardware was used by the ACME experiments?", "expect": "answer"}
-{"id": "q09", "question": "Nghiên cứu nào của NASA có ứng dụng cho cảm biến báo cháy trên Trái Đất?", "expect": "answer"}
-{"id": "q10", "question": "What was the measured flame spread rate of cotton on the Moon at 0.16 g in PSI?", "expect": "refuse"}
-{"id": "q11", "question": "How do rocket engine propellants become unstable during combustion?", "expect": "refuse"}
-{"id": "q12", "question": "Công thức nấu phở bò là gì?", "expect": "refuse"}
-{"id": "q13", "question": "Ai là CEO của SpaceX?", "expect": "refuse"}
+{"id": "q01", "category": "lookup", "question": "Which PSI investigations studied smoke detection in microgravity?", "expect": "answer", "expect_sources": ["PSI-102", "PSI-101", "PSI-47", "NTRS-20040053578"]}
+{"id": "q02", "category": "lookup", "question": "What gaseous suppressants were tested in the FLEX experiment?", "expect": "answer", "expect_sources": ["PSI-69", "PSI-68", "NASA-COMBUSTION-SCIENCE", "NASA-RG-2015"]}
+{"id": "q03", "category": "lookup", "question": "Which hardware was used by the ACME experiments?", "expect": "answer", "expect_sources": ["PSI-10", "PSI-20", "PSI-21", "PSI-22", "PSI-23", "PSI-159", "NASA-COMBUSTION-SCIENCE", "NASA-RG-2015"]}
+{"id": "q04", "category": "lookup", "question": "What materials were burned in the Saffire experiments?", "expect": "answer", "expect_sources": ["PSI-98", "PSI-99", "PSI-100", "NTRS-20170001636"]}
+{"id": "q05", "category": "lookup", "question": "Who were the principal investigators of BASS-II?", "expect": "answer", "expect_sources": ["PSI-25"]}
+{"id": "q06", "category": "science", "question": "Why do flames look spherical in microgravity?", "expect": "answer", "expect_sources": ["NASA-RG-2015", "NASA-COMBUSTION-SCIENCE", "PSI-"]}
+{"id": "q07", "category": "science", "question": "How does airflow velocity affect flame spread over solid materials in microgravity?", "expect": "answer", "expect_sources": ["PSI-25", "PSI-26", "PSI-98", "NTRS-", "NASA-RG-2015"]}
+{"id": "q08", "category": "science", "question": "Should cabin ventilation be turned off during a fire on a spacecraft? Why?", "expect": "answer", "expect_sources": ["NASA-RG-2015", "PSI-", "NTRS-", "NASA-MIR-1997"]}
+{"id": "q09", "category": "comparison", "question": "Compare BASS and Saffire: how do their sample sizes, test environments and objectives differ?", "expect": "answer", "expect_sources": ["PSI-26", "PSI-25", "PSI-98", "PSI-99", "PSI-100", "NTRS-"]}
+{"id": "q10", "category": "comparison", "question": "How was the same instrument used differently in SAME and DAFT?", "expect": "answer", "expect_sources": ["PSI-47", "PSI-102", "PSI-101"]}
+{"id": "q11", "category": "context", "question": "What does the Apollo 1 fire teach about materials in oxygen-enriched atmospheres?", "expect": "answer", "expect_sources": ["NASA-APOLLO-1"]}
+{"id": "q12", "category": "context", "question": "What caused the fire aboard Mir in 1997 and what lessons were learned?", "expect": "answer", "expect_sources": ["NASA-MIR-1997"]}
+{"id": "q13", "category": "context", "question": "Which NASA technologies improved firefighter equipment or smoke detection on Earth?", "expect": "answer", "expect_sources": ["SPINOFF-"]}
+{"id": "q14", "category": "trap", "question": "What was the measured flame spread rate of cotton on the Moon at 0.16 g according to PSI?", "expect": "refuse"}
+{"id": "q15", "category": "trap", "question": "How do rocket engine propellants cause combustion instability?", "expect": "refuse"}
+{"id": "q16", "category": "trap", "question": "What flame spread rate was measured in Saffire-VI?", "expect": "refuse"}
+{"id": "q17", "category": "trap", "question": "Who is the CEO of SpaceX?", "expect": "refuse"}

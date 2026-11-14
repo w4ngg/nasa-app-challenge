@@ -1,7 +1,9 @@
 """HTTP API để Module 6 (Đăng) gọi. Chạy: uvicorn assistant.api:app --reload --port 8003
 
 POST /ask  {"question": "...", "history": [{"role": "user", "content": "..."}, ...]}
--> {"answer", "citations": [...], "refused", "uses_mock_data", "warnings", "tool_calls", "cost_usd"}
+-> {"answer", "citations": [...], "refused", "uses_mock_data", "warnings", "tool_calls", "cost_usd", "trace_id", ...}
+POST /context  (cùng body)  -> context sẽ gửi cho LLM + ước lượng token/chi phí, không gọi LLM
+GET  /trace/{trace_id}
 """
 from __future__ import annotations
 
@@ -9,7 +11,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from .agent import ask
+from .agent import ask, preview_context
 from .llm import BudgetExceeded
 
 app = FastAPI(title="AstroFlame AI Research Assistant")
@@ -39,6 +41,15 @@ def trace_endpoint(trace_id: str) -> dict:
     if not t:
         raise HTTPException(status_code=404, detail="trace not found")
     return t
+
+
+@app.post("/context")
+def context_endpoint(req: AskRequest, include_messages: bool = False) -> dict:
+    """Xem trước context + ước lượng token/chi phí cho 1 câu hỏi. KHÔNG gọi LLM, không tốn tiền."""
+    p = preview_context(req.question, [t.model_dump() for t in req.history])
+    if not include_messages:
+        p.pop("messages", None)
+    return p
 
 
 @app.post("/ask")

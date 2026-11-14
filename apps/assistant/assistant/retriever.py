@@ -107,8 +107,11 @@ class DocumentRetriever:
     def uses_mock(self) -> bool:
         return any(c.is_mock for c in self.chunks)
 
-    def search(self, query: str, k: int = config.TOP_K, min_score: float = config.MIN_SCORE,
+    def search(self, query: str, k: int | None = None, min_score: float | None = None,
                source_id: str | None = None) -> list[tuple[Chunk, float]]:
+        # đọc config lúc gọi (không phải lúc import) để chỉnh được khi đang chạy (demo UI)
+        k = config.TOP_K if k is None else k
+        min_score = config.MIN_SCORE if min_score is None else min_score
         scores = self.bm25.scores(tokenize(query))
         # Danh sách tên bài báo dày từ khóa nhưng ít nội dung giải thích -> giảm trọng số
         scores = [s * SECTION_WEIGHTS.get(c.section, 1.0) for c, s in zip(self.chunks, scores)]
