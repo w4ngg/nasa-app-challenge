@@ -1,0 +1,7 @@
+openai>=1.40          # DeepSeek dùng API tương thích OpenAI
+pypdf>=4.0            # đọc PDF khi ingest
+# Tuỳ chọn – chỉ cần khi chạy HTTP API cho Module 6:
+fastapi>=0.110
+uvicorn>=0.29
+# Test:
+pytest>=8.0
