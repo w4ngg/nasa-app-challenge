@@ -37,12 +37,62 @@ const STYLE: StylesheetJson = [
   { selector: "edge[type='studies'], edge[type='uses_fuel']", style: { "line-color": "#a6c8ff" } },
   { selector: ".hidden", style: { display: "none" } },
   { selector: ".faded", style: { opacity: 0.12, "text-opacity": 0 } },
+  { selector: "node.dim", style: { opacity: 0.35 } },
+  { selector: "edge.dim", style: { opacity: 0.15 } },
+  { selector: "edge.near", style: { "line-color": "#78a9ff", width: 2, opacity: 1 } },
   { selector: "node.match", style: { "border-width": 3, "border-color": "#161616", "text-opacity": 1, "z-index": 10 } },
   { selector: "node.context", style: { "text-opacity": 1 } },
   { selector: "node.selected", style: { "border-width": 4, "border-color": "#0f62fe", "text-opacity": 1, "z-index": 20, "font-weight": 600 } },
   { selector: "node.comparing", style: { "border-width": 5, "border-style": "double", "border-color": "#161616", "text-opacity": 1 } },
   { selector: "edge.path", style: { "line-color": "#0f62fe", width: 3, opacity: 1, "z-index": 15 } },
 ];
+
+/** Fit `eles` in view, never closer than FIT_MAX_ZOOM so labels of a tight cluster stay readable. */
+function flyTo(cy: Core, eles: cytoscape.NodeCollection, instant: boolean) {
+  const bb = eles.boundingBox();
+  const pad = 60;
+  const level = Math.min(FIT_MAX_ZOOM, (cy.width() - 2 * pad) / Math.max(bb.w, 1), (cy.height() - 2 * pad) / Math.max(bb.h, 1));
+  const pan = { x: cy.width() / 2 - level * (bb.x1 + bb.w / 2), y: cy.height() / 2 - level * (bb.y1 + bb.h / 2) };
+  cy.stop(true, false);
+  if (instant || reducedMotion()) cy.viewport({ zoom: level, pan });
+  else cy.animate({ zoom: level, pan, duration: 500, easing: "ease-in-out-cubic" });
+}
+
+/**
+ * After a drag, push away nodes that overlap the dropped one, and let each pushed node
+ * push its own neighbours in turn. Positions are solved first, then animated in one step.
+ */
+function separate(cy: Core, moved: cytoscape.NodeSingular) {
+  const shown = cy.nodes().filter((n) => !n.hasClass("hidden"));
+  const pos = new Map<string, { x: number; y: number }>();
+  shown.forEach((n) => { pos.set(n.id(), { ...n.position() }); });
+  const size = (n: cytoscape.NodeSingular) => Math.max(n.width(), n.height());
+  const gap = (a: cytoscape.NodeSingular, b: cytoscape.NodeSingular) => (size(a) + size(b)) / 2 + 28; // room for labels
+  const queue = [moved];
+  const changed = new Set<string>();
+  for (let step = 0; queue.length && step < 120; step++) {
+    const a = queue.shift()!;
+    const pa = pos.get(a.id())!;
+    shown.forEach((b) => {
+      if (b.same(a) || b.same(moved)) return;
+      const pb = pos.get(b.id())!;
+      let dx = pb.x - pa.x;
+      let dy = pb.y - pa.y;
+      let d = Math.hypot(dx, dy);
+      const min = gap(a, b);
+      if (d >= min) return;
+      if (d < 0.01) { dx = Math.cos(step); dy = Math.sin(step); d = 1; }
+      pos.set(b.id(), { x: pa.x + (dx / d) * min, y: pa.y + (dy / d) * min });
+      changed.add(b.id());
+      queue.push(b);
+    });
+  }
+  changed.forEach((id) => {
+    const node = cy.getElementById(id);
+    if (reducedMotion()) node.position(pos.get(id)!);
+    else node.animate({ position: pos.get(id)! }, { duration: 250, easing: "ease-out-cubic" });
+  });
+}
 
 function nodeSummary(n: GNode): string {
   if (n.type === "investigation") {
@@ -100,6 +150,12 @@ export function KnowledgeMapPage({ onLink }: { onLink: (event: MouseEvent<HTMLAn
     return { visible, highlight };
   }, [index, shown, expanded, matches, selected, comparing]);
 
+  // Stable key of the visible set: the layout reruns only when nodes appear or disappear,
+  // not when a selection or highlight changes.
+  const visibleKey = useMemo(() => [...visible].sort().join("|"), [visible]);
+  const searchingRef = useRef(false);
+  searchingRef.current = matches.length > 0;
+
   // Create the graph once.
   useEffect(() => {
     if (!index || !box.current || cyRef.current) return;
@@ -107,7 +163,12 @@ export function KnowledgeMapPage({ onLink }: { onLink: (event: MouseEvent<HTMLAn
       ...index.data.nodes.map((n) => ({ data: { id: n.id, label: n.label, type: n.type, group: n.group ?? "", runs: n.runs ?? 0 } })),
       ...index.data.edges.map((e) => ({ data: { id: e.id, source: e.source, target: e.target, type: e.type } })),
     ];
-    const cy = cytoscape({ container: box.current, elements, style: STYLE, minZoom: 0.15, maxZoom: 3, wheelSensitivity: 0.3 });
+    const cy = cytoscape({
+      container: box.current, elements, style: STYLE, minZoom: 0.15, maxZoom: 3, wheelSensitivity: 0.3,
+      // Smooth pan and zoom: draw a cached texture and skip edges while the viewport moves.
+      textureOnViewport: true, hideEdgesOnViewport: true, motionBlur: false, pixelRatio: "auto",
+    });
+    cy.on("dragfree", "node", (event) => separate(cy, event.target as cytoscape.NodeSingular));
     cy.on("tap", "node", (event) => {
       const id = event.target.id() as string;
       const original = event.originalEvent as globalThis.MouseEvent | undefined;
@@ -124,11 +185,10 @@ export function KnowledgeMapPage({ onLink }: { onLink: (event: MouseEvent<HTMLAn
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [index]);
 
-  // Apply visibility, highlighting and layout whenever the view state changes.
+  // Structure: show or hide nodes and lay out again. Runs only when the visible set changes.
   useEffect(() => {
     const cy = cyRef.current;
     if (!cy || !index) return;
-    const searching = matches.length > 0;
     // New nodes start on a ring around a visible parent, so the layout settles instead of piling them up.
     const ring = new Map<string, number>();
     const appearing = cy.nodes().filter((n) => visible.has(n.id()) && n.hasClass("hidden"));
@@ -154,45 +214,79 @@ export function KnowledgeMapPage({ onLink }: { onLink: (event: MouseEvent<HTMLAn
           }
         }
         node.toggleClass("hidden", !isVisible);
-        node.toggleClass("match", matches.includes(id));
-        node.toggleClass("context", highlight.has(id) && !matches.includes(id));
-        node.toggleClass("faded", searching && !highlight.has(id) && id !== selected);
-        node.toggleClass("selected", id === selected);
-        node.toggleClass("comparing", comparing.includes(id));
       });
-      cy.edges().forEach((edge) => { edge.toggleClass("faded", searching && !(highlight.has(edge.data("source")) && highlight.has(edge.data("target")))); });
-      cy.edges().removeClass("path");
-      if (selected) for (const e of index.evidencePath(selected)) cy.getElementById(e.id).addClass("path");
     });
-    // Positions are computed instantly (MOTION 1 in DESIGN.md); only the camera move is animated.
-    const layout = cy.elements(":visible").layout({
-      name: "cose", animate: false, randomize: firstLayout.current, fit: false,
+    const first = firstLayout.current;
+    firstLayout.current = false;
+    // The first layout is instant; later ones glide from the current positions (skipped for reduced motion).
+    const glide = !first && !reducedMotion() && document.visibilityState === "visible";
+    const shown = cy.nodes().filter((n) => visible.has(n.id()));
+    const layout = shown.union(shown.edgesWith(shown)).layout({
+      name: "cose", animate: glide ? "end" : false, animationDuration: 400, animationEasing: "ease-out-cubic",
+      randomize: first, fit: false,
       // Small nodes (publications, datasets) need more push and longer edges to keep their labels apart.
       nodeRepulsion: (n: cytoscape.NodeSingular) => (["publication", "dataset"].includes(n.data("type")) ? 900000 : 400000),
       idealEdgeLength: (e: cytoscape.EdgeSingular) => (["lists_publication", "has_dataset"].includes(e.data("type")) ? 140 : 90),
       edgeElasticity: () => 100, nodeOverlap: 40,
-      gravity: 60, numIter: firstLayout.current ? 1200 : 500, initialTemp: firstLayout.current ? 200 : 60,
+      gravity: 60, numIter: first ? 1200 : 400, initialTemp: first ? 200 : 40,
       coolingFactor: 0.95, minTemp: 1, componentSpacing: 80, padding: 30,
     } as cytoscape.LayoutOptions);
-    layout.one("layoutstop", () => {
-      // Fly the camera to the matches (search), the selection, or everything.
-      const target = searching ? cy.nodes(".match") : selected ? cy.getElementById(selected).closedNeighborhood(":visible") : cy.elements(":visible");
-      const eles = target.nonempty() ? target : cy.elements(":visible");
-      const first = firstLayout.current;
-      firstLayout.current = false;
-      window.setTimeout(() => {
-        cy.stop(true, false);
-        // Fit the target, but never closer than FIT_MAX_ZOOM, so labels of a tight cluster stay readable.
-        const bb = eles.boundingBox();
-        const pad = 60;
-        const level = Math.min(FIT_MAX_ZOOM, (cy.width() - 2 * pad) / Math.max(bb.w, 1), (cy.height() - 2 * pad) / Math.max(bb.h, 1));
-        const pan = { x: cy.width() / 2 - level * (bb.x1 + bb.w / 2), y: cy.height() / 2 - level * (bb.y1 + bb.h / 2) };
-        if (reducedMotion() || first) cy.viewport({ zoom: level, pan });
-        else cy.animate({ zoom: level, pan, duration: 500, easing: "ease-in-out-cubic" });
-      }, 0);
-    });
+    let done = false;
+    const frame = () => {
+      if (done) return;
+      done = true;
+      // Fly the camera to the matches (search) or to everything that is shown.
+      const target = searchingRef.current ? cy.nodes(".match") : shown;
+      flyTo(cy, target.nonempty() ? target : shown, first);
+    };
+    layout.one("layoutstop", frame);
+    // A hidden tab pauses animation frames, so do not wait for the event forever.
+    window.setTimeout(frame, glide ? 900 : 0);
     layout.run();
-  }, [index, visible, highlight, matches, selected, comparing]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [index, visibleKey]);
+
+  // Highlight: search matches, selection, its neighbours and evidence path. Never moves nodes.
+  useEffect(() => {
+    const cy = cyRef.current;
+    if (!cy || !index) return;
+    const searching = matches.length > 0;
+    const sel = selected ? cy.getElementById(selected) : null;
+    const near = new Set<string>();
+    if (sel?.nonempty()) sel.neighborhood("node").forEach((n) => { near.add(n.id()); });
+    const path = new Set(selected ? index.evidencePath(selected).map((e) => e.id) : []);
+    cy.batch(() => {
+      cy.nodes().forEach((node) => {
+        const id = node.id();
+        const focus = searching ? highlight.has(id) : !selected || id === selected || near.has(id);
+        node.toggleClass("match", matches.includes(id));
+        node.toggleClass("context", (highlight.has(id) && !matches.includes(id)) || near.has(id));
+        node.toggleClass("faded", searching && !highlight.has(id) && id !== selected && !near.has(id));
+        node.toggleClass("dim", !searching && !focus);
+        node.toggleClass("selected", id === selected);
+        node.toggleClass("comparing", comparing.includes(id));
+      });
+      cy.edges().forEach((edge) => {
+        const s = edge.data("source") as string;
+        const t = edge.data("target") as string;
+        const touchesSelection = selected !== null && (s === selected || t === selected);
+        edge.toggleClass("faded", searching && !(highlight.has(s) && highlight.has(t)) && !touchesSelection);
+        edge.toggleClass("dim", !searching && selected !== null && !touchesSelection && !path.has(edge.id()));
+        edge.toggleClass("near", touchesSelection && !path.has(edge.id()));
+        edge.toggleClass("path", path.has(edge.id()));
+      });
+    });
+    // Keep the camera still; slide only when the selected node is off screen.
+    if (sel?.nonempty() && !sel.hasClass("hidden")) {
+      const p = sel.renderedPosition();
+      const margin = 40;
+      if (p.x < margin || p.y < margin || p.x > cy.width() - margin || p.y > cy.height() - margin) {
+        cy.stop(true, false);
+        if (reducedMotion()) cy.center(sel);
+        else cy.animate({ center: { eles: sel }, duration: 350, easing: "ease-in-out-cubic" });
+      }
+    }
+  }, [index, visibleKey, highlight, matches, selected, comparing]);
 
   function toggleCompare(id: string) {
     setComparing((c) => (c.includes(id) ? c.filter((x) => x !== id) : c.length >= MAX_COMPARE ? [...c.slice(1), id] : [...c, id]));
