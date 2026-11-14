@@ -4,9 +4,9 @@ import type { Filters } from "./filters";
 
 // Query-string routing: every view is index.html?…, so deep links work on static
 // hosts such as GitHub Pages without server-side rewrites.
-export type View = "overview" | "explorer" | "chamber" | "compare" | "assistant" | "habitat" | "lab";
+export type View = "overview" | "map" | "explorer" | "chamber" | "compare" | "assistant" | "habitat" | "lab";
 
-const views: View[] = ["overview", "explorer", "chamber", "compare", "assistant", "habitat", "lab"];
+const views: View[] = ["overview", "map", "explorer", "chamber", "compare", "assistant", "habitat", "lab"];
 
 export interface Route {
   view: View;

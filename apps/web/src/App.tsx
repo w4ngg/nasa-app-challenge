@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import type { MouseEvent } from "react";
 import { InvestigationDetail } from "./components/InvestigationDetail";
 import { SideNav } from "./components/SideNav";
@@ -7,6 +7,8 @@ import { isPlainClick, linkHandler, readRoute, routeUrl } from "./lib/route";
 import type { Route } from "./lib/route";
 import { AssistantPage } from "./pages/AssistantPage";
 import { ExplorerPage } from "./pages/ExplorerPage";
+// The graph library is large; load it only when the knowledge map is opened.
+const KnowledgeMapPage = lazy(() => import("./pages/KnowledgeMapPage").then((m) => ({ default: m.KnowledgeMapPage })));
 import { OverviewPage } from "./pages/OverviewPage";
 import { PlaceholderPage } from "./pages/PlaceholderPage";
 import type { Facets, Summary } from "./types";
@@ -51,11 +53,13 @@ export default function App() {
   if (route.id) {
     page = (
       <InvestigationDetail id={route.id} backHref={routeUrl({ ...route, id: null })}
-        backLabel={route.view === "explorer" ? "Back to the experiment library" : route.view === "assistant" ? "Back to the research assistant" : "Back to the overview"}
+        backLabel={route.view === "explorer" ? "Back to the experiment library" : route.view === "assistant" ? "Back to the research assistant" : route.view === "map" ? "Back to the knowledge map" : "Back to the overview"}
         onBack={backToList} onOpen={openInvestigation} />
     );
   } else if (route.view === "overview") {
     page = <OverviewPage summary={summary} onLink={onLink} />;
+  } else if (route.view === "map") {
+    page = <Suspense fallback={<p className="state" role="status">Loading the knowledge map…</p>}><KnowledgeMapPage onLink={onLink} /></Suspense>;
   } else if (route.view === "assistant") {
     page = <AssistantPage onLink={onLink} />;
   } else if (route.view === "explorer") {

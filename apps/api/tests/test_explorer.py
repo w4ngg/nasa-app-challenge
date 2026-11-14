@@ -111,7 +111,9 @@ def test_static_export_splits_index_and_tables(tmp_path):
     )
     (tmp_path / "tables").mkdir()
     (tmp_path / "tables" / "PSI-1.json").write_text("[]")  # stale file from an older export
-    assert export(catalog, tmp_path) == {"investigations": 2, "table_files": 1}
+    result = export(catalog, tmp_path)
+    assert result["investigations"] == 2 and result["table_files"] == 1 and result["graph_nodes"] > 0
+    assert (tmp_path / "graph.json").exists()
     index = json.loads((tmp_path / "index.json").read_text(encoding="utf-8"))
     assert "tables" not in index and len(index["investigations"]) == 2
     assert sorted(p.name for p in (tmp_path / "tables").iterdir()) == ["PSI-69.json"]
@@ -123,3 +125,29 @@ def test_facets_count_the_catalog(client):
     assert {f["value"]: f["group"] for f in facets["fuels"]}["PMMA"] == "solid"
     assert facets["with_o2"] == 1 and facets["with_tables"] == 2
     assert facets["o2_min"] == 15.0 and facets["o2_max"] == 21.0
+
+
+def test_graph_hierarchy_cross_links_and_evidence():
+    from flame_api.graph import build_graph
+    catalog = normalize_documents(
+        [{**doc("PSI-69", "FLEX"), "objective": "Measure droplet extinction and the effectiveness of fire suppressants.",
+          "publications": [{"title": "Droplet extinction in microgravity", "authorList": "A", "doi": "10.1234/shared"}]},
+         {**doc("PSI-26", "BASS", hardware="Microgravity Science Glovebox"), "objective": "Flame spread over solids.",
+          "related_glds": "PSI-69",
+          "publications": [{"title": "Droplet extinction in microgravity", "authorList": "A", "doi": "10.1234/shared"}]}],
+        "combustion", datetime.now(timezone.utc),
+        {"PSI-69": [("PSI-69_Experimental table_FLEX.csv", FLEX)]},
+    )
+    g = build_graph(catalog)
+    kinds = {(e["source"], e["type"], e["target"]) for e in g["edges"]}
+    assert ("resource:psi", "includes", "program:FLEX") in kinds
+    assert ("program:FLEX", "includes", "PSI-69") in kinds
+    assert ("PSI-69", "has_dataset", "dataset:PSI-69_Experimental table_FLEX.csv") in kinds
+    assert ("PSI-69", "uses_fuel", "fuel:methanol") in kinds
+    assert ("PSI-69", "studies", "concept:suppression") in kinds
+    assert ("PSI-26", "studies", "concept:flame-spread") in kinds
+    assert ("PSI-26", "related_to", "PSI-69") in kinds
+    shared = [e for e in g["edges"] if e["type"] == "lists_publication"]
+    assert len(shared) == 2 and len({e["target"] for e in shared}) == 1  # one publication, two parents
+    assert all(e["evidence"] and e["url"] for e in g["edges"])
+    assert "concept:fire-detection" not in {n["id"] for n in g["nodes"]}  # no match, no node
