@@ -10,14 +10,18 @@ Endpoints (JSON):
   GET  /api/status                      data, mode availability, budget, tunable config
   POST /api/ask      {question, history, mode, confirm_paid}
   POST /api/preview  {question, history}                 -> preview_context (free)
-  POST /api/search   {query, k, source_id, min_score}    -> raw BM25 hits (free)
+  POST /api/search   {query, k, source_id, min_score, mode} -> raw hits, mode = bm25 | dense | hybrid (free)
   POST /api/investigations {query, fuel_type, ...}       -> search_investigations (free)
   GET  /api/traces?n=20 | GET /api/trace/<id>
   POST /api/config   {KEY: value, ...}                   -> change tunables in memory (until restart)
+  POST /api/rank     {scenario, need, top_k}             -> rank_investigations tool output (free)
+  GET  /api/eval                                         -> saved eval result files + summaries (free)
+  GET  /api/eval?file=results_v4_deepseek.jsonl          -> per-question rows of one run (free)
 """
 from __future__ import annotations
 
 import json
+import re
 import sys
 import traceback
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -25,17 +29,21 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 from . import config, integrations
-from .agent import Assistant
+from . import ranking
+from .agent import Assistant, EvidenceRegistry
 from .llm import BudgetExceeded, UsageTracker
 from .trace import get_trace, load_traces
 
 HTML = Path(__file__).parent / "demo" / "index.html"
+EVAL_DIR = Path(__file__).resolve().parent.parent / "eval"
+_EVAL_FILE = re.compile(r"^results[\w.-]*\.jsonl$")
 
 # Tunables exposed in the UI (name -> type). Changed in memory only.
 TUNABLES = {
     "TOP_K": int, "MIN_SCORE": float, "MAX_TOOL_ROUNDS": int, "MAX_SEARCHES": int, "TEMPERATURE": float,
     "HISTORY_KEEP_TURNS": int, "HISTORY_SUMMARY": bool, "EVIDENCE_CHAR_BUDGET": int,
     "OVER_BUDGET_SNIPPET_CHARS": int, "FALLBACK_OFFLINE": bool, "BUDGET_USD": float,
+    "RETRIEVER": str, "HYBRID_FUSION": str, "HYBRID_ALPHA": float, "DENSE_MIN_SIM": float, "DENSE_FLOOR": float,
 }
 
 _offline: Assistant | None = None
@@ -64,6 +72,9 @@ def status() -> dict:
     return {
         "data": {"chunks": len(r.chunks), "sources": len(sources), "uses_mock": r.uses_mock,
                  "source_ids": sources},
+        "retriever": {"mode": r.mode, "requested": config.RETRIEVER, "dense_loaded": r.dense is not None,
+                      "embed_model": config.EMBED_MODEL if r.dense is not None else None,
+                      "fusion": config.HYBRID_FUSION},
         "llm_available": bool(config.DEEPSEEK_API_KEY),
         "model": config.DEEPSEEK_MODEL,
         "price_per_m": {"input": config.PRICE_INPUT_PER_M, "output": config.PRICE_OUTPUT_PER_M},
@@ -107,17 +118,45 @@ def handle(method: str, path: str, query: dict, body: dict) -> tuple[int, dict]:
         return 200, p
     if method == "POST" and path == "/api/search":
         r = offline_bot().retriever
+        mode = (body.get("mode") or r.mode).lower()
+        if mode in ("hybrid", "dense") and not r.ensure_dense():
+            return 400, {"error": "dense retrieval unavailable: pip install sentence-transformers (see README)"}
         hits = r.search(body.get("query", ""), k=int(body.get("k") or 8),
                         min_score=float(body.get("min_score") if body.get("min_score") not in (None, "") else config.MIN_SCORE),
-                        source_id=body.get("source_id") or None)
-        return 200, {"hits": [{"chunk": c.id, "source_id": c.source_id, "title": c.title, "section": c.section,
-                               "url": c.url, "score": round(s, 3), "text": c.text} for c, s in hits]}
+                        source_id=body.get("source_id") or None, mode=mode)
+        det = {d["chunk"]: d for d in r.last_details}
+        return 200, {"mode": mode, "hits": [{"chunk": c.id, "source_id": c.source_id, "title": c.title, "section": c.section,
+                                             "url": c.url, "score": round(s, 3), "text": c.text,
+                                             **{k: v for k, v in det.get(c.id, {}).items() if k != "chunk"}}
+                                            for c, s in hits]}
     if method == "POST" and path == "/api/investigations":
         args = {k: v for k, v in body.items() if v not in (None, "")}
         for k in ("min_o2", "max_o2"):
             if k in args:
                 args[k] = float(args[k])
         return 200, {"rows": integrations.search_investigations(**args)}
+    if method == "GET" and path == "/api/eval":
+        name = query.get("file", [""])[0]
+        if not name:
+            return 200, eval_index()
+        try:
+            rows = _eval_rows(name)
+        except FileNotFoundError:
+            return 404, {"error": f"no eval file {name!r}"}
+        return 200, {"file": name, "summary": _eval_summary(rows),
+                     "rows": [{k: r.get(k) for k in _EVAL_KEEP} for r in rows]}
+    if method == "POST" and path == "/api/rank":
+        bot = offline_bot()
+        reg = EvidenceRegistry()
+        res = bot._tool_rank(reg, body.get("scenario") or "", body.get("need") or None, int(body.get("top_k") or 5))
+        if "error" in res:
+            return 400, res
+        key = ranking.resolve_scenario(body.get("scenario"))
+        res["scenario_key"] = key
+        res["focus"] = list(ranking.SCENARIOS[key]["focus"])
+        res["scenarios"] = {k: v["label"] for k, v in ranking.SCENARIOS.items()}
+        res["needs"] = list(ranking.NEEDS)
+        return 200, res
     if method == "POST" and path == "/api/config":
         changed = {}
         for k, v in body.items():
@@ -127,8 +166,65 @@ def handle(method: str, path: str, query: dict, body: dict) -> tuple[int, dict]:
             val = (v in (True, "true", "1", 1)) if typ is bool else typ(v)
             setattr(config, k, val)
             changed[k] = val
+        if changed.get("RETRIEVER") in ("hybrid", "dense") and not offline_bot().retriever.ensure_dense():
+            config.RETRIEVER = "bm25"
+            return 400, {"error": "dense retrieval unavailable: pip install sentence-transformers (see README)"}
+        offline_bot().retriever.requested_mode = config.RETRIEVER
         return 200, {"changed": changed, "config": {k: getattr(config, k) for k in TUNABLES}}
     return 404, {"error": "not found"}
+
+
+def _mean(xs: list) -> float | None:
+    xs = [x for x in xs if isinstance(x, (int, float))]
+    return round(sum(xs) / len(xs), 3) if xs else None
+
+
+def _eval_rows(name: str) -> list[dict]:
+    if not _EVAL_FILE.match(name) or not (EVAL_DIR / name).is_file():
+        raise FileNotFoundError(name)
+    rows = []
+    for line in (EVAL_DIR / name).read_text(encoding="utf-8").split("\n"):
+        if line.strip():
+            try:
+                rows.append(json.loads(line))
+            except json.JSONDecodeError:
+                continue
+    return rows
+
+
+def _eval_summary(rows: list[dict]) -> dict:
+    crit = [r.get("criteria") or {} for r in rows]
+    return {
+        "n": len(rows), "passed": sum(bool(r.get("ok")) for r in rows),
+        "offline": not any(r.get("cost_usd") for r in rows),
+        "faithfulness": _mean([c.get("faithfulness") for c in crit]),
+        "citation_correctness": _mean([c.get("citation_correctness") for c in crit]),
+        "answer_correctness": _mean([c.get("answer_correctness") for c in crit]),
+        "unfaithful": sum(c.get("unfaithful") or 0 for c in crit), "miscited": sum(c.get("miscited") or 0 for c in crit),
+        "cost_usd": round(sum(r.get("cost_usd") or 0 for r in rows), 5),
+        "latency_ms": _mean([r.get("latency_ms") for r in rows]), "searches": _mean([r.get("searches") for r in rows]),
+        "categories": sorted({r.get("category", "") for r in rows}),
+    }
+
+
+def eval_index() -> dict:
+    files = []
+    for f in sorted(EVAL_DIR.glob("results*.jsonl"), key=lambda x: x.stat().st_mtime, reverse=True):
+        if _EVAL_FILE.match(f.name):
+            files.append({"file": f.name, **_eval_summary(_eval_rows(f.name))})
+    qs = []
+    qfile = EVAL_DIR / "questions.jsonl"
+    if qfile.is_file():
+        for line in qfile.read_text(encoding="utf-8").split("\n"):
+            if line.strip():
+                q = json.loads(line)
+                qs.append({k: q.get(k) for k in ("id", "category", "question", "expect", "history")})
+    return {"files": files, "questions": qs}
+
+
+_EVAL_KEEP = ("id", "category", "question", "expect", "got", "ok", "behavior_ok", "source_ok", "tool_ok", "english_ok",
+              "criteria", "facts", "answer", "refused", "cost_usd", "latency_ms", "searches", "tool_calls", "warnings",
+              "trace_id", "expect_sources")
 
 
 def pick_bot(body: dict) -> Assistant:

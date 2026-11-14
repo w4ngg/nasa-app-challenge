@@ -46,9 +46,11 @@ def show(trace_id: str, as_json: bool) -> None:
     for e in t["events"]:
         k, at = e["kind"], f"{e['t_ms']:>6}ms"
         if k == "retrieval":
-            print(f"{at}  RETRIEVAL [{e['origin']}] q={_short(e['query'], 60)!r} src={e.get('source_id') or '-'}")
+            print(f"{at}  RETRIEVAL [{e['origin']}|{e.get('retriever', 'bm25')}] q={_short(e['query'], 60)!r} "
+                  f"src={e.get('source_id') or '-'}")
             for h in e["hits"]:
-                print(f"           {h['tag']:<6} {h['score']:>6}  {h['chunk']}")
+                extra = f"  bm25={h['bm25']} cos={h['dense']}" if "dense" in h else ""
+                print(f"           {h['tag']:<6} {h['score']:>6}  {h['chunk']}{extra}")
             if not e["hits"]:
                 print("           (không có kết quả vượt ngưỡng)")
         elif k == "llm_call":

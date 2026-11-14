@@ -51,6 +51,19 @@ def expand_query(text: str) -> str:
     return f"{text} {' '.join(extra)}" if extra else text
 
 
+_VI_CHARS = re.compile(r"[ăâđêôơưạảấầẩẫậắằẳẵặẹẻẽếềểễệỉịọỏốồổỗộớờởỡợụủứừửữựỳỵỷỹ]", re.I)
+
+
+def dense_query(text: str) -> str:
+    """Câu truy vấn cho embedding (model tiếng Anh): câu tiếng Việt -> chỉ dùng từ khóa tiếng Anh đã dịch,
+    vì trộn hai thứ tiếng làm cosine thấp (v03: 0.66 -> 0.80). Câu tiếng Anh giữ nguyên."""
+    if _VI_CHARS.search(text):
+        extra = expand_query(text)[len(text):].strip()
+        if extra:
+            return extra
+    return text
+
+
 def stem(t: str) -> str:
     """Stemmer tiếng Anh tối giản, bảo thủ: gộp số nhiều / -ing / -ed / e cuối.
 
@@ -169,23 +182,89 @@ SECTION_WEIGHTS = {"Publications": 0.4}
 
 
 class DocumentRetriever:
-    def __init__(self, chunks: list[Chunk] | None = None):
+    """BM25 (mặc định), hoặc hybrid = BM25 + embedding (config.RETRIEVER).
+
+    Hybrid: mỗi bên lấy HYBRID_CANDIDATES ứng viên vượt ngưỡng riêng (BM25 >= min_score, cosine >= DENSE_MIN_SIM),
+    rồi gộp: weighted (mặc định) = α·BM25/max + (1-α)·(cos - DENSE_FLOOR)/(max - DENSE_FLOOR), hoặc rrf = Σ 1/(RRF_K + hạng).
+    Một chunk chỉ cần một bên khớp là được giữ, nên câu hỏi diễn đạt khác tài liệu vẫn tìm được, còn câu lạc đề
+    (không bên nào vượt ngưỡng) trả về rỗng -> bot từ chối. Chunk BM25 có cosine < DENSE_FLOOR bị loại
+    (khớp chữ nhưng lạc nghĩa). Thiếu sentence-transformers -> BM25."""
+
+    def __init__(self, chunks: list[Chunk] | None = None, mode: str | None = None):
         self.chunks = chunks if chunks is not None else load_chunks()
         self.bm25 = BM25([tokenize(f"{c.title} {c.section} {c.text}") for c in self.chunks])
+        self.requested_mode = (mode or config.RETRIEVER or "bm25").lower()
+        self.dense = None
+        if self.requested_mode in ("hybrid", "dense"):
+            from .embeddings import DenseIndex
+            self.dense = DenseIndex.load(self.chunks)
+        self.last_details: list[dict] = []  # điểm từng bên của lần search gần nhất (cho trace / demo)
+
+    def ensure_dense(self) -> bool:
+        """Nạp embedding khi cần (vd demo UI chuyển sang hybrid lúc đang chạy). True nếu dùng được."""
+        if self.dense is None and not getattr(self, "_dense_failed", False):
+            from .embeddings import DenseIndex
+            self.dense = DenseIndex.load(self.chunks)
+            self._dense_failed = self.dense is None
+        return self.dense is not None
+
+    @property
+    def mode(self) -> str:
+        return self.requested_mode if self.dense is not None else "bm25"
 
     @property
     def uses_mock(self) -> bool:
         return any(c.is_mock for c in self.chunks)
 
+    def _bm25_scores(self, query: str) -> list[float]:
+        scores = self.bm25.scores(query_terms(query))
+        # Danh sách tên bài báo dày từ khóa nhưng ít nội dung giải thích -> giảm trọng số
+        return [s * SECTION_WEIGHTS.get(c.section, 1.0) for c, s in zip(self.chunks, scores)]
+
     def search(self, query: str, k: int | None = None, min_score: float | None = None,
-               source_id: str | None = None) -> list[tuple[Chunk, float]]:
+               source_id: str | None = None, mode: str | None = None) -> list[tuple[Chunk, float]]:
+        """Trả về [(chunk, score)]. bm25: score = điểm BM25. hybrid: score = điểm gộp (weighted: 0-1; rrf: ~0.01-0.03);
+        dense: cosine. Ngưỡng lọc áp lên điểm từng bên trước khi gộp; điểm gộp chỉ để xếp hạng."""
         # đọc config lúc gọi (không phải lúc import) để chỉnh được khi đang chạy (demo UI)
         k = config.TOP_K if k is None else k
         min_score = config.MIN_SCORE if min_score is None else min_score
-        scores = self.bm25.scores(query_terms(query))
-        # Danh sách tên bài báo dày từ khóa nhưng ít nội dung giải thích -> giảm trọng số
-        scores = [s * SECTION_WEIGHTS.get(c.section, 1.0) for c, s in zip(self.chunks, scores)]
-        ranked = sorted(zip(self.chunks, scores), key=lambda x: x[1], reverse=True)
+        mode = (mode or self.mode).lower()
+        if mode != "bm25" and self.dense is None:
+            mode = "bm25"
+        idx = range(len(self.chunks))
         if source_id:
-            ranked = [r for r in ranked if r[0].source_id.lower() == source_id.lower()]
-        return [(c, s) for c, s in ranked[:k] if s >= min_score]
+            idx = [i for i in idx if self.chunks[i].source_id.lower() == source_id.lower()]
+        bm = self._bm25_scores(query)
+        if mode == "bm25":
+            ranked = sorted(idx, key=lambda i: bm[i], reverse=True)
+            out = [i for i in ranked[:k] if bm[i] >= min_score]
+            self.last_details = [{"chunk": self.chunks[i].id, "bm25": round(bm[i], 3)} for i in out]
+            return [(self.chunks[i], bm[i]) for i in out]
+
+        dn = self.dense.scores(dense_query(query))
+        n = config.HYBRID_CANDIDATES
+        bm_rank = [i for i in sorted(idx, key=lambda i: bm[i], reverse=True)
+                   if bm[i] >= min_score and dn[i] >= config.DENSE_FLOOR][:n]
+        dn_rank = [i for i in sorted(idx, key=lambda i: dn[i], reverse=True) if dn[i] >= config.DENSE_MIN_SIM][:n]
+        fused: dict[int, float] = {}
+        if mode == "dense":
+            fused = {i: dn[i] for i in dn_rank}
+        elif config.HYBRID_FUSION == "rrf":
+            for lst in (bm_rank, dn_rank):
+                for r, i in enumerate(lst, 1):
+                    fused[i] = fused.get(i, 0.0) + 1.0 / (config.RRF_K + r)
+        else:
+            cand = set(bm_rank) | set(dn_rank)
+            if cand:
+                # cosine chuẩn hóa từ mốc DENSE_FLOOR (không dùng min-max: min-max phóng đại chênh lệch rất nhỏ)
+                bmax = max(bm[i] for i in cand) or 1.0
+                lo, dmax = config.DENSE_FLOOR, max(dn[i] for i in cand)
+                a = config.HYBRID_ALPHA
+                fused = {i: a * bm[i] / bmax + (1 - a) * max(0.0, dn[i] - lo) / ((dmax - lo) or 1.0) for i in cand}
+        top = sorted(fused, key=lambda i: (-fused[i], -bm[i]))[:k]
+        bpos = {i: r for r, i in enumerate(bm_rank, 1)}
+        dpos = {i: r for r, i in enumerate(dn_rank, 1)}
+        self.last_details = [{"chunk": self.chunks[i].id, "bm25": round(bm[i], 3), "dense": round(dn[i], 3),
+                              "bm25_rank": bpos.get(i), "dense_rank": dpos.get(i), "fused": round(fused[i], 4)}
+                             for i in top]
+        return [(self.chunks[i], round(fused[i], 4)) for i in top]

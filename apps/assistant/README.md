@@ -14,7 +14,8 @@ git checkout feat/ai-assistant && git pull
 cd apps/assistant
 python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
-python -m pytest tests -q          # phải ra "43 passed" – không cần key, không tốn tiền
+pip install -r requirements-embed.txt   # tùy chọn: hybrid retrieval (BM25 + embedding), lần đầu tải model ~440 MB
+python -m pytest tests -q          # phải ra "56 passed" – không cần key, không tốn tiền
 python -m assistant.demo_server    # giao diện demo: http://127.0.0.1:8765 (chế độ offline miễn phí)
 python -m assistant.cli --offline  # chat trên terminal, không gọi LLM
 ```
@@ -50,6 +51,41 @@ python -m assistant.ingest        # ghi đè data/processed/chunks.jsonl
 ## Ngôn ngữ
 
 Mọi output cho người dùng đều bằng **tiếng Anh**: câu trả lời, câu từ chối, cảnh báo, kể cả khi câu hỏi viết bằng tiếng Việt (quy tắc 7 trong `prompts.py`). Bộ eval `eval/questions.jsonl` cũng toàn bằng tiếng Anh. Câu hỏi tiếng Việt vẫn tìm được tài liệu nhờ từ điển `VI_EN_GLOSSARY`.
+
+## Truy xuất: hybrid (BM25 + embedding)
+
+`RETRIEVER=hybrid` (mặc định) gộp hai bộ truy xuất:
+
+- **BM25** (từ khóa, có stem, từ đồng nghĩa, từ điển Việt→Anh): mạnh với mã và thuật ngữ như FLEX, PSI-102, SF6.
+- **Embedding** `BAAI/bge-base-en-v1.5`, chạy local, miễn phí: tìm được đoạn diễn đạt khác câu hỏi.
+  Vector của 1.371 chunk có sẵn ở `data/processed/embeddings.npz` (tự encode lại nếu chunks đổi, khoảng 40 giây).
+
+Cách gộp (`HYBRID_FUSION=weighted`): mỗi bên lấy tối đa 30 ứng viên vượt ngưỡng (BM25 ≥ `RETRIEVAL_MIN_SCORE`,
+cosine ≥ `DENSE_MIN_SIM` = 0,6), rồi xếp theo `0,6·BM25/max + 0,4·(cos − 0,45)/(max − 0,45)`.
+- Chunk BM25 có cosine dưới `DENSE_FLOOR` = 0,45 bị loại, để chặn khớp chữ lạc nghĩa: "how to train a dog" trước đây
+  ra tài liệu Apollo vì từ "training", giờ trả về rỗng. Mọi chunk gold trong eval đều có cosine ≥ 0,452.
+- Câu tiếng Việt: model embedding chỉ hiểu tiếng Anh, nên phía dense dùng từ khóa tiếng Anh dịch từ từ điển.
+- Không cài `sentence-transformers` thì tự quay về BM25 (`RETRIEVER=bm25` để tắt hẳn).
+
+Đo miễn phí bằng `python eval/retrieval_eval.py --k 3 5 10` (27 câu có gold chunk). Truy vấn "DeepSeek" là đúng các
+truy vấn model đã gửi trong lần chạy v4. Agent mặc định lấy k=5.
+
+| recall (source) | BM25 | dense | **hybrid** |
+|---|---|---|---|
+| câu hỏi gốc, k=3 | 0,22 (0,46) | 0,17 (0,38) | 0,22 (0,49) |
+| câu hỏi gốc, k=5 | 0,24 (0,55) | 0,24 (0,45) | **0,40 (0,57)** |
+| câu hỏi gốc, k=10 | 0,34 (0,75) | 0,30 (0,54) | **0,49 (0,73)** |
+| truy vấn DeepSeek, k=5 | 0,43 (0,74) | 0,43 (0,61) | **0,52 (0,77)** |
+| truy vấn DeepSeek, k=10 | 0,53 (0,93) | 0,48 (0,72) | **0,64 (0,94)** |
+| thời gian / truy vấn | 1 ms | 10 ms | 10 ms |
+
+Ghi chú trung thực:
+- Bộ đo nhỏ (27 câu), và α, ngưỡng được chọn trên chính bộ này, nên mức cải thiện thật có thể thấp hơn.
+- Ở k=3 (chế độ offline chỉ in 3 đoạn) hybrid ngang BM25. Eval offline: 25/35 so với 27/35 của BM25, do 2 câu (q13, v03)
+  ra nguồn đúng chủ đề nhưng ngoài danh sách `expect_sources` hoặc ngoài top-3.
+- Recall theo chunk là thước đo chặt: một ý có thể nằm ở chunk khác chunk gold.
+- Embedding yếu ở câu nêu nhiều mã viết tắt (FLEX, SAME…), vì vậy vẫn giữ BM25 trong hybrid.
+- Khởi động thêm khoảng 6 giây (nạp model), mỗi truy vấn khoảng 10 ms.
 
 ## Chất lượng câu trả lời
 
@@ -165,12 +201,14 @@ python -m assistant.demo_server          # mở http://127.0.0.1:8765
 ```
 
 Server chỉ dùng thư viện có sẵn của Python và chỉ chạy trên máy local. Giao diện gồm:
-- **Chat**: bấm vào câu trả lời để xem chi tiết; bấm vào nhãn `[S1]` để mở đúng trích dẫn đó.
+- **Chat**: câu trả lời hiện dần (streaming) kèm dòng trạng thái tool; bấm vào câu trả lời để xem chi tiết; bấm vào nhãn `[S1]`/`[R1]` để mở đúng trích dẫn đó. Màn hình trống có câu hỏi mẫu (so sánh 3 nghiên cứu, xếp hạng, tiếng Việt, câu bẫy); bấm vào chỉ điền vào ô, chưa gửi.
 - **Citations**: nguồn, link, đoạn trích của từng nhãn.
 - **Trace**: các đoạn tìm được kèm điểm, từng lượt gọi LLM (token, thời gian, chi phí), tool đã gọi, guardrail, và JSON gốc.
 - **Context & cost**: xem trước messages và chi phí trước khi hỏi (miễn phí).
-- **Retriever**: thử BM25 trực tiếp (query, k, min score, lọc theo nguồn).
+- **Retriever**: thử truy xuất trực tiếp (query, k, min score, lọc theo nguồn) ở chế độ bm25 / dense / hybrid, xem điểm BM25 và cosine của từng chunk.
 - **Investigations**: lọc bảng nghiên cứu.
+- **Ranking**: chọn kịch bản (tàu vũ trụ / Moon Base / Mars Base / rover) và nhu cầu (prevention / detection / suppression) để xem bảng xếp hạng, điểm từng thành phần, lý do và điều kiện cabin trích từ đề bài. Chạy local, miễn phí. Ghi rõ đang dùng công thức tạm hay `rank()` của Module 4.
+- **Eval**: xem các lần chạy đã lưu trong `eval/results*.jsonl` (đạt/không, 3 tiêu chí, chi phí, độ trễ), so sánh hai lần chạy trên cùng bộ câu hỏi, lọc theo nhóm, mở từng câu xem gold facts bị thiếu, và "Try in chat" để nạp câu hỏi kèm lịch sử hội thoại có sẵn vào chat.
 - **Settings**: chỉnh `TOP_K`, `MIN_SCORE`, `MAX_TOOL_ROUNDS`, `EVIDENCE_CHAR_BUDGET`… khi đang chạy. Thay đổi chỉ lưu trong bộ nhớ; muốn giữ lâu dài thì sửa `.env`.
 - **History**: các request trước, lấy từ trace.
 
@@ -242,7 +280,7 @@ Nhãn trích dẫn: `[S#]` = đoạn tài liệu, `[I#]` = dòng trong bảng in
 ## Luồng xử lý
 
 ```
-câu hỏi ─► truy xuất sơ bộ (BM25) ─► DeepSeek + tools ─► câu trả lời có [S#]/[I#]/[P#] ─► hậu kiểm
+câu hỏi ─► truy xuất sơ bộ (hybrid: BM25 + embedding) ─► DeepSeek + tools ─► câu trả lời có [S#]/[I#]/[P#] ─► hậu kiểm
                                       ├ search_documents      (đoạn văn bản, retriever.py)
                                       ├ search_investigations (bảng của Module 1)
                                       └ predict_flammability  (predict() của Module 5)
@@ -290,7 +328,8 @@ Lưu ý về dữ liệu:
 assistant/
   agent.py         ask(), vòng gọi tool, hậu kiểm trích dẫn
   prompts.py       system prompt + định nghĩa tool
-  retriever.py     BM25 thuần Python
+  retriever.py     BM25 thuần Python + hybrid (gộp với embedding)
+  embeddings.py    dense retrieval (sentence-transformers, tùy chọn)
   integrations.py  cầu nối Module 1 / Module 5 (hiện là mock)
   llm.py           client DeepSeek + theo dõi chi phí
   ingest.py        tài liệu -> chunks.jsonl

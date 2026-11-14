@@ -14,4 +14,5 @@ eval/*.rescored.jsonl
 # NGOẠI LỆ: snapshot dữ liệu runtime (~2.2 MB) để cả nhóm pull về chạy được ngay và cho kết quả giống nhau.
 # PDF gốc (data/raw/ntrs, ~32 MB) vẫn KHÔNG commit; chỉ cần khi muốn ingest lại.
 !data/processed/chunks.jsonl
+!data/processed/embeddings.npz
 !data/raw/psi_combustion.json
