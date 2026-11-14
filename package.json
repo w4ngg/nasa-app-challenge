@@ -6,6 +6,7 @@
   "workspaces": ["apps/web"],
   "engines": { "node": ">=22.12.0" },
   "scripts": {
+    "test:web": "npm run test --workspace @flame-atlas/web",
     "dev:web": "npm run dev --workspace @flame-atlas/web",
     "serve:web": "node apps/web/server.ts",
     "build": "npm run build --workspace @flame-atlas/web",
