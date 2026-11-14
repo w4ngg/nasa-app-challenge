@@ -16,6 +16,7 @@ const TOGGLES: { key: Toggle; label: string }[] = [
   { key: "dataset", label: "Datasets" },
 ];
 const MAX_COMPARE = 3;
+const FIT_MAX_ZOOM = 1.1;
 const reducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 const detailHref = (id: string) => routeUrl({ view: "map", id, filters: emptyFilters, page: 0 });
 
@@ -128,14 +129,29 @@ export function KnowledgeMapPage({ onLink }: { onLink: (event: MouseEvent<HTMLAn
     const cy = cyRef.current;
     if (!cy || !index) return;
     const searching = matches.length > 0;
+    // New nodes start on a ring around a visible parent, so the layout settles instead of piling them up.
+    const ring = new Map<string, number>();
+    const appearing = cy.nodes().filter((n) => visible.has(n.id()) && n.hasClass("hidden"));
+    const ringSize = new Map<string, number>();
+    appearing.forEach((n) => {
+      const p = index.parents(n.id()).map((e) => e.source).find((s) => visible.has(s));
+      if (p) ringSize.set(p, (ringSize.get(p) ?? 0) + 1);
+    });
     cy.batch(() => {
       cy.nodes().forEach((node) => {
         const id = node.id();
         const isVisible = visible.has(id);
         if (isVisible && node.hasClass("hidden")) {
-          // New nodes start next to a visible parent, so the layout settles instead of reshuffling.
-          const parent = index.parents(id).map((e) => cy.getElementById(e.source)).find((p) => p.nonempty() && !p.hasClass("hidden"));
-          if (parent) node.position({ x: parent.position("x") + (Math.random() - 0.5) * 80, y: parent.position("y") + (Math.random() - 0.5) * 80 });
+          const parentId = index.parents(id).map((e) => e.source).find((s) => visible.has(s));
+          const parent = parentId ? cy.getElementById(parentId) : null;
+          if (parent && parentId) {
+            const i = ring.get(parentId) ?? 0;
+            ring.set(parentId, i + 1);
+            const n = ringSize.get(parentId) ?? 1;
+            const angle = (2 * Math.PI * i) / n;
+            const radius = 90 + n * 6;
+            node.position({ x: parent.position("x") + radius * Math.cos(angle), y: parent.position("y") + radius * Math.sin(angle) });
+          }
         }
         node.toggleClass("hidden", !isVisible);
         node.toggleClass("match", matches.includes(id));
@@ -151,7 +167,10 @@ export function KnowledgeMapPage({ onLink }: { onLink: (event: MouseEvent<HTMLAn
     // Positions are computed instantly (MOTION 1 in DESIGN.md); only the camera move is animated.
     const layout = cy.elements(":visible").layout({
       name: "cose", animate: false, randomize: firstLayout.current, fit: false,
-      nodeRepulsion: () => 400000, idealEdgeLength: () => 90, edgeElasticity: () => 100, nodeOverlap: 20,
+      // Small nodes (publications, datasets) need more push and longer edges to keep their labels apart.
+      nodeRepulsion: (n: cytoscape.NodeSingular) => (["publication", "dataset"].includes(n.data("type")) ? 900000 : 400000),
+      idealEdgeLength: (e: cytoscape.EdgeSingular) => (["lists_publication", "has_dataset"].includes(e.data("type")) ? 140 : 90),
+      edgeElasticity: () => 100, nodeOverlap: 40,
       gravity: 60, numIter: firstLayout.current ? 1200 : 500, initialTemp: firstLayout.current ? 200 : 60,
       coolingFactor: 0.95, minTemp: 1, componentSpacing: 80, padding: 30,
     } as cytoscape.LayoutOptions);
@@ -163,8 +182,13 @@ export function KnowledgeMapPage({ onLink }: { onLink: (event: MouseEvent<HTMLAn
       firstLayout.current = false;
       window.setTimeout(() => {
         cy.stop(true, false);
-        if (reducedMotion() || first) cy.fit(eles, 50);
-        else cy.animate({ fit: { eles, padding: 50 }, duration: 500, easing: "ease-in-out-cubic" });
+        // Fit the target, but never closer than FIT_MAX_ZOOM, so labels of a tight cluster stay readable.
+        const bb = eles.boundingBox();
+        const pad = 60;
+        const level = Math.min(FIT_MAX_ZOOM, (cy.width() - 2 * pad) / Math.max(bb.w, 1), (cy.height() - 2 * pad) / Math.max(bb.h, 1));
+        const pan = { x: cy.width() / 2 - level * (bb.x1 + bb.w / 2), y: cy.height() / 2 - level * (bb.y1 + bb.h / 2) };
+        if (reducedMotion() || first) cy.viewport({ zoom: level, pan });
+        else cy.animate({ zoom: level, pan, duration: 500, easing: "ease-in-out-cubic" });
       }, 0);
     });
     layout.run();
