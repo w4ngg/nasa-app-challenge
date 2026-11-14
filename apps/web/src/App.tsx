@@ -5,6 +5,7 @@ import { SideNav } from "./components/SideNav";
 import { getFacets, getSummary } from "./lib/data";
 import { isPlainClick, linkHandler, readRoute, routeUrl } from "./lib/route";
 import type { Route } from "./lib/route";
+import { AssistantPage } from "./pages/AssistantPage";
 import { ExplorerPage } from "./pages/ExplorerPage";
 import { OverviewPage } from "./pages/OverviewPage";
 import { PlaceholderPage } from "./pages/PlaceholderPage";
@@ -50,11 +51,13 @@ export default function App() {
   if (route.id) {
     page = (
       <InvestigationDetail id={route.id} backHref={routeUrl({ ...route, id: null })}
-        backLabel={route.view === "explorer" ? "Back to the experiment library" : "Back to the overview"}
+        backLabel={route.view === "explorer" ? "Back to the experiment library" : route.view === "assistant" ? "Back to the research assistant" : "Back to the overview"}
         onBack={backToList} onOpen={openInvestigation} />
     );
   } else if (route.view === "overview") {
     page = <OverviewPage summary={summary} onLink={onLink} />;
+  } else if (route.view === "assistant") {
+    page = <AssistantPage onLink={onLink} />;
   } else if (route.view === "explorer") {
     page = <ExplorerPage route={route} navigate={navigate} summary={summary} facets={facets} onOpen={openInvestigation} />;
   } else {

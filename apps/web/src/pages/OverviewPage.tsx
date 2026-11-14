@@ -203,10 +203,9 @@ export function OverviewPage({ summary, onLink }: {
               </li>
             )}
           </ul>
-          {/* TODO: connect apps/assistant here. */}
           <div className="slot-empty">
             <p className="slot-title">Research assistant</p>
-            <p>Not built yet. <a href={viewUrl("assistant")} onClick={onLink}>What it will do</a>.</p>
+            <p>Ask follow-up questions; every answer cites NASA PSI records and reports. <a href={viewUrl("assistant")} onClick={onLink}>Open the research assistant</a>.</p>
           </div>
         </section>
       </div>

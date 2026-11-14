@@ -15,7 +15,7 @@ from typing import Any
 
 from . import config, integrations
 from .context import SUMMARY_SYSTEM, prepare_history, transcript
-from .prompts import REFUSAL_MARKER, SYSTEM_PROMPT, TOOLS
+from .prompts import REFUSAL_MARKER, SYSTEM_PROMPT, active_tools
 from .retriever import DocumentRetriever, expand_query
 from .schema import Answer, Citation
 from .trace import Trace
@@ -317,8 +317,8 @@ class Assistant:
         user_msg = messages[-1]["content"]
         parts = [
             {"part": "system_prompt", "chars": len(SYSTEM_PROMPT), "tokens": tok(SYSTEM_PROMPT)},
-            {"part": "tool_schema", "chars": len(json.dumps(TOOLS, ensure_ascii=False)),
-             "tokens": cost.tools_tokens(TOOLS, cpt)},
+            {"part": "tool_schema", "chars": len(json.dumps(active_tools(), ensure_ascii=False)),
+             "tokens": cost.tools_tokens(active_tools(), cpt)},
             {"part": "history_summary", "chars": len(summary), "tokens": tok(summary)},
             {"part": f"history_recent ({len(recent)} msgs)", "chars": sum(len(m["content"]) for m in recent),
              "tokens": cost.messages_tokens(recent, cpt)},
@@ -326,7 +326,7 @@ class Assistant:
             {"part": f"prefetched_evidence ({prefetch['n_results']} chunks)",
              "chars": len(user_msg) - len(question), "tokens": tok(user_msg[len(question):])},
         ]
-        base_in = cost.messages_tokens(messages, cpt) + cost.tools_tokens(TOOLS, cpt)
+        base_in = cost.messages_tokens(messages, cpt) + cost.tools_tokens(active_tools(), cpt)
 
         # 1 kết quả search_documents điển hình ~ bằng prefetch; nếu prefetch rỗng thì lấy độ dài chunk trung bình
         if evidence_json:
@@ -387,7 +387,7 @@ class Assistant:
         msg = None
         for round_ in range(config.MAX_TOOL_ROUNDS + 1):
             use_tools = round_ < config.MAX_TOOL_ROUNDS
-            msg = self._chat(messages, TOOLS if use_tools else None, ans, trace, "answer", round_)
+            msg = self._chat(messages, active_tools() if use_tools else None, ans, trace, "answer", round_)
             calls = getattr(msg, "tool_calls", None) or []
             if not calls:
                 break

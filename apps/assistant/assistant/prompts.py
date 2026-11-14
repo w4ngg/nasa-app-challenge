@@ -50,6 +50,15 @@ STRICT RULES (guardrails):
    needs its own citation tag.
 """
 
+def active_tools() -> list[dict]:
+    """Tools offered to the LLM. predict_flammability is hidden until a real model is configured
+    (PREDICT_IMPORT), so a placeholder prediction can never appear in an answer."""
+    from . import config
+    if config.PREDICT_IMPORT:
+        return TOOLS
+    return [t for t in TOOLS if t["function"]["name"] != "predict_flammability"]
+
+
 TOOLS = [
     {
         "type": "function",
