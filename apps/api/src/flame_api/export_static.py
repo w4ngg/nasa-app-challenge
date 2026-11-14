@@ -9,6 +9,7 @@ import json
 from pathlib import Path
 
 from .config import REPOSITORY_ROOT
+from .graph import build_graph
 from .models import Catalog
 
 
@@ -24,7 +25,10 @@ def export(catalog: Catalog, destination: Path) -> dict[str, int]:
         by_investigation.setdefault(table.investigation_id, []).append(table.model_dump(mode="json"))
     for investigation_id, tables in by_investigation.items():
         write(tables_dir / f"{investigation_id}.json", tables)
-    return {"investigations": len(catalog.investigations), "table_files": len(by_investigation)}
+    graph = build_graph(catalog)
+    write(destination / "graph.json", graph)
+    return {"investigations": len(catalog.investigations), "table_files": len(by_investigation),
+            "graph_nodes": len(graph["nodes"]), "graph_edges": len(graph["edges"])}
 
 
 def write(path: Path, content) -> None:

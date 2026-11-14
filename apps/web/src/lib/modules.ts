@@ -12,6 +12,7 @@ export interface Module {
 
 export const modules: Module[] = [
   { view: "overview", label: "Overview", built: true },
+  { view: "map", label: "Knowledge map", built: true },
   {
     view: "chamber", label: "3D flame chamber", built: false,
     planned: "A view of flame shape and spread in microgravity, driven by the conditions recorded in a selected experiment run.",
