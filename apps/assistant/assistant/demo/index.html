@@ -40,6 +40,8 @@ main { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap:
 .msg { border-radius: 10px; padding: 10px 12px; max-width: 100%; overflow-wrap: anywhere; }
 .msg.user { background: var(--chip); align-self: flex-end; max-width: 85%; }
 .msg.bot { border: 1px solid var(--line); cursor: pointer; }
+.msg.bot.live { border-style: dashed; cursor: default; }
+.msg.bot.live .stream:empty::after { content: "…"; color: var(--muted); }
 .msg.bot.selected { outline: 2px solid var(--accent); }
 .msg.bot.refused { border-color: var(--warn); }
 .meta { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
@@ -201,7 +203,7 @@ document.querySelectorAll("#tabs button").forEach((b) => b.onclick = () => { sho
 // ---------- chat ----------
 function inline(s) {
   return esc(s).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
-    .replace(/\[([SIP]\d+)\]/g, '<button class="cite" data-ref="$1">$1</button>');
+    .replace(/\[([SIPR]\d+)\]/g, '<button class="cite" data-ref="$1">$1</button>');
 }
 function renderAnswerText(text) {
   // markdown tối giản: bảng "| a | b |", gạch đầu dòng, **đậm**, nhãn [S1]
@@ -232,7 +234,7 @@ function renderMsgs() {
       ${a.error ? "" : `<div class="meta">
         <span class="chip ${a._mode === "llm" ? "" : "ok"}">${a._mode === "llm" ? "DeepSeek" : "offline"}</span>
         ${a.refused ? '<span class="chip warn">refused</span>' : `<span class="chip">${a.citations.length} citations</span>`}
-        <span class="chip">${a.latency_ms} ms</span>
+        <span class="chip">${a.latency_ms} ms</span>${a._first_token_ms ? `<span class="chip ok" title="time until the first streamed word">first word ${a._first_token_ms} ms</span>` : ""}
         <span class="chip">tok ${a.prompt_tokens}/${a.completion_tokens}</span>
         <span class="chip">${fmt$(a.cost_usd)}</span>
         ${a.verification && a.verification.claims ? `<span class="chip ${lvl((a.verification.faithfulness || {}).score)}" title="claims found in any retrieved context">faithful ${pct((a.verification.faithfulness || {}).score)}</span>
@@ -336,14 +338,50 @@ async function ask() {
     if (!confirm("This will call DeepSeek and use paid quota." + est + "\nContinue?")) return;
   }
   busy(true);
+  // live bubble: status lines + streamed text; replaced by the verified final answer on "done"
+  renderMsgs();
+  const live = document.createElement("div");
+  live.innerHTML = `<div class="msg user">${esc(q)}</div><div class="msg bot live"><div class="status small muted"></div><div class="stream"></div></div>`;
+  if (!answers.length) $("#msgs").innerHTML = "";
+  $("#msgs").appendChild(live); $("#msgs").scrollTop = $("#msgs").scrollHeight;
+  const stEl = live.querySelector(".status"), txEl = live.querySelector(".stream");
+  let text = "", t0 = performance.now(), firstTok = null;
   try {
-    const a = await api("/api/ask", {question: q, history, mode, confirm_paid: mode === "llm"});
-    a._mode = mode; answers.push(a);
+    const a = await askStream({question: q, history, mode, confirm_paid: mode === "llm"}, (ev) => {
+      if (ev.type === "status") stEl.innerHTML += `<div>⏳ ${esc(ev.text)}</div>`;
+      else if (ev.type === "delta") { if (firstTok === null) firstTok = performance.now() - t0; text += ev.text; txEl.innerHTML = renderAnswerText(text); }
+      else if (ev.type === "reset") { text = ""; txEl.innerHTML = ""; }
+      $("#msgs").scrollTop = $("#msgs").scrollHeight;
+    });
+    a._mode = mode; if (firstTok !== null) a._first_token_ms = Math.round(firstTok);
+    answers.push(a);
     history.push({role: "user", content: q}, {role: "assistant", content: a.answer});
     $("#q").value = ""; selectAnswer(answers.length - 1);
   } catch (e) {
     answers.push({question: q, error: e.message}); renderMsgs();
   } finally { busy(false); loadStatus(); }
+}
+async function askStream(body, onEvent) {
+  const r = await fetch("/api/ask_stream", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)});
+  if (!r.ok || !r.body) { const j = await r.json().catch(() => ({})); throw new Error(j.error || `HTTP ${r.status}`); }
+  const reader = r.body.getReader(), dec = new TextDecoder();
+  let buf = "", final = null;
+  for (;;) {
+    const {value, done} = await reader.read();
+    if (done) break;
+    buf += dec.decode(value, {stream: true});
+    let i;
+    while ((i = buf.indexOf("\n\n")) >= 0) {
+      const line = buf.slice(0, i).trim(); buf = buf.slice(i + 2);
+      if (!line.startsWith("data:")) continue;
+      const ev = JSON.parse(line.slice(5));
+      if (ev.type === "done") final = ev.answer;
+      else if (ev.type === "error") throw new Error(ev.error);
+      else onEvent(ev);
+    }
+  }
+  if (!final) throw new Error("stream ended without an answer");
+  return final;
 }
 function busy(on) { $("#btnAsk").disabled = $("#btnPreview").disabled = on; $("#busy").textContent = on ? "working…" : ""; }
 $("#btnAsk").onclick = ask;

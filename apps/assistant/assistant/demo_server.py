@@ -33,7 +33,7 @@ HTML = Path(__file__).parent / "demo" / "index.html"
 
 # Tunables exposed in the UI (name -> type). Changed in memory only.
 TUNABLES = {
-    "TOP_K": int, "MIN_SCORE": float, "MAX_TOOL_ROUNDS": int, "TEMPERATURE": float,
+    "TOP_K": int, "MIN_SCORE": float, "MAX_TOOL_ROUNDS": int, "MAX_SEARCHES": int, "TEMPERATURE": float,
     "HISTORY_KEEP_TURNS": int, "HISTORY_SUMMARY": bool, "EVIDENCE_CHAR_BUDGET": int,
     "OVER_BUDGET_SNIPPET_CHARS": int, "FALLBACK_OFFLINE": bool, "BUDGET_USD": float,
 }
@@ -92,12 +92,10 @@ def handle(method: str, path: str, query: dict, body: dict) -> tuple[int, dict]:
         q = (body.get("question") or "").strip()
         if not q:
             return 400, {"error": "empty question"}
-        if body.get("mode") == "llm":
-            if not body.get("confirm_paid"):
-                return 400, {"error": "DeepSeek mode requires confirm_paid=true (this call costs quota)"}
-            bot = llm_bot()
-        else:
-            bot = offline_bot()
+        try:
+            bot = pick_bot(body)
+        except PermissionError as e:
+            return 400, {"error": str(e)}
         try:
             return 200, bot.ask(q, body.get("history") or []).to_dict()
         except BudgetExceeded as e:
@@ -133,7 +131,48 @@ def handle(method: str, path: str, query: dict, body: dict) -> tuple[int, dict]:
     return 404, {"error": "not found"}
 
 
+def pick_bot(body: dict) -> Assistant:
+    if body.get("mode") == "llm":
+        if not body.get("confirm_paid"):
+            raise PermissionError("DeepSeek mode requires confirm_paid=true (this call costs quota)")
+        return llm_bot()
+    return offline_bot()
+
+
 class Handler(BaseHTTPRequestHandler):
+    def _stream_ask(self, body: dict) -> None:
+        """POST /api/ask_stream -> Server-Sent Events: status / delta / reset ..., rồi done (câu trả lời cuối)."""
+        q = (body.get("question") or "").strip()
+        if not q:
+            return self._send(400, b'{"error":"empty question"}', "application/json")
+        try:
+            bot = pick_bot(body)
+        except (PermissionError, RuntimeError) as e:
+            return self._send(400, json.dumps({"error": str(e)}).encode(), "application/json")
+        self.send_response(200)
+        self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("X-Accel-Buffering", "no")
+        self.end_headers()
+        self.close_connection = True
+
+        def send(event: dict) -> None:
+            self.wfile.write(f"data: {json.dumps(event, ensure_ascii=False, default=str)}\n\n".encode())
+            self.wfile.flush()
+
+        try:
+            ans = bot.ask(q, body.get("history") or [], on_event=send)
+            send({"type": "done", "answer": ans.to_dict()})
+        except BudgetExceeded as e:
+            send({"type": "error", "error": str(e)})
+        except (BrokenPipeError, ConnectionResetError):
+            pass
+        except Exception as e:
+            try:
+                send({"type": "error", "error": f"{type(e).__name__}: {e}"})
+            except OSError:
+                pass
+
     def _send(self, code: int, payload: bytes, ctype: str) -> None:
         self.send_response(code)
         self.send_header("Content-Type", ctype)
@@ -153,6 +192,8 @@ class Handler(BaseHTTPRequestHandler):
                 body = json.loads(self.rfile.read(n) or b"{}")
             except json.JSONDecodeError:
                 return self._send(400, b'{"error":"invalid JSON"}', "application/json")
+            if url.path == "/api/ask_stream":
+                return self._stream_ask(body)
         try:
             code, data = handle(method, url.path, parse_qs(url.query), body)
         except Exception as e:  # show the error in the UI instead of a dead request

@@ -42,6 +42,8 @@ USAGE_FILE = Path(os.getenv("LLM_USAGE_FILE", str(ROOT / ".usage.json")))
 TOP_K = int(os.getenv("RETRIEVAL_TOP_K", "5"))
 MIN_SCORE = float(os.getenv("RETRIEVAL_MIN_SCORE", "0.5"))  # dưới ngưỡng coi như không tìm thấy
 MAX_TOOL_ROUNDS = int(os.getenv("MAX_TOOL_ROUNDS", "4"))
+# Trần số lần search_documents mỗi câu hỏi (không tính prefetch) – tránh câu so sánh search 7 lần tốn tiền
+MAX_SEARCHES = int(os.getenv("MAX_SEARCHES", "3"))
 
 # --- Trace (log từng request để gỡ lỗi) ---
 TRACE_ENABLED = os.getenv("TRACE_ENABLED", "1") == "1"
@@ -65,3 +67,5 @@ PSI_METADATA_FILE = Path(os.getenv("PSI_METADATA_FILE", str(DATA_DIR / "raw" / "
 CATALOG_JSON = Path(os.getenv("CATALOG_JSON", str(ROOT.parent / "web" / "public" / "data" / "index.json")))
 # Hàm predict() của Module 5, dạng "package.module:function". Để trống -> dùng mock.
 PREDICT_IMPORT = os.getenv("PREDICT_IMPORT", "")
+# Hàm rank() của Module 4 (Hân), dạng "package.module:function". Để trống -> công thức minh bạch tạm thời.
+RANK_IMPORT = os.getenv("RANK_IMPORT", "")

@@ -3,7 +3,8 @@ from __future__ import annotations
 
 import json
 import threading
-from typing import Any
+from types import SimpleNamespace as NS
+from typing import Any, Callable
 
 from . import config
 
@@ -36,7 +37,7 @@ class UsageTracker:
     def add(self, usage: Any) -> float:
         if usage is None:
             return 0.0
-        p, c = usage.prompt_tokens or 0, usage.completion_tokens or 0
+        p, c = getattr(usage, "prompt_tokens", 0) or 0, getattr(usage, "completion_tokens", 0) or 0
         cost = p / 1e6 * config.PRICE_INPUT_PER_M + c / 1e6 * config.PRICE_OUTPUT_PER_M
         with self._lock:
             d = self._read()
@@ -75,3 +76,44 @@ class DeepSeekClient:
                            "completion_tokens": getattr(u, "completion_tokens", 0) or 0,
                            "cache_hit_tokens": getattr(u, "prompt_cache_hit_tokens", 0) or 0}
         return resp.choices[0].message, cost
+
+    def chat_stream(self, messages: list[dict], tools: list[dict] | None = None,
+                    on_text: Callable[[str], None] | None = None) -> tuple[Any, float]:
+        """Như chat() nhưng stream: gọi on_text(đoạn chữ) ngay khi model sinh ra. Gom tool_calls theo index.
+        Trả về (message giống chat(), cost_usd). Chi phí tính từ usage ở chunk cuối (include_usage);
+        nếu API không trả usage thì ước lượng theo số ký tự để vẫn chặn được ngân sách."""
+        self.tracker.check_budget()
+        kwargs: dict = {"model": self.model, "messages": messages, "temperature": config.TEMPERATURE,
+                        "stream": True, "stream_options": {"include_usage": True}}
+        if tools:
+            kwargs["tools"] = tools
+        parts: list[str] = []
+        calls: dict[int, dict] = {}
+        usage = None
+        for chunk in self.client.chat.completions.create(**kwargs):
+            if getattr(chunk, "usage", None):
+                usage = chunk.usage
+            if not chunk.choices:
+                continue
+            delta = chunk.choices[0].delta
+            if getattr(delta, "content", None):
+                parts.append(delta.content)
+                if on_text:
+                    on_text(delta.content)
+            for tc in getattr(delta, "tool_calls", None) or []:
+                c = calls.setdefault(tc.index, {"id": "", "name": "", "arguments": ""})
+                c["id"] = tc.id or c["id"]
+                if tc.function:
+                    c["name"] += tc.function.name or ""
+                    c["arguments"] += tc.function.arguments or ""
+        if usage is None:  # dự phòng: ước lượng ~4 ký tự / token
+            p_chars = sum(len(str(m.get("content") or "")) for m in messages) + len(json.dumps(tools or []))
+            usage = NS(prompt_tokens=p_chars // 4, completion_tokens=len("".join(parts)) // 4 + 1,
+                       prompt_cache_hit_tokens=0, estimated=True)
+        cost = self.tracker.add(usage)
+        self.last_usage = {"prompt_tokens": getattr(usage, "prompt_tokens", 0) or 0,
+                           "completion_tokens": getattr(usage, "completion_tokens", 0) or 0,
+                           "cache_hit_tokens": getattr(usage, "prompt_cache_hit_tokens", 0) or 0}
+        tool_calls = [NS(id=c["id"], type="function", function=NS(name=c["name"], arguments=c["arguments"]))
+                      for _, c in sorted(calls.items())] or None
+        return NS(content="".join(parts), tool_calls=tool_calls), cost
