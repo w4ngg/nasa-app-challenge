@@ -130,6 +130,7 @@ tr.click { cursor: pointer; } tr.click:hover td { background: var(--chip); }
       <button data-t="search">Retriever</button>
       <button data-t="inv">Investigations</button>
       <button data-t="rank">Ranking</button>
+      <button data-t="graph">Graph</button>
       <button data-t="eval">Eval</button>
       <button data-t="cfg">Settings</button>
       <button data-t="hist">History</button>
@@ -171,6 +172,16 @@ tr.click { cursor: pointer; } tr.click:hover td { background: var(--chip); }
           <button class="btn" id="btnRankAsk" style="align-self:end" title="Puts a ranking question in the chat box">Ask the assistant →</button>
         </div>
         <div id="rankOut"><div class="empty">Pick a crew environment. Ranking runs locally and costs nothing.</div></div>
+      </div>
+      <div class="tab" id="t-graph">
+        <div class="row">
+          <input id="gq" placeholder="Investigation, material, hardware, incident, concept…" style="flex:1;min-width:200px">
+          <input id="grel" placeholder="relation (optional)" style="width:150px">
+          <button class="btn primary" id="btnGraph">Explore (free)</button>
+          <button class="btn" id="btnGraphAsk" title="Puts a relationship question in the chat box">Ask the assistant →</button>
+        </div>
+        <div class="examples" style="justify-content:flex-start"></div>
+        <div id="graphOut"><div class="empty">Explore links between investigations, materials, hardware and historical incidents. Every link quotes a NASA source.</div></div>
       </div>
       <div class="tab" id="t-eval">
         <div class="row">
@@ -496,6 +507,35 @@ $("#btnRankAsk").onclick = () => {
   $("#q").value = `Rank the investigations most relevant to ${need ? need + " in " : ""}${scen.replace(/\s*\(.*\)$/, "")}.`;
   $("#q").focus();
 };
+
+// ---------- knowledge graph ----------
+const GRAPH_EXAMPLES = ["Apollo 13", "Mir 1997", "Apollo 1", "FLEX", "Nomex", "CIR", "smoke detector", "Saffire"];
+document.querySelector("#t-graph .examples").innerHTML = GRAPH_EXAMPLES.map((x) => `<button class="ex" data-g="${esc(x)}">${esc(x)}</button>`).join("");
+document.querySelector("#t-graph .examples").onclick = (e) => { const b = e.target.closest("[data-g]"); if (b) { $("#gq").value = b.dataset.g; runGraph(); } };
+async function runGraph() {
+  const out = $("#graphOut"), q = $("#gq").value.trim(); if (!q) return;
+  out.innerHTML = '<div class="muted">exploring…</div>';
+  try {
+    const r = await fetch(`/api/graph?entity=${encodeURIComponent(q)}&relation=${encodeURIComponent($("#grel").value.trim())}`).then((x) => x.json());
+    if (r.error) { out.innerHTML = `<div class="empty">${esc(r.error)}${r.hint ? "<br><span class='small'>" + esc(r.hint) + "</span>" : ""}</div>`; return; }
+    const src = r.sources || {};
+    out.innerHTML = `<div class="meta" style="margin:8px 0"><span class="chip ok">${esc(r.type)}</span><strong>${esc(r.entity)}</strong>
+        <span class="chip">${esc(r.id)}</span>${Object.entries(r.relation_counts || {}).map(([k, v]) => `<span class="chip" title="click to filter" data-rel="${esc(k)}" style="cursor:pointer">${esc(k)} ${v}</span>`).join("")}</div>
+      ${r.other_matches && r.other_matches.length ? `<div class="small muted">also matches: ${r.other_matches.map(esc).join(", ")}</div>` : ""}
+      <table><tr><th>relation</th><th>linked node</th><th>evidence (quoted)</th><th>source</th></tr>
+      ${r.links.map((l) => { const ref = (l.tag || "").replace(/[\[\]]/g, ""), s = src[ref];
+        return `<tr><td class="small">${l.direction === "in" ? "← " : ""}${esc(l.relation)}</td>
+          <td><a href="#" data-g2="${esc(l.node)}">${esc(l.node)}</a><br><span class="muted small">${esc(l.node_type || "")}</span></td>
+          <td class="small">${esc(l.evidence)}</td>
+          <td class="small">${s ? `<a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(ref)} ${esc(s.source_id)}</a>` : '<span class="muted">no citable passage</span>'}</td></tr>`; }).join("")}</table>
+      <p class="small muted">${esc(r.note || "")} Graph: ${r.base_nodes} team nodes (${esc(String(r.base).split("/").slice(-3).join("/"))}) + ${r.extension_nodes} Module 3 nodes.</p>`;
+    out.querySelectorAll("[data-rel]").forEach((c) => c.onclick = () => { $("#grel").value = c.dataset.rel; runGraph(); });
+    out.querySelectorAll("[data-g2]").forEach((a) => a.onclick = (e) => { e.preventDefault(); $("#gq").value = a.dataset.g2; $("#grel").value = ""; runGraph(); });
+  } catch (e) { out.innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
+}
+$("#btnGraph").onclick = runGraph;
+$("#gq").addEventListener("keydown", (e) => { if (e.key === "Enter") runGraph(); });
+$("#btnGraphAsk").onclick = () => { $("#q").value = `How is ${$("#gq").value.trim() || "the Mir 1997 fire"} connected to NASA PSI investigations, materials and hardware?`; $("#q").focus(); };
 
 // ---------- eval results ----------
 let evalIndex = null, evalCache = {};

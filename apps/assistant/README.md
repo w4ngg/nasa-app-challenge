@@ -87,6 +87,58 @@ Ghi chú trung thực:
 - Embedding yếu ở câu nêu nhiều mã viết tắt (FLEX, SAME…), vì vậy vẫn giữ BM25 trong hybrid.
 - Khởi động thêm khoảng 6 giây (nạp model), mỗi truy vấn khoảng 10 ms.
 
+## Knowledge graph (thiết bị, vật liệu, sự cố lịch sử)
+
+Chatbot dùng graph của nhóm (`apps/web/public/data/graph.json`, trang Knowledge Map: nghiên cứu, chương trình,
+publication, khái niệm, nhiên liệu) và **gộp thêm** phần mở rộng của Module 3 ở `data/graph_extension.json`:
+
+| loại nút mới | ví dụ |
+|---|---|
+| `incident` | Apollo 1 (1967), Apollo 13 (1970), cháy trạm Mir (1997) |
+| `hardware` | CIR, MSG, MDCA, Cygnus, CSA-CP, P-Trak, oxygen candle, Elektron, oxygen tank, drop tower… |
+| `material` | vật liệu chưa có trong graph gốc (lithium perchlorate, dây điện); vật liệu đã có thì dùng lại `fuel:pmma`, `fuel:nomex`… |
+
+Các loại cạnh mới: `uses_hardware` (dòng "Hardware:"/"Flight platform:" của PSI), `relates_to_hardware` (câu khác
+trên trang PSI), `involved` (sự cố → vật liệu/thiết bị/khái niệm), `discussed_in` (sự cố → nghiên cứu),
+`co_studied` (thiết bị ↔ vật liệu).
+
+**Quy tắc bằng chứng:** một cạnh chỉ được tạo khi **một câu** trong tài liệu NASA của corpus nhắc cả hai đầu. Câu đó
+được lưu trong `evidence`, kèm `url` (mở đúng trang PDF) và `chunk` (để chatbot trích dẫn `[S#]`). Cạnh không phải
+quan hệ nhân quả. Một số lỗi đã chặn: "foam from a fire extinguisher" (Mir) là bọt chữa cháy, không phải vật liệu foam;
+"Mir" một mình là tên trạm, cần "fire"/"1997" trong cùng câu mới nối với vụ cháy.
+
+```bash
+python scripts/build_graph_extension.py      # dựng lại sau khi corpus thay đổi (sau ingest)
+```
+
+- Chatbot: tool `explore_graph(entity, relation?)`, ví dụ "What was involved in the Mir fire?",
+  "Which experiments used the CIR?". Chế độ offline tự dùng graph khi câu hỏi nhắc Apollo 1/13, Mir.
+- Demo UI: tab **Graph** (bấm vào nút liên kết để đi tiếp, bấm chip quan hệ để lọc).
+- Gộp vào trang Knowledge Map (cho Phú): nạp thêm `apps/assistant/data/graph_extension.json`, nối `nodes`/`edges`
+  vào `graph.json` (id trùng thì giữ nút gốc), thêm 3 lớp `hardware`, `incident`, `material` vào danh sách toggle và
+  style, ví dụ `node[type='incident']` (hình sao, đỏ) và `node[type='hardware']` (hình vuông). Không cần sửa dữ liệu gốc.
+
+## Thêm toàn văn bài báo (open access)
+
+PSI liệt kê 294 bài; NTRS chỉ có PDF công khai của 26 bài. `scripts/fetch_openalex.py` tìm **bản truy cập mở hợp
+pháp** cho các bài còn lại:
+
+1. DOI lấy từ knowledge graph của nhóm (235 DOI); bài chưa có DOI thì tìm theo tên (khớp ≥ 92%).
+2. OpenAlex (dữ liệu open access của Unpaywall, không cần email). Hết ngân sách miễn phí trong ngày (HTTP 429) thì
+   chuyển sang Semantic Scholar (không cần key). Chạy lại script sẽ tiếp tục từ chỗ dừng.
+3. Chỉ tải bản OA (nhà xuất bản open access, PubMed Central, arXiv, HAL, kho của trường, OSTI); không vượt paywall.
+
+```bash
+python scripts/fetch_openalex.py         # -> data/raw/oa/*.pdf, sources.csv (có license), oa_index.csv
+python -m assistant.ingest               # nạp vào corpus (chunk có trường license)
+python scripts/build_graph_extension.py
+python scripts/export_snapshot.py --dest ../nasa-app-challenge/apps/assistant   # snapshot để commit
+```
+
+**License:** chỉ bài có license mở (Creative Commons, public domain) được đưa vào snapshot commit lên repo.
+`export_snapshot.py` bỏ các bài "free to read" không có license, và cắt `embeddings.npz` cho khớp. PDF không bao giờ
+được commit. Các bài bị bỏ vẫn dùng được trên máy đã tải chúng.
+
 ## Chất lượng câu trả lời
 
 **Kiểm tra trích dẫn** (`assistant/verify.py`). Không gọi LLM nên miễn phí. Mỗi câu có nhãn `[S#]/[I#]/[P#]` được so với toàn văn nguồn được trích theo 3 dấu hiệu:

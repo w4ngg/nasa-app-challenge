@@ -16,3 +16,4 @@ eval/*.rescored.jsonl
 !data/processed/chunks.jsonl
 !data/processed/embeddings.npz
 !data/raw/psi_combustion.json
+.venv/

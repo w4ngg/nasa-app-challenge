@@ -14,7 +14,7 @@ import time
 from dataclasses import replace
 from typing import Any, Callable
 
-from . import config, integrations, ranking
+from . import config, integrations, kg, ranking
 from .context import SUMMARY_SYSTEM, prepare_history, transcript
 from .prompts import REFUSAL_MARKER, SYSTEM_PROMPT, active_tools
 from .retriever import DocumentRetriever, expand_query
@@ -24,6 +24,7 @@ from .verify import verify_answer
 
 OFFLINE_TOP_K = 3
 _STUDY_WORDS = ("nghiên cứu", "thí nghiệm", "investigation", "study", "studies", "experiment")
+_GRAPH_WORDS = re.compile(r"apollo[ -]?13|apollo[ -]?1\b|\bmir\b|oxygen candle|lithium perchlorate", re.I)
 _RANK_WORDS = re.compile(r"\b(rank|ranking|most relevant|prioriti[sz]e|top \d+|which investigations? (?:are|is|matter|should))|xếp hạng|phù hợp nhất|quan trọng nhất", re.I)
 _COMPARE_WORDS = re.compile(r"\b(compare|comparison|versus|vs\.?|differ|difference|similarit)|so sánh", re.I)
 
@@ -216,6 +217,64 @@ class Assistant:
             "note": "Metadata only. For sample sizes, conditions and results, call search_documents with source_id.",
         }
 
+    def _chunk_by_id(self, cid: str):
+        if not hasattr(self, "_chunk_index"):
+            self._chunk_index = {c.id: c for c in self.retriever.chunks}
+        return self._chunk_index.get(cid)
+
+    def _tool_explore_graph(self, reg: EvidenceRegistry, entity: str, relation: str | None = None,
+                            limit: int = 12) -> dict:
+        """Tra knowledge graph: liên kết của một nghiên cứu / vật liệu / thiết bị / sự cố / khái niệm, kèm bằng chứng.
+        Mỗi liên kết được gắn nhãn: [S#] nếu bằng chứng là một đoạn trong corpus, [I#] nếu từ hồ sơ PSI."""
+        g = kg.get_graph()
+        if not g.available:
+            return {"error": "knowledge graph not available"}
+        ids = g.resolve(entity)
+        if not ids:
+            return {"error": f"no graph node matches {entity!r}",
+                    "hint": "try a PSI id or acronym (FLEX, BASS), a material (Nomex, PMMA), hardware (CIR, MSG), "
+                            "an incident (Apollo 1, Apollo 13, Mir 1997) or a concept (smoke, oxygen concentration)"}
+        nid = ids[0]
+        node = g.nodes[nid]
+        if node.get("type") == "program" and not relation:
+            relation = "includes"
+        limit = max(1, min(int(limit or 12), 25))
+        records = {r["psi_id"]: r for r in integrations.psi_records()}
+
+        def inv_tag(psi: str, extra: str) -> str | None:
+            r = records.get(psi)
+            if not r:
+                return None
+            t = reg.add("I", "investigation", ("I", psi), source_id=psi, title=r.get("title", ""),
+                        url=r.get("link", ""), page_url=r.get("link", ""), snippet=str(r.get("objective", ""))[:300],
+                        is_mock=bool(r.get("is_mock")))
+            base = reg.texts.get(t) or "\n".join(f"{k}: {v}" for k, v in r.items() if v not in (None, ""))
+            reg.texts[t] = base if extra in base else f"{base}\n{extra}"
+            return t
+
+        links = []
+        for x in g.neighbors(nid, relation, limit):
+            tag = None
+            c = self._chunk_by_id(x["chunk"]) if x.get("chunk") else None
+            if c is not None:
+                tag = reg.add("S", "document", ("S", c.id), source_id=c.source_id, title=c.title, url=c.url,
+                              snippet=c.text[:300], is_mock=c.is_mock, page=c.page, page_url=c.page_url)
+                reg.texts.setdefault(tag, f"{c.title}\n{c.section}\n{c.text}")
+            else:
+                psi = nid if node.get("type") == "investigation" else x["node"] if x["type"] == "investigation" else None
+                if psi:
+                    tag = inv_tag(psi, f"{x['relation']} {x['label']}: {x['evidence']}")
+            links.append({"relation": x["relation"], "direction": x["direction"], "node": x["label"],
+                          "node_type": x["type"], "evidence": x["evidence"][:300],
+                          "tag": f"[{tag}]" if tag else None})
+        return {
+            "entity": node.get("label", nid), "id": nid, "type": node.get("type"),
+            "other_matches": [g.nodes[i].get("label", i) for i in ids[1:4]],
+            "relation_counts": g.relation_counts(nid), "links": links,
+            "note": ("A graph link means a NASA source sentence mentions both ends (quoted in 'evidence'); it is not "
+                     "proof of cause. Cite each link's tag; links with tag null have no citable passage: omit them."),
+        }
+
     def _psi_doc_texts(self) -> dict[str, str]:
         if not hasattr(self, "_doc_texts_cache"):
             texts: dict[str, list[str]] = {}
@@ -279,6 +338,8 @@ class Assistant:
                 return self._tool_search_documents(reg, trace, "tool", **args)
             if name == "rank_investigations":
                 return self._tool_rank(reg, **args)
+            if name == "explore_graph":
+                return self._tool_explore_graph(reg, **args)
             if name == "search_investigations":
                 return self._tool_search_investigations(reg, **args)
             if name == "predict_flammability":
@@ -355,6 +416,14 @@ class Assistant:
                         n_results=len(rk.get("ranked", [])), error=rk.get("error"))
             table = (f"Ranking for {rk['scenario']} ({'placeholder formula' if rk['is_placeholder'] else rk['provider']}). "
                      f"Scenario conditions {rk['scenario_conditions_tag']}. {rk['gravity_note']}\n\n{rk['table_markdown']}")
+        elif _GRAPH_WORDS.search(question):
+            gx = self._tool_explore_graph(reg, _GRAPH_WORDS.search(question).group(0))
+            trace.event("tool_call", name="explore_graph(offline)", args=json.dumps({"entity": gx.get("entity")}),
+                        n_results=len(gx.get("links", [])), error=gx.get("error"))
+            if gx.get("links"):
+                table = "\n".join([f"Knowledge graph links for {gx['entity']} (each quoted from a NASA source):"] +
+                                  [f"- {l['relation']} → {l['node']}: {l['evidence']} {l['tag'] or ''}".rstrip()
+                                   for l in gx["links"] if l["tag"]])
         elif _COMPARE_WORDS.search(question):
             names = integrations.detect_investigation_names(question)
             if len(names) >= 2 or (names and integrations.resolve_investigations(names)[0][1:]):
@@ -367,7 +436,8 @@ class Assistant:
         else:
             lines = []
             if table:
-                lines += [table if scen else "Comparison (from NASA PSI metadata):\n" + table, ""]
+                lines += [table if scen or table.startswith("Knowledge graph") else
+                          "Comparison (from NASA PSI metadata):\n" + table, ""]
             lines += ["Most relevant passages found (offline mode, not synthesized by AI):"]
             for r in docs["results"]:
                 full = r["_full_text"]
@@ -643,6 +713,8 @@ def _describe_call(name: str, raw_args: str) -> str:
         return f"Comparing {', '.join(map(str, a.get('investigations', [])))}"
     if name == "rank_investigations":
         return f"Ranking investigations for scenario: {a.get('scenario', '')}"
+    if name == "explore_graph":
+        return f"Exploring the knowledge graph: {a.get('entity', '')}"
     if name == "search_investigations":
         return "Filtering the investigations table"
     if name == "predict_flammability":

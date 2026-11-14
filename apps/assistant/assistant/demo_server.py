@@ -15,6 +15,7 @@ Endpoints (JSON):
   GET  /api/traces?n=20 | GET /api/trace/<id>
   POST /api/config   {KEY: value, ...}                   -> change tunables in memory (until restart)
   POST /api/rank     {scenario, need, top_k}             -> rank_investigations tool output (free)
+  GET  /api/graph?entity=Mir&relation=                   -> explore_graph tool output + evidence links (free)
   GET  /api/eval                                         -> saved eval result files + summaries (free)
   GET  /api/eval?file=results_v4_deepseek.jsonl          -> per-question rows of one run (free)
 """
@@ -145,6 +146,20 @@ def handle(method: str, path: str, query: dict, body: dict) -> tuple[int, dict]:
             return 404, {"error": f"no eval file {name!r}"}
         return 200, {"file": name, "summary": _eval_summary(rows),
                      "rows": [{k: r.get(k) for k in _EVAL_KEEP} for r in rows]}
+    if method == "GET" and path == "/api/graph":
+        from . import kg
+        g = kg.get_graph()
+        entity = query.get("entity", [""])[0]
+        info = {"available": g.available, "base": g.base_path, "base_nodes": g.n_base, "extension_nodes": g.n_ext,
+                "node_types": sorted({n.get("type", "") for n in g.nodes.values()})}
+        if not entity:
+            return 200, info
+        reg = EvidenceRegistry()
+        res = offline_bot()._tool_explore_graph(reg, entity, query.get("relation", [""])[0] or None,
+                                                int(query.get("limit", ["20"])[0]))
+        res["sources"] = {ref: {"title": c.title, "url": c.page_url or c.url, "source_id": c.source_id}
+                          for ref, c in reg.items.items()}
+        return (400 if "error" in res else 200), {**info, **res}
     if method == "POST" and path == "/api/rank":
         bot = offline_bot()
         reg = EvidenceRegistry()
