@@ -17,6 +17,8 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    outputs:
+      pages_configured: ${{ steps.configure.outcome == 'success' }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -26,13 +28,17 @@ jobs:
       - run: npm ci
       # Uses the catalog committed in apps/web/public/data; refresh it locally with flame-export-static.
       - run: npm run build
-      - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v4
+      - id: configure
+        uses: actions/configure-pages@v5
+        continue-on-error: true
+      - if: steps.configure.outcome == 'success'
+        uses: actions/upload-pages-artifact@v4
         with:
           path: apps/web/dist
 
   deploy:
     needs: build
+    if: needs.build.outputs.pages_configured == 'true'
     runs-on: ubuntu-latest
     environment:
       name: github-pages
