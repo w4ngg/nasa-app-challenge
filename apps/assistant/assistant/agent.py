@@ -135,6 +135,7 @@ class Assistant:
                                query: str, source_id: str | None = None, k: int = 5) -> dict:
         k = max(1, min(int(k or 5), 8))
         hits = self.retriever.search(query, k=k, source_id=source_id)
+        detail = {d["chunk"]: d for d in getattr(self.retriever, "last_details", [])}
         results = []
         for chunk, score in hits:
             ref = reg.add("S", "document", ("S", chunk.id), source_id=chunk.source_id, title=chunk.title,
@@ -156,7 +157,10 @@ class Assistant:
             results.append(item)
         if trace:
             trace.event("retrieval", origin=origin, query=query, source_id=source_id, k=k,
-                        hits=[{"tag": r["tag"], "chunk": c.id, "score": round(s, 2)} for r, (c, s) in zip(results, hits)],
+                        retriever=getattr(self.retriever, "mode", "bm25"),
+                        hits=[{"tag": r["tag"], "chunk": c.id, "score": round(s, 3),
+                               **{x: detail.get(c.id, {}).get(x) for x in ("bm25", "dense") if detail.get(c.id, {}).get(x) is not None}}
+                              for r, (c, s) in zip(results, hits)],
                         evidence_chars_sent=reg.sent_chars)
         return {"query": query, "n_results": len(results), "results": results}
 

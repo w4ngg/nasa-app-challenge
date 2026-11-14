@@ -16,6 +16,7 @@ from assistant import config  # noqa: E402
 config.CHUNKS_FILE = Path("/nonexistent/chunks.jsonl")
 config.INVESTIGATIONS_FILE = Path("/nonexistent/investigations.csv")
 config.PSI_METADATA_FILE = Path("/nonexistent/psi_combustion.json")
+config.RETRIEVER = "bm25"  # test nhanh, không tải model embedding; hybrid được test bằng dense giả bên dưới
 # Trace của test ghi vào file tạm, không lẫn với log thật
 import tempfile  # noqa: E402
 config.TRACE_FILE = Path(tempfile.mkdtemp()) / "traces.jsonl"
@@ -591,3 +592,66 @@ def test_rank_uses_module4_when_configured(monkeypatch):
 def test_offline_rank_question_builds_table():
     a = Assistant(offline=True).ask("Which investigations are most relevant for a spacecraft cabin?")
     assert "| Rank |" in a.answer and any(c.kind == "scenario" for c in a.citations)
+
+
+def test_demo_rank_and_eval_endpoints():
+    from assistant import demo_server as d
+    code, r = d.handle("POST", "/api/rank", {}, {"scenario": "moon base", "need": "prevention", "top_k": 3})
+    assert code == 200 and r["scenario_key"] == "moon_base" and len(r["ranked"]) == 3
+    assert r["is_placeholder"] and r["scenario_conditions_tag"].startswith("[R")
+    assert d.handle("POST", "/api/rank", {}, {"scenario": "jupiter"})[0] == 400
+    code, idx = d.handle("GET", "/api/eval", {}, {})
+    assert code == 200 and "files" in idx and idx["questions"]
+    for bad in ("../.env", "questions.jsonl", "results/../../x.jsonl"):
+        assert d.handle("GET", "/api/eval", {"file": [bad]}, {})[0] == 404
+
+
+class _FakeDense:
+    """Dense index giả: cosine định sẵn theo từ khóa, không cần sentence-transformers."""
+    def __init__(self, chunks, table):
+        self.chunks, self.table = chunks, table
+
+    def scores(self, query):
+        return [self.table.get((query.split()[0], c.id), 0.3) for c in self.chunks]
+
+
+def _hybrid(chunks, table, monkeypatch, **cfg):
+    for k, v in {"HYBRID_FUSION": "weighted", "HYBRID_ALPHA": 0.6, "DENSE_MIN_SIM": 0.6, "DENSE_FLOOR": 0.45,
+                 "HYBRID_CANDIDATES": 30, "MIN_SCORE": 0.1, **cfg}.items():
+        monkeypatch.setattr(config, k, v)
+    r = DocumentRetriever(chunks, mode="bm25")
+    r.dense, r.requested_mode = _FakeDense(chunks, table), "hybrid"
+    return r
+
+
+def test_hybrid_finds_paraphrase_bm25_misses(monkeypatch):
+    from assistant.schema import Chunk
+    ch = [Chunk(id="A#1", source_id="A", title="A", text="air circulation slowed the smouldering sheet"),
+          Chunk(id="B#1", source_id="B", title="B", text="ventilation ventilation ventilation schedule for the crew")]
+    r = _hybrid(ch, {("ventilation", "A#1"): 0.8, ("ventilation", "B#1"): 0.5}, monkeypatch)
+    assert [c.id for c, _ in r.search("ventilation effect on flames", k=2, mode="bm25")] == ["B#1"]
+    hits = r.search("ventilation effect on flames", k=2)
+    assert {c.id for c, _ in hits} == {"A#1", "B#1"} and r.mode == "hybrid"
+    assert r.last_details[0]["dense"] is not None
+
+
+def test_hybrid_drops_lexical_offtopic_match(monkeypatch):
+    from assistant.schema import Chunk
+    ch = [Chunk(id="APOLLO#1", source_id="APOLLO", title="Apollo", text="crew training for the pad test")]
+    r = _hybrid(ch, {("training", "APOLLO#1"): 0.35}, monkeypatch)
+    assert r.search("training a dog", mode="bm25")          # BM25 khớp chữ "training"
+    assert r.search("training a dog") == []                 # cosine 0.35 < DENSE_FLOOR -> loại
+
+
+def test_hybrid_falls_back_to_bm25_without_dense(monkeypatch):
+    monkeypatch.setattr(config, "RETRIEVER", "hybrid")
+    import assistant.embeddings as emb
+    monkeypatch.setattr(emb.DenseIndex, "load", classmethod(lambda cls, *a, **k: None))
+    r = DocumentRetriever()
+    assert r.mode == "bm25" and r.search("flame spread solid fuel oxygen")
+
+
+def test_dense_query_uses_english_keywords_for_vietnamese():
+    from assistant.retriever import dense_query
+    assert dense_query("Vì sao ngọn lửa trong vi trọng lực có dạng hình cầu?") == "microgravity flame spherical"
+    assert dense_query("How do flames spread in microgravity?") == "How do flames spread in microgravity?"

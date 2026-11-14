@@ -44,6 +44,21 @@ MIN_SCORE = float(os.getenv("RETRIEVAL_MIN_SCORE", "0.5"))  # dưới ngưỡng 
 MAX_TOOL_ROUNDS = int(os.getenv("MAX_TOOL_ROUNDS", "4"))
 # Trần số lần search_documents mỗi câu hỏi (không tính prefetch) – tránh câu so sánh search 7 lần tốn tiền
 MAX_SEARCHES = int(os.getenv("MAX_SEARCHES", "3"))
+# Bộ truy xuất: hybrid (mặc định; BM25 + embedding, thiếu sentence-transformers thì tự về bm25) | bm25 | dense
+RETRIEVER = os.getenv("RETRIEVER", "hybrid").lower()
+EMBED_MODEL = os.getenv("EMBED_MODEL", "BAAI/bge-base-en-v1.5")
+EMBED_DEVICE = os.getenv("EMBED_DEVICE", "")  # trống = tự chọn (mps / cuda / cpu)
+EMBED_FILE = Path(os.getenv("EMBED_FILE", str(DATA_DIR / "processed" / "embeddings.npz")))
+DENSE_MIN_SIM = float(os.getenv("DENSE_MIN_SIM", "0.6"))  # cosine >= ngưỡng -> embedding tự đề cử chunk
+# Hybrid loại cả chunk BM25 khớp chữ nhưng lạc nghĩa ("train a dog" -> "training" trong tài liệu Apollo).
+# 0.45: mọi chunk gold của eval đều >= 0.452, mọi câu lạc đề đã thử đều <= 0.42.
+DENSE_FLOOR = float(os.getenv("DENSE_FLOOR", "0.45"))
+# Cách gộp: weighted = α·BM25/max + (1-α)·(cos - DENSE_FLOOR)/(max - DENSE_FLOOR) (tốt nhất trên eval/retrieval_eval.py)
+#           rrf      = Σ 1/(RRF_K + hạng)
+HYBRID_FUSION = os.getenv("HYBRID_FUSION", "weighted").lower()
+HYBRID_ALPHA = float(os.getenv("HYBRID_ALPHA", "0.6"))  # trọng số BM25 trong weighted fusion
+RRF_K = int(os.getenv("RRF_K", "60"))
+HYBRID_CANDIDATES = int(os.getenv("HYBRID_CANDIDATES", "30"))  # số ứng viên lấy từ mỗi bên trước khi gộp
 
 # --- Trace (log từng request để gỡ lỗi) ---
 TRACE_ENABLED = os.getenv("TRACE_ENABLED", "1") == "1"

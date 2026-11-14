@@ -1,0 +1,4 @@
+# Tùy chọn – bật hybrid retrieval (BM25 + embedding). Không cài thì bot tự dùng BM25.
+# Lần chạy đầu tải model BAAI/bge-base-en-v1.5 (~440 MB) từ Hugging Face; vector chunk đã có sẵn ở
+# data/processed/embeddings.npz (tự encode lại nếu chunks.jsonl thay đổi).
+sentence-transformers>=3.0
