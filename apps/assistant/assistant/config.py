@@ -63,6 +63,8 @@ INVESTIGATIONS_FILE = Path(os.getenv("INVESTIGATIONS_CSV", str(DATA_DIR / "inves
 MOCK_INVESTIGATIONS_FILE = DATA_DIR / "mock" / "investigations.json"
 # Metadata PSI đầy đủ (scripts/fetch_sources.py) – dùng cho bảng so sánh; thiếu thì dùng bảng investigations
 PSI_METADATA_FILE = Path(os.getenv("PSI_METADATA_FILE", str(DATA_DIR / "raw" / "psi_combustion.json")))
+# Catalog của web (fuel, vật liệu, khoảng O₂ trích từ bảng thí nghiệm PSI) – bổ sung các cột còn trống.
+CATALOG_JSON = Path(os.getenv("CATALOG_JSON", str(ROOT.parent / "web" / "public" / "data" / "index.json")))
 # Hàm predict() của Module 5, dạng "package.module:function". Để trống -> dùng mock.
 PREDICT_IMPORT = os.getenv("PREDICT_IMPORT", "")
 # Hàm rank() của Module 4 (Hân), dạng "package.module:function". Để trống -> công thức minh bạch tạm thời.

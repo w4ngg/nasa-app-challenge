@@ -1,0 +1,1389 @@
+{
+ "generated_at": "2026-11-14T08:41:27.028989+00:00",
+ "mode": "offline",
+ "model": null,
+ "answers": [
+  {
+   "question": "Compare BASS and Saffire",
+   "answer": "Comparison (from NASA PSI metadata):\n| Attribute | PSI-26 BASS [I1] | PSI-98 SAFFIRE-I [I2] | PSI-99 SAFFIRE-II [I3] | PSI-100 SAFFIRE-III [I4] |\n|---|---|---|---|---|\n| Title | Burning and Suppression of Solids | Spacecraft Fire Safety Experiment-I | Spacecraft Fire Experiment-II | Spacecraft Fire Experiment-III |\n| Sub-area | Spacecraft Fire Safety | Spacecraft Fire, Smoke Distribution | Surface Combustion | Spacecraft Fire Safety |\n| Type | Microgravity Investigation | Microgravity Investigation | Microgravity Investigation | Microgravity Investigation |\n| Platform | International Space Station (ISS) | International Space Station (ISS) | Cygnus Spacecraft | International Space Station (ISS) |\n| Hardware | Microgravity Science Glovebox | Saffire 1 enclosure in Cygnus | Cygnus Pressurized Cargo Module; SAFFIRE | Saffire III enclosure in Cygnus |\n| Fuel type | solid | solid | solid | solid |\n| Material | PMMA, SIBAL (cotton-fiberglass), Nomex, Ultem, Wax / candle | SIBAL (cotton-fiberglass) | PMMA, SIBAL (cotton-fiberglass), Nomex, Silicone | SIBAL (cotton-fiberglass) |\n| O₂ range (%) | — | 21.5–21.7 (chamber) | 21.5–22.1 (chamber) | — |\n| Gravity | microgravity (ISS) | microgravity (Cygnus) | microgravity (Cygnus) | microgravity (Cygnus) |\n| Period | 2009–2013 | 2001–2008 | 2016–2017 | 2017– |\n| Principal investigators | Olson, Ferkul, Takahashi et al. | David Urban | David Urban, Gary Ruff | David Urban |\n| Keywords | Flame Spread, Fire suppression system, Damkohler number, Boundary laye | Cygnus, SAFFIRE, Flame Spread, Surface Combustion, Fire Safety, Fire | fire, Cygnus, SAFFIRE, Smoldering, fire safety, Nomex | SAFFIRE, Fire Safety, Surface Combustion, Smoldering, Flame Spread, lo |\n| Publications listed | 10 | 6 | 7 | 3 |\n\nMost relevant passages found (offline mode, not synthesized by AI):\n- **Thickness and Fuel Preheating Effects on Material Flammability in Microgravity from the BASS Experiment [NTRS 20140011099; related: PSI-26 BASS] – p. 47**: Flame burning an acrylic sphere (top) from is compared to model computation (bottom).\nThe comprehensive model even includes solid phase shape change effects.   Adjusted solid phase chemical kinetic parameters will improve the prediction of the flame standoff distance.\nFuel: Acrylic sphere; Atmosphere: 17% O2/N2; 1 atm; Flow speed: 12 cm/s (left to right) [S1]\n- **Thickness and Fuel Preheating Effects on Material Flammability in Microgravity from the BASS Experiment [NTRS 20140011099; related: PSI-26 BASS] – p. 54**: Summary\n♦ Microgravity flames were found to be especially sensitive to air flow speed in the range 0 to 5 cm/s.\n♦ The gas phase response is much faster compared to the solid and so as the flow speed is changed, the flame responds with almost no delay.\n♦ At the lowest speeds examined (less than 1 cm/s) all the flames tended to become dim blue and very stable.  However, heat loss at these very low… [S2]\n- **PSI-100 SAFFIRE-III – Spacecraft Fire Experiment-III – Approach**: The Saffire-III experiments were performed on the Orbital Science’s Cygnus resupply vehicle after it deberthed from the ISS. As a follow on to the Saffire 1 investigation, the Saffire III investigation also used SIBAL as the sample material. However, the experiments were conducted at a flow velocity of 30 cm/s compared to 20 cm/s during Saffire I. The flow was either concurrent or opposed.  Once… [S3]",
+   "citations": [
+    {
+     "ref": "I1",
+     "kind": "investigation",
+     "source_id": "PSI-26",
+     "title": "Burning and Suppression of Solids",
+     "url": "https://psi.nasa.gov/physci/repo/data/investigations/PSI-26",
+     "snippet": "The two main objectives for BASS are to: 1.) Begin to bridge the gap between the normal gravity NASA-STD-6001 Test#1 method, ground-based microgravity tests, and actual material flammability in microgravity. The relation between these can be investigated by observing flames burning for the longer ti",
+     "is_mock": false,
+     "page": null,
+     "page_url": "https://psi.nasa.gov/physci/repo/data/investigations/PSI-26",
+     "evidence": ""
+    },
+    {
+     "ref": "I2",
+     "kind": "investigation",
+     "source_id": "PSI-98",
+     "title": "Spacecraft Fire Safety Experiment-I",
+     "url": "https://psi.nasa.gov/physci/repo/data/investigations/PSI-98",
+     "snippet": "The objectives of this investigation were to: (1) determine how rapidly a large scale fire grows in low-gravity and (2) investigate the low-g flammability limits compared to those obtained in NASA’s normal gravity material flammability screening test.",
+     "is_mock": false,
+     "page": null,
+     "page_url": "https://psi.nasa.gov/physci/repo/data/investigations/PSI-98",
+     "evidence": ""
+    },
+    {
+     "ref": "I3",
+     "kind": "investigation",
+     "source_id": "PSI-99",
+     "title": "Spacecraft Fire Experiment-II",
+     "url": "https://psi.nasa.gov/physci/repo/data/investigations/PSI-99",
+     "snippet": "The objectives of SAFFIRE-II are to determine how rapidly a large scale fire grows in low-gravity and to investigate the low-g flammability limits compared to those obtained in NASA’s normal gravity material flammability screening test.",
+     "is_mock": false,
+     "page": null,
+     "page_url": "https://psi.nasa.gov/physci/repo/data/investigations/PSI-99",
+     "evidence": ""
+    },
+    {
+     "ref": "I4",
+     "kind": "investigation",
+     "source_id": "PSI-100",
+     "title": "Spacecraft Fire Experiment-III",
+     "url": "https://psi.nasa.gov/physci/repo/data/investigations/PSI-100",
+     "snippet": "The objectives of this investigation were to: (1) determine how rapidly a large scale fire grows in low-gravity and (2) investigate the low-g flammability limits compared to those obtained in NASA’s normal gravity material flammability screening test.",
+     "is_mock": false,
+     "page": null,
+     "page_url": "https://psi.nasa.gov/physci/repo/data/investigations/PSI-100",
+     "evidence": ""
+    },
+    {
+     "ref": "S1",
+     "kind": "document",
+     "source_id": "NTRS-20140011099",
+     "title": "Thickness and Fuel Preheating Effects on Material Flammability in Microgravity from the BASS Experiment [NTRS 20140011099; related: PSI-26 BASS]",
+     "url": "https://ntrs.nasa.gov/citations/20140011099",
+     "snippet": "Flame burning an acrylic sphere (top) from is compared to model computation (bottom).\nThe comprehensive model even includes solid phase shape change effects.   Adjusted solid phase chemical kinetic parameters will improve the prediction of the flame standoff distance.\nFuel: Acrylic sphere; Atmospher",
+     "is_mock": false,
+     "page": 47,
+     "page_url": "https://ntrs.nasa.gov/api/citations/20140011099/downloads/20140011099.pdf#page=47",
+     "evidence": ""
+    },
+    {
+     "ref": "S2",
+     "kind": "document",
+     "source_id": "NTRS-20140011099",
+     "title": "Thickness and Fuel Preheating Effects on Material Flammability in Microgravity from the BASS Experiment [NTRS 20140011099; related: PSI-26 BASS]",
+     "url": "https://ntrs.nasa.gov/citations/20140011099",
+     "snippet": "Summary\n♦ Microgravity flames were found to be especially sensitive to air flow speed in the range 0 to 5 cm/s.\n♦ The gas phase response is much faster compared to the solid and so as the flow speed is changed, the flame responds with almost no delay.\n♦ At the lowest speeds examined (less than 1 cm/",
+     "is_mock": false,
+     "page": 54,
+     "page_url": "https://ntrs.nasa.gov/api/citations/20140011099/downloads/20140011099.pdf#page=54",
+     "evidence": ""
+    },
+    {
+     "ref": "S3",
+     "kind": "document",
+     "source_id": "PSI-100",
+     "title": "PSI-100 SAFFIRE-III – Spacecraft Fire Experiment-III",
+     "url": "https://psi.nasa.gov/physci/repo/data/investigations/PSI-100",
+     "snippet": "The Saffire-III experiments were performed on the Orbital Science’s Cygnus resupply vehicle after it deberthed from the ISS. As a follow on to the Saffire 1 investigation, the Saffire III investigation also used SIBAL as the sample material. However, the experiments were conducted at a flow velocity",
+     "is_mock": false,
+     "page": null,
+     "page_url": "https://psi.nasa.gov/physci/repo/data/investigations/PSI-100",
+     "evidence": ""
+    }
+   ],
+   "refused": false,
+   "warnings": [
+    "Offline mode: no LLM used; showing the best-matching source passages (BM25).",
+    "1 sentence(s) are unsupported by any retrieved context (possible hallucination or outside knowledge); review them in the verification details."
+   ],
+   "uses_mock_data": false,
+   "cost_usd": 0.0,
+   "latency_ms": 50,
+   "verification": {
+    "checked": 3,
+    "supported": 3,
+    "weak": 0,
+    "unsupported": 0,
+    "uncited": 8,
+    "sentences": [
+     {
+      "text": "Most relevant passages found (offline mode, not synthesized by AI):",
+      "refs": [],
+      "overlap": 0.0,
+      "missing_numbers": [],
+      "missing_terms": [],
+      "unmatched_words": [
+       "most",
+       "offlin",
+       "mode",
+       "synthesiz"
+      ],
+      "status": "uncited",
+      "context_status": "unsupported",
+      "context_overlap": 0.0,
+      "miscited": false,
+      "suggested_refs": [],
+      "inference": []
+     },
+     {
+      "text": "The comprehensive model even includes solid phase shape change effects.",
+      "refs": [],
+      "overlap": 1.0,
+      "missing_numbers": [],
+      "missing_terms": [],
+      "unmatched_words": [],
+      "status": "uncited",
+      "context_status": "supported",
+      "context_overlap": 1.0,
+      "miscited": false,
+      "suggested_refs": [
+       "S1",
+       "S2"
+      ],
+      "inference": []
+     },
+     {
+      "text": "Adjusted solid phase chemical kinetic parameters will improve the prediction of the flame standoff distance.",
+      "refs": [],
+      "overlap": 1.0,
+      "missing_numbers": [],
+      "missing_terms": [],
+      "unmatched_words": [],
+      "status": "uncited",
+      "context_status": "supported",
+      "context_overlap": 1.0,
+      "miscited": false,
+      "suggested_refs": [
+       "S1"
+      ],
+      "inference": []
+     },
+     {
+      "text": "Fuel: Acrylic sphere; Atmosphere: 17% O2/N2; 1 atm; Flow speed: 12 cm/s (left to right) [S1]",
+      "refs": [
+       "S1"
+      ],
+      "overlap": 1.0,
+      "missing_numbers": [],
+      "missing_terms": [],
+      "unmatched_words": [],
+      "status": "supported",
+      "context_status": "supported",
+      "context_overlap": 1.0,
+      "miscited": false,
+      "suggested_refs": [],
+      "inference": []
+     },
+     {
+      "text": "♦ Microgravity flames were found to be especially sensitive to air flow speed in the range 0 to 5 cm/s.",
+      "refs": [],
+      "overlap": 1.0,
+      "missing_numbers": [],
+      "missing_terms": [],
+      "unmatched_words": [],
+      "status": "uncited",
+      "context_status": "supported",
+      "context_overlap": 1.0,
+      "miscited": false,
+      "suggested_refs": [
+       "S2"
+      ],
+      "inference": []
+     },
+     {
+      "text": "♦ The gas phase response is much faster compared to the solid and so as the flow speed is changed, the flame responds with almost no delay.",
+      "refs": [],
+      "overlap": 1.0,
+      "missing_numbers": [],
+      "missing_terms": [],
+      "unmatched_words": [],
+      "status": "uncited",
+      "context_status": "supported",
+      "context_overlap": 1.0,
+      "miscited": false,
+      "suggested_refs": [
+       "S2",
+       "S1"
+      ],
+      "inference": []
+     },
+     {
+      "text": "♦ At the lowest speeds examined (less than 1 cm/s) all the flames tended to become dim blue and very stable.",
+      "refs": [],
+      "overlap": 1.0,
+      "missing_numbers": [],
+      "missing_terms": [],
+      "unmatched_words": [],
+      "status": "uncited",
+      "context_status": "supported",
+      "context_overlap": 1.0,
+      "miscited": false,
+      "suggested_refs": [
+       "S2"
+      ],
+      "inference": [
+       "all"
+      ]
+     },
+     {
+      "text": "However, heat loss at these very low… [S2]",
+      "refs": [
+       "S2"
+      ],
+      "overlap": 1.0,
+      "missing_numbers": [],
+      "missing_terms": [],
+      "unmatched_words": [],
+      "status": "supported",
+      "context_status": "supported",
+      "context_overlap": 1.0,
+      "miscited": false,
+      "suggested_refs": [],
+      "inference": []
+     },
+     {
+      "text": "As a follow on to the Saffire 1 investigation, the Saffire III investigation also used SIBAL as the sample material.",
+      "refs": [],
+      "overlap": 1.0,
+      "missing_numbers": [],
+      "missing_terms": [],
+      "unmatched_words": [],
+      "status": "uncited",
+      "context_status": "supported",
+      "context_overlap": 1.0,
+      "miscited": false,
+      "suggested_refs": [
+       "S3",
+       "I4"
+      ],
+      "inference": []
+     },
+     {
+      "text": "However, the experiments were conducted at a flow velocity of 30 cm/s compared to 20 cm/s during Saffire I.",
+      "refs": [],
+      "overlap": 1.0,
+      "missing_numbers": [],
+      "missing_terms": [],
+      "unmatched_words": [],
+      "status": "uncited",
+      "context_status": "supported",
+      "context_overlap": 1.0,
+      "miscited": false,
+      "suggested_refs": [
+       "S3"
+      ],
+      "inference": []
+     },
+     {
+      "text": "Once… [S3]",
+      "refs": [
+       "S3"
+      ],
+      "overlap": 1.0,
+      "missing_numbers": [],
+      "missing_terms": [],
+      "unmatched_words": [],
+      "status": "supported",
+      "context_status": "supported",
+      "context_overlap": 1.0,
+      "miscited": false,
+      "suggested_refs": [],
+      "inference": []
+     }
+    ],
+    "claims": 11,
+    "miscited": 0,
+    "inference": 1,
+    "faithfulness": {
+     "supported": 10,
+     "weak": 0,
+     "unsupported": 1,
+     "score": 0.91
+    },
+    "citation_correctness": 1.0
+   }
+  },
+  {
+   "question": "Which experiments burned PMMA, and at what oxygen levels?",
+   "answer": "Most relevant passages found (offline mode, not synthesized by AI):\n- **Results from On-Board CSA-CP and CDM Sensor Readings During the Burning and Suppression of Solids II (BASS-II) Experiment in the Microgravity Science Glovebox (MSG) [NTRS 20150019858; related: PSI-25 BASS-II] – p. 7**: olume\nBASS-II PMMA data\nC5H8O2 + 6 O2 > 5 CO2 +4 H2O\nOpposed rods\nConcurrent rods\nOpposed thin slabs\nOpposed thick slabs\nSpherical section, stagnation\nFigure 7.  CO / CO 2 ratio as a function of the initial oxygen concentration for each test.   There is some clustering apparent in the data, which shows that lower oxygen concentratio ns produce higher levels of CO per CO 2 for concurrent rods,… [S1]\n- **Results from On-Board CSA-CP and CDM Sensor Readings During the Burning and Suppression of Solids II (BASS-II) Experiment in the Microgravity Science Glovebox (MSG) [NTRS 20150019858; related: PSI-25 BASS-II] – p. 5**: 25 m3\nN2 flow rate in = 493 cm3/min\n      (0.000493 m3/min)\nInitial O2 concentration c(0) = Co\nCSA-CP sensor C(0)=20.9% O2\nISS MCA = 21.48 % O2   [10]\nFigure 3 shows the calibration  data compared to the model predictions for both the CSA -CP readings and corrected for the offset from the MCA.  The m odel agrees very well with CSA -CP readings directly and corrected for the offset to provide a… [S2]\n- **Microgravity Flammability of PMMA Rods in Concurrent Flow [NTRS 20150008961; related: PSI-25 BASS-II] – p. 5**: so it seems that once the flame is blown downstream of the stagnation region, the flame is unable to propagate upstream for the low oxygen levels tested (16.1% O2 and lower).  This is consistent with tests for opposed flow flame spread rods that were also done as part of BASS-II [18], where flame spread was not observed below 16.4 % O2.  Example blowoff images are shown in\nFigure 3. [S3]\n\nPossibly related investigations:\n- PSI-20 – Advanced Combustion via Microgravity Experiments - Burning Rate Emulator: The BRE flight program seeks to establish the burning conditions in a quiescent microgravity ambient in terms of material properties. The specific flight objectives are as follows. 1. Observe burning behavior in long-duration microgravity for CH4/N2 and C2H4/N2mixtures on porous circular burners of 25 and 50 mm diameter. Consider O2/N2 ambients with various pressures and ambient O2 concentrations and pressures. NASA - considered atmosphere for human space missions will be examined: 14.7 psia, 21 % oxygen: 10.2 psia, 26.5 %; and 8.2 psia, 34 % oxygen. Emphasize fuel conditions that can be relat [I1]\n- PSI-26 – Burning and Suppression of Solids: The two main objectives for BASS are to: 1.) Begin to bridge the gap between the normal gravity NASA-STD-6001 Test#1 method, ground-based microgravity tests, and actual material flammability in microgravity. The relation between these can be investigated by observing flames burning for the longer times available in flight. Practical, realistic (thicker) fuels in typical geometries will be examined, including wake flames which have characteristics of a fire burning behind another object (for example, a fire burning in tight area which may not be easily accessible). 2.) Assess the effectiveness  [I2]\n- PSI-159 – Advanced Combustion via Microgravity Experiments / Cool Flames Investigation with Gases: 1. Plan and support flight testing on the International Space Station (ISS). 2. Determine the conditions for which cool diffusion flames occur for propane, n-butane, and n-pentane; normal and inverse flames; and a broad range of Zst, Tad, and fluent flow rate. 3. Support the flight tests with advanced CFD simulations. 4. Identify or develop a chemical kinetics mechanism that yields good agreement between the CFD predictions and the ISS measurements. 5. Disseminate the results as widely as possible. [I3]",
+   "citations": [
+    {
+     "ref": "S1",
+     "kind": "document",
+     "source_id": "NTRS-20150019858",
+     "title": "Results from On-Board CSA-CP and CDM Sensor Readings During the Burning and Suppression of Solids II (BASS-II) Experiment in the Microgravity Science Glovebox (MSG) [NTRS 20150019858; related: PSI-25 BASS-II]",
+     "url": "https://ntrs.nasa.gov/citations/20150019858",
+     "snippet": "olume\nBASS-II PMMA data\nC5H8O2 + 6 O2 > 5 CO2 +4 H2O\nOpposed rods\nConcurrent rods\nOpposed thin slabs\nOpposed thick slabs\nSpherical section, stagnation\nFigure 7.  CO / CO 2 ratio as a function of the initial oxygen concentration for each test.   There is some clustering apparent in the data, which sh",
+     "is_mock": false,
+     "page": 7,
+     "page_url": "https://ntrs.nasa.gov/api/citations/20150019858/downloads/20150019858.pdf#page=7",
+     "evidence": ""
+    },
+    {
+     "ref": "S2",
+     "kind": "document",
+     "source_id": "NTRS-20150019858",
+     "title": "Results from On-Board CSA-CP and CDM Sensor Readings During the Burning and Suppression of Solids II (BASS-II) Experiment in the Microgravity Science Glovebox (MSG) [NTRS 20150019858; related: PSI-25 BASS-II]",
+     "url": "https://ntrs.nasa.gov/citations/20150019858",
+     "snippet": "25 m3\nN2 flow rate in = 493 cm3/min\n      (0.000493 m3/min)\nInitial O2 concentration c(0) = Co\nCSA-CP sensor C(0)=20.9% O2\nISS MCA = 21.48 % O2   [10]\nFigure 3 shows the calibration  data compared to the model predictions for both the CSA -CP readings and corrected for the offset from the MCA.  The ",
+     "is_mock": false,
+     "page": 5,
+     "page_url": "https://ntrs.nasa.gov/api/citations/20150019858/downloads/20150019858.pdf#page=5",
+     "evidence": ""
+    },
+    {
+     "ref": "S3",
+     "kind": "document",
+     "source_id": "NTRS-20150008961",
+     "title": "Microgravity Flammability of PMMA Rods in Concurrent Flow [NTRS 20150008961; related: PSI-25 BASS-II]",
+     "url": "https://ntrs.nasa.gov/citations/20150008961",
+     "snippet": "so it seems that once the flame is blown downstream of the stagnation region, the flame is unable to propagate upstream for the low oxygen levels tested (16.1% O2 and lower).  This is consistent with tests for opposed flow flame spread rods that were also done as part of BASS-II [18], where flame sp",
+     "is_mock": false,
+     "page": 5,
+     "page_url": "https://ntrs.nasa.gov/api/citations/20150008961/downloads/20150008961.pdf#page=5",
+     "evidence": ""
+    },
+    {
+     "ref": "I1",
+     "kind": "investigation",
+     "source_id": "PSI-20",
+     "title": "Advanced Combustion via Microgravity Experiments - Burning Rate Emulator",
+     "url": "https://psi.nasa.gov/physci/repo/data/investigations/PSI-20",
+     "snippet": "The BRE flight program seeks to establish the burning conditions in a quiescent microgravity ambient in terms of material properties. The specific flight objectives are as follows. 1. Observe burning behavior in long-duration microgravity for CH4/N2 and C2H4/N2mixtures on porous circular burners of ",
+     "is_mock": false,
+     "page": null,
+     "page_url": "",
+     "evidence": ""
+    },
+    {
+     "ref": "I2",
+     "kind": "investigation",
+     "source_id": "PSI-26",
+     "title": "Burning and Suppression of Solids",
+     "url": "https://psi.nasa.gov/physci/repo/data/investigations/PSI-26",
+     "snippet": "The two main objectives for BASS are to: 1.) Begin to bridge the gap between the normal gravity NASA-STD-6001 Test#1 method, ground-based microgravity tests, and actual material flammability in microgravity. The relation between these can be investigated by observing flames burning for the longer ti",
+     "is_mock": false,
+     "page": null,
+     "page_url": "",
+     "evidence": ""
+    },
+    {
+     "ref": "I3",
+     "kind": "investigation",
+     "source_id": "PSI-159",
+     "title": "Advanced Combustion via Microgravity Experiments / Cool Flames Investigation with Gases",
+     "url": "https://psi.nasa.gov/physci/repo/data/investigations/PSI-159",
+     "snippet": "1. Plan and support flight testing on the International Space Station (ISS). 2. Determine the conditions for which cool diffusion flames occur for propane, n-butane, and n-pentane; normal and inverse flames; and a broad range of Zst, Tad, and fluent flow rate. 3. Support the flight tests with advanc",
+     "is_mock": false,
+     "page": null,
+     "page_url": "",
+     "evidence": ""
+    }
+   ],
+   "refused": false,
+   "warnings": [
+    "Offline mode: no LLM used; showing the best-matching source passages (BM25).",
+    "1 sentence(s) are unsupported by any retrieved context (possible hallucination or outside knowledge); review them in the verification details."
+   ],
+   "uses_mock_data": false,
+   "cost_usd": 0.0,
+   "latency_ms": 80,
+   "verification": {
+    "checked": 6,
+    "supported": 6,
+    "weak": 0,
+    "unsupported": 0,
+    "uncited": 17,
+    "sentences": [
+     {
+      "text": "Most relevant passages found (offline mode, not synthesized by AI):",
+      "refs": [],
+      "overlap": 0.0,
+      "missing_numbers": [],
+      "missing_terms": [],
+      "unmatched_words": [
+       "most",
+       "offlin",
+       "mode",
+       "synthesiz"
+      ],
+      "status": "uncited",
+      "context_status": "unsupported",
+      "context_overlap": 0.0,
+      "miscited": false,
+      "suggested_refs": [],
+      "inference": []
+     },
+     {
+      "text": "C5H8O2 + 6 O2 > 5 CO2 +4 H2O",
+      "refs": [],
+      "overlap": 1.0,
+      "missing_numbers": [],
+      "missing_terms": [],
+      "unmatched_words": [],
+      "status": "uncited",
+      "context_status": "supported",
+      "context_overlap": 1.0,
+      "miscited": false,
+      "suggested_refs": [
+       "S1"
+      ],
+      "inference": []
+     },
+     {
+      "text": "CO / CO 2 ratio as a function of the initial oxygen concentration for each test.",
+      "refs": [],
+      "overlap": 1.0,
+      "missing_numbers": [],
+      "missing_terms": [],
+      "unmatched_words": [],
+      "status": "uncited",
+      "context_status": "supported",
+      "context_overlap": 1.0,
+      "miscited": false,
+      "suggested_refs": [
+       "S1",
+       "S2"
+      ],
+      "inference": []
+     },
+     {
+      "text": "There is some clustering apparent in the data, which shows that lower oxygen concentratio ns produce higher levels of CO per CO 2 for concurrent rods,… [S1]",
+      "refs": [
+       "S1"
+      ],
+      "overlap": 1.0,
+      "missing_numbers": [],
+      "missing_terms": [],
+      "unmatched_words": [],
+      "status": "supported",
+      "context_status": "supported",
+      "context_overlap": 1.0,
+      "miscited": false,
+      "suggested_refs": [],
+      "inference": []
+     },
+     {
+      "text": "Figure 3 shows the calibration  data compared to the model predictions for both the CSA -CP readings and corrected for the offset from the MCA.",
+      "refs": [],
+      "overlap": 1.0,
+      "missing_numbers": [],
+      "missing_terms": [],
+      "unmatched_words": [],
+      "status": "uncited",
+      "context_status": "supported",
+      "context_overlap": 1.0,
+      "miscited": false,
+      "suggested_refs": [
+       "S2"
+      ],
+      "inference": []
+     },
+     {
+      "text": "The m odel agrees very well with CSA -CP readings directly and corrected for the offset to provide a… [S2]",
+      "refs": [
+       "S2"
+      ],
+      "overlap": 1.0,
+      "missing_numbers": [],
+      "missing_terms": [],
+      "unmatched_words": [],
+      "status": "supported",
+      "context_status": "supported",
+      "context_overlap": 1.0,
+      "miscited": false,
+      "suggested_refs": [],
+      "inference": []
+     },
+     {
+      "text": "This is consistent with tests for opposed flow flame spread rods that were also done as part of BASS-II [18], where flame spread was not observed below 16.4 % O2.",
+      "refs": [],
+      "overlap": 1.0,
+      "missing_numbers": [],
+      "missing_terms": [],
+      "unmatched_words": [],
+      "status": "uncited",
+      "context_status": "supported",
+      "context_overlap": 1.0,
+      "miscited": false,
+      "suggested_refs": [
+       "S3"
+      ],
+      "inference": []
+     },
+     {
+      "text": "Figure 3. [S3]",
+      "refs": [
+       "S3"
+      ],
+      "overlap": 1.0,
+      "missing_numbers": [],
+      "missing_terms": [],
+      "unmatched_words": [],
+      "status": "supported",
+      "context_status": "supported",
+      "context_overlap": 1.0,
+      "miscited": false,
+      "suggested_refs": [],
+      "inference": []
+     },
+     {
+      "text": "PSI-20 – Advanced Combustion via Microgravity Experiments - Burning Rate Emulator: The BRE flight program seeks to establish the burning conditions in a quiescent microgravity ambient in terms of material properties.",
+      "refs": [],
+      "overlap": 1.0,
+      "missing_numbers": [],
+      "missing_terms": [],
+      "unmatched_words": [],
+      "status": "uncited",
+      "context_status": "supported",
+      "context_overlap": 1.0,
+      "miscited": false,
+      "suggested_refs": [
+       "I1"
+      ],
+      "inference": []
+     },
+     {
+      "text": "The specific flight objectives are as follows. 1.",
+      "refs": [],
+      "overlap": 1.0,
+      "missing_numbers": [],
+      "missing_terms": [],
+      "unmatched_words": [],
+      "status": "uncited",
+      "context_status": "supported",
+      "context_overlap": 1.0,
+      "miscited": false,
+      "suggested_refs": [
+       "I1",
+       "I2"
+      ],
+      "inference": []
+     },
+     {
+      "text": "Observe burning behavior in long-duration microgravity for CH4/N2 and C2H4/N2mixtures on porous circular burners of 25 and 50 mm diameter.",
+      "refs": [],
+      "overlap": 1.0,
+      "missing_numbers": [],
+      "missing_terms": [],
+      "unmatched_words": [],
+      "status": "uncited",
+      "context_status": "supported",
+      "context_overlap": 1.0,
+      "miscited": false,
+      "suggested_refs": [
+       "I1"
+      ],
+      "inference": []
+     },
+     {
+      "text": "Consider O2/N2 ambients with various pressures and ambient O2 concentrations and pressures.",
+      "refs": [],
+      "overlap": 1.0,
+      "missing_numbers": [],
+      "missing_terms": [],
+      "unmatched_words": [],
+      "status": "uncited",
+      "context_status": "supported",
+      "context_overlap": 1.0,
+      "miscited": false,
+      "suggested_refs": [
+       "I1"
+      ],
+      "inference": []
+     },
+     {
+      "text": "NASA - considered atmosphere for human space missions will be examined: 14.7 psia, 21 % oxygen: 10.2 psia, 26.5 %; and 8.2 psia, 34 % oxygen.",
+      "refs": [],
+      "overlap": 1.0,
+      "missing_numbers": [],
+      "missing_terms": [],
+      "unmatched_words": [],
+      "status": "uncited",
+      "context_status": "supported",
+      "context_overlap": 1.0,
+      "miscited": false,
+      "suggested_refs": [
+       "I1"
+      ],
+      "inference": []
+     },
+     {
+      "text": "Emphasize fuel conditions that can be relat [I1]",
+      "refs": [
+       "I1"
+      ],
+      "overlap": 1.0,
+      "missing_numbers": [],
+      "missing_terms": [],
+      "unmatched_words": [],
+      "status": "supported",
+      "context_status": "supported",
+      "context_overlap": 1.0,
+      "miscited": false,
+      "suggested_refs": [],
+      "inference": []
+     },
+     {
+      "text": "PSI-26 – Burning and Suppression of Solids: The two main objectives for BASS are to: 1.) Begin to bridge the gap between the normal gravity NASA-STD-6001 Test#1 method, ground-based microgravity tests, and actual material flammability in microgravity.",
+      "refs": [],
+      "overlap": 1.0,
+      "missing_numbers": [],
+      "missing_terms": [],
+      "unmatched_words": [],
+      "status": "uncited",
+      "context_status": "supported",
+      "context_overlap": 1.0,
+      "miscited": false,
+      "suggested_refs": [
+       "I2"
+      ],
+      "inference": []
+     },
+     {
+      "text": "The relation between these can be investigated by observing flames burning for the longer times available in flight.",
+      "refs": [],
+      "overlap": 1.0,
+      "missing_numbers": [],
+      "missing_terms": [],
+      "unmatched_words": [],
+      "status": "uncited",
+      "context_status": "supported",
+      "context_overlap": 1.0,
+      "miscited": false,
+      "suggested_refs": [
+       "I2"
+      ],
+      "inference": []
+     },
+     {
+      "text": "Practical, realistic (thicker) fuels in typical geometries will be examined, including wake flames which have characteristics of a fire burning behind another object (for example, a fire burning in tight area which may not be easily accessible). 2.) Assess the effectiveness  [I2]",
+      "refs": [
+       "I2"
+      ],
+      "overlap": 1.0,
+      "missing_numbers": [],
+      "missing_terms": [],
+      "unmatched_words": [],
+      "status": "supported",
+      "context_status": "supported",
+      "context_overlap": 1.0,
+      "miscited": false,
+      "suggested_refs": [],
+      "inference": []
+     },
+     {
+      "text": "PSI-159 – Advanced Combustion via Microgravity Experiments / Cool Flames Investigation with Gases: 1.",
+      "refs": [],
+      "overlap": 1.0,
+      "missing_numbers": [],
+      "missing_terms": [],
+      "unmatched_words": [],
+      "status": "uncited",
+      "context_status": "supported",
+      "context_overlap": 1.0,
+      "miscited": false,
+      "suggested_refs": [
+       "I3",
+       "I1"
+      ],
+      "inference": []
+     },
+     {
+      "text": "Plan and support flight testing on the International Space Station (ISS). 2.",
+      "refs": [],
+      "overlap": 1.0,
+      "missing_numbers": [],
+      "missing_terms": [],
+      "unmatched_words": [],
+      "status": "uncited",
+      "context_status": "supported",
+      "context_overlap": 1.0,
+      "miscited": false,
+      "suggested_refs": [
+       "I3"
+      ],
+      "inference": []
+     },
+     {
+      "text": "Determine the conditions for which cool diffusion flames occur for propane, n-butane, and n-pentane; normal and inverse flames; and a broad range of Zst, Tad, and fluent flow rate. 3.",
+      "refs": [],
+      "overlap": 1.0,
+      "missing_numbers": [],
+      "missing_terms": [],
+      "unmatched_words": [],
+      "status": "uncited",
+      "context_status": "supported",
+      "context_overlap": 1.0,
+      "miscited": false,
+      "suggested_refs": [
+       "I3"
+      ],
+      "inference": []
+     },
+     {
+      "text": "Support the flight tests with advanced CFD simulations. 4.",
+      "refs": [],
+      "overlap": 1.0,
+      "missing_numbers": [],
+      "missing_terms": [],
+      "unmatched_words": [],
+      "status": "uncited",
+      "context_status": "supported",
+      "context_overlap": 1.0,
+      "miscited": false,
+      "suggested_refs": [
+       "I3"
+      ],
+      "inference": []
+     },
+     {
+      "text": "Identify or develop a chemical kinetics mechanism that yields good agreement between the CFD predictions and the ISS measurements. 5.",
+      "refs": [],
+      "overlap": 1.0,
+      "missing_numbers": [],
+      "missing_terms": [],
+      "unmatched_words": [],
+      "status": "uncited",
+      "context_status": "supported",
+      "context_overlap": 1.0,
+      "miscited": false,
+      "suggested_refs": [
+       "I3"
+      ],
+      "inference": []
+     },
+     {
+      "text": "Disseminate the results as widely as possible. [I3]",
+      "refs": [
+       "I3"
+      ],
+      "overlap": 1.0,
+      "missing_numbers": [],
+      "missing_terms": [],
+      "unmatched_words": [],
+      "status": "supported",
+      "context_status": "supported",
+      "context_overlap": 1.0,
+      "miscited": false,
+      "suggested_refs": [],
+      "inference": []
+     }
+    ],
+    "claims": 23,
+    "miscited": 0,
+    "inference": 0,
+    "faithfulness": {
+     "supported": 22,
+     "weak": 0,
+     "unsupported": 1,
+     "score": 0.96
+    },
+    "citation_correctness": 1.0
+   }
+  },
+  {
+   "question": "Why can turning off ventilation help put out a fire in microgravity?",
+   "answer": "Most relevant passages found (offline mode, not synthesized by AI):\n- **A Researcher's Guide to International Space Station Combustion Science (NASA, 2015) – p. 31**: pacecraft fire safety.\nAnother related phenomenon with spacecraft fire safety implications is the observation of flame spread direction at low-flow velocities in the microgravity environment of spaceflight when a thin fuel is ignited at the middle of the sample.\nCompletely contrary to normal-gravity behavior, the flame spreads upstream, into the oncoming airflow, in space when the forced-flow… [S1]\n- **Apollo 13 – oxygen tank explosion and lessons learned – Apollo 13**: n out about five hours before Earth re-entry. To conserve supplies, the crew cut down to six ounces of water each per day, 1/5 of their normal intake.\nA New Plan Is Set\nBefore the explosion, Apollo 13 made its normal midcourse correction to put it on a lunar landing course. Now, the task was to get back on a free-return-to-Earth trajectory and use the Sun as an alignment star for navigation.… [S2]\n- **A Researcher's Guide to International Space Station Combustion Science (NASA, 2015) – p. 21**: 21\nSpace Exploration Atmospheres (SEA) relevant to NASA can be investigated.\nAirflows in the spacecraft ventilation range of 0 to 30 cm/s will be supplied to the flame. The flow field must be well-characterized so the models will have accurate boundary conditions.\nBurning and Suppression of Solids (BASS)\nThe BASS investigation is currently being conducted in the MSG to examine the burning and… [S3]",
+   "citations": [
+    {
+     "ref": "S1",
+     "kind": "document",
+     "source_id": "NASA-RG-2015",
+     "title": "A Researcher's Guide to International Space Station Combustion Science (NASA, 2015)",
+     "url": "https://www.nasa.gov/wp-content/uploads/2016/05/np-2015-10-034-jsc_combustion_in_reduced_gravity-iss-mini-book-011116-508.pdf",
+     "snippet": "pacecraft fire safety.\nAnother related phenomenon with spacecraft fire safety implications is the observation of flame spread direction at low-flow velocities in the microgravity environment of spaceflight when a thin fuel is ignited at the middle of the sample.\nCompletely contrary to normal-gravity",
+     "is_mock": false,
+     "page": 31,
+     "page_url": "https://www.nasa.gov/wp-content/uploads/2016/05/np-2015-10-034-jsc_combustion_in_reduced_gravity-iss-mini-book-011116-508.pdf#page=31",
+     "evidence": ""
+    },
+    {
+     "ref": "S2",
+     "kind": "document",
+     "source_id": "NASA-APOLLO-13",
+     "title": "Apollo 13 – oxygen tank explosion and lessons learned",
+     "url": "https://sma.nasa.gov/sma-disciplines/accllp/apollo-13",
+     "snippet": "n out about five hours before Earth re-entry. To conserve supplies, the crew cut down to six ounces of water each per day, 1/5 of their normal intake.\nA New Plan Is Set\nBefore the explosion, Apollo 13 made its normal midcourse correction to put it on a lunar landing course. Now, the task was to get ",
+     "is_mock": false,
+     "page": null,
+     "page_url": "https://sma.nasa.gov/sma-disciplines/accllp/apollo-13",
+     "evidence": ""
+    },
+    {
+     "ref": "S3",
+     "kind": "document",
+     "source_id": "NASA-RG-2015",
+     "title": "A Researcher's Guide to International Space Station Combustion Science (NASA, 2015)",
+     "url": "https://www.nasa.gov/wp-content/uploads/2016/05/np-2015-10-034-jsc_combustion_in_reduced_gravity-iss-mini-book-011116-508.pdf",
+     "snippet": "21\nSpace Exploration Atmospheres (SEA) relevant to NASA can be investigated.\nAirflows in the spacecraft ventilation range of 0 to 30 cm/s will be supplied to the flame. The flow field must be well-characterized so the models will have accurate boundary conditions.\nBurning and Suppression of Solids (",
+     "is_mock": false,
+     "page": 21,
+     "page_url": "https://www.nasa.gov/wp-content/uploads/2016/05/np-2015-10-034-jsc_combustion_in_reduced_gravity-iss-mini-book-011116-508.pdf#page=21",
+     "evidence": ""
+    }
+   ],
+   "refused": false,
+   "warnings": [
+    "Offline mode: no LLM used; showing the best-matching source passages (BM25).",
+    "1 sentence(s) are unsupported by any retrieved context (possible hallucination or outside knowledge); review them in the verification details."
+   ],
+   "uses_mock_data": false,
+   "cost_usd": 0.0,
+   "latency_ms": 20,
+   "verification": {
+    "checked": 3,
+    "supported": 3,
+    "weak": 0,
+    "unsupported": 0,
+    "uncited": 7,
+    "sentences": [
+     {
+      "text": "Most relevant passages found (offline mode, not synthesized by AI):",
+      "refs": [],
+      "overlap": 0.0,
+      "missing_numbers": [],
+      "missing_terms": [],
+      "unmatched_words": [
+       "most",
+       "offlin",
+       "mode",
+       "synthesiz"
+      ],
+      "status": "uncited",
+      "context_status": "unsupported",
+      "context_overlap": 0.0,
+      "miscited": false,
+      "suggested_refs": [],
+      "inference": []
+     },
+     {
+      "text": "Another related phenomenon with spacecraft fire safety implications is the observation of flame spread direction at low-flow velocities in the microgravity environment of spaceflight when a thin fuel is ignited at the middle of the sample.",
+      "refs": [],
+      "overlap": 1.0,
+      "missing_numbers": [],
+      "missing_terms": [],
+      "unmatched_words": [],
+      "status": "uncited",
+      "context_status": "supported",
+      "context_overlap": 1.0,
+      "miscited": false,
+      "suggested_refs": [
+       "S1"
+      ],
+      "inference": []
+     },
+     {
+      "text": "Completely contrary to normal-gravity behavior, the flame spreads upstream, into the oncoming airflow, in space when the forced-flow… [S1]",
+      "refs": [
+       "S1"
+      ],
+      "overlap": 1.0,
+      "missing_numbers": [],
+      "missing_terms": [],
+      "unmatched_words": [],
+      "status": "supported",
+      "context_status": "supported",
+      "context_overlap": 1.0,
+      "miscited": false,
+      "suggested_refs": [],
+      "inference": []
+     },
+     {
+      "text": "To conserve supplies, the crew cut down to six ounces of water each per day, 1/5 of their normal intake.",
+      "refs": [],
+      "overlap": 1.0,
+      "missing_numbers": [],
+      "missing_terms": [],
+      "unmatched_words": [],
+      "status": "uncited",
+      "context_status": "supported",
+      "context_overlap": 1.0,
+      "miscited": false,
+      "suggested_refs": [
+       "S2"
+      ],
+      "inference": []
+     },
+     {
+      "text": "Before the explosion, Apollo 13 made its normal midcourse correction to put it on a lunar landing course.",
+      "refs": [],
+      "overlap": 1.0,
+      "missing_numbers": [],
+      "missing_terms": [],
+      "unmatched_words": [],
+      "status": "uncited",
+      "context_status": "supported",
+      "context_overlap": 1.0,
+      "miscited": false,
+      "suggested_refs": [
+       "S2"
+      ],
+      "inference": []
+     },
+     {
+      "text": "Now, the task was to get back on a free-return-to-Earth trajectory and use the Sun as an alignment star for navigation.… [S2]",
+      "refs": [
+       "S2"
+      ],
+      "overlap": 1.0,
+      "missing_numbers": [],
+      "missing_terms": [],
+      "unmatched_words": [],
+      "status": "supported",
+      "context_status": "supported",
+      "context_overlap": 1.0,
+      "miscited": false,
+      "suggested_refs": [],
+      "inference": []
+     },
+     {
+      "text": "Space Exploration Atmospheres (SEA) relevant to NASA can be investigated.",
+      "refs": [],
+      "overlap": 1.0,
+      "missing_numbers": [],
+      "missing_terms": [],
+      "unmatched_words": [],
+      "status": "uncited",
+      "context_status": "supported",
+      "context_overlap": 1.0,
+      "miscited": false,
+      "suggested_refs": [
+       "S3"
+      ],
+      "inference": []
+     },
+     {
+      "text": "Airflows in the spacecraft ventilation range of 0 to 30 cm/s will be supplied to the flame.",
+      "refs": [],
+      "overlap": 1.0,
+      "missing_numbers": [],
+      "missing_terms": [],
+      "unmatched_words": [],
+      "status": "uncited",
+      "context_status": "supported",
+      "context_overlap": 1.0,
+      "miscited": false,
+      "suggested_refs": [
+       "S3"
+      ],
+      "inference": []
+     },
+     {
+      "text": "The flow field must be well-characterized so the models will have accurate boundary conditions.",
+      "refs": [],
+      "overlap": 1.0,
+      "missing_numbers": [],
+      "missing_terms": [],
+      "unmatched_words": [],
+      "status": "uncited",
+      "context_status": "supported",
+      "context_overlap": 1.0,
+      "miscited": false,
+      "suggested_refs": [
+       "S3"
+      ],
+      "inference": []
+     },
+     {
+      "text": "The BASS investigation is currently being conducted in the MSG to examine the burning and… [S3]",
+      "refs": [
+       "S3"
+      ],
+      "overlap": 1.0,
+      "missing_numbers": [],
+      "missing_terms": [],
+      "unmatched_words": [],
+      "status": "supported",
+      "context_status": "supported",
+      "context_overlap": 1.0,
+      "miscited": false,
+      "suggested_refs": [],
+      "inference": []
+     }
+    ],
+    "claims": 10,
+    "miscited": 0,
+    "inference": 0,
+    "faithfulness": {
+     "supported": 9,
+     "weak": 0,
+     "unsupported": 1,
+     "score": 0.9
+    },
+    "citation_correctness": 1.0
+   }
+  },
+  {
+   "question": "What did FLEX learn about extinguishing fuel droplets?",
+   "answer": "Most relevant passages found (offline mode, not synthesized by AI):\n- **PSI-69 FLEX – Flame Extinguishment Experiment – Approach**: The FLEX experiments involve igniting and observing the burning behavior of relatively large droplets. A primary objective of the experiments is to determine the Limiting Oxygen Index (LOI) as a function of ambient pressure and determine how the presence of a suppressant influences the LOI .\nThe basic outline of the procedure to construct this diagram is as follows:\n  1. Select the test pressure… [S1]\n- **PSI-69 FLEX – Flame Extinguishment Experiment – Hypothesis**: The primary hypothesis of the FLEX mission is that microgravity conditions fundamentally alter the combustion and extinction characteristics of liquid fuel droplets due to changes in species and energy transport dynamics, radiative heat loss, and chemical kinetics. Specifically, the hypothesis posits that the lack of buoyant convection in microgravity will lead to significant differences in the… [S2]\n- **Methanol Droplet Combustion in Oxygen-Inert Environments in Microgravity [NTRS 20130014061; related: PSI-69 FLEX] – p. 3**: droplet rather than into it.\nThis occurs when about 30% of the mass of the droplet is water, and the droplet then begins to burn as a binary mixture of methanol and water. The adiabatic ﬂame temperature of this diluted mixture is, however, signiﬁcantly less than that of pure methanol, actually below the temperature range,\n1200 - 1700 K, that results in chemical-kinetic gas-phase ﬂame… [S3]",
+   "citations": [
+    {
+     "ref": "S1",
+     "kind": "document",
+     "source_id": "PSI-69",
+     "title": "PSI-69 FLEX – Flame Extinguishment Experiment",
+     "url": "https://psi.nasa.gov/physci/repo/data/investigations/PSI-69",
+     "snippet": "The FLEX experiments involve igniting and observing the burning behavior of relatively large droplets. A primary objective of the experiments is to determine the Limiting Oxygen Index (LOI) as a function of ambient pressure and determine how the presence of a suppressant influences the LOI .\nThe bas",
+     "is_mock": false,
+     "page": null,
+     "page_url": "https://psi.nasa.gov/physci/repo/data/investigations/PSI-69",
+     "evidence": ""
+    },
+    {
+     "ref": "S2",
+     "kind": "document",
+     "source_id": "PSI-69",
+     "title": "PSI-69 FLEX – Flame Extinguishment Experiment",
+     "url": "https://psi.nasa.gov/physci/repo/data/investigations/PSI-69",
+     "snippet": "The primary hypothesis of the FLEX mission is that microgravity conditions fundamentally alter the combustion and extinction characteristics of liquid fuel droplets due to changes in species and energy transport dynamics, radiative heat loss, and chemical kinetics. Specifically, the hypothesis posit",
+     "is_mock": false,
+     "page": null,
+     "page_url": "https://psi.nasa.gov/physci/repo/data/investigations/PSI-69",
+     "evidence": ""
+    },
+    {
+     "ref": "S3",
+     "kind": "document",
+     "source_id": "NTRS-20130014061",
+     "title": "Methanol Droplet Combustion in Oxygen-Inert Environments in Microgravity [NTRS 20130014061; related: PSI-69 FLEX]",
+     "url": "https://ntrs.nasa.gov/citations/20130014061",
+     "snippet": "droplet rather than into it.\nThis occurs when about 30% of the mass of the droplet is water, and the droplet then begins to burn as a binary mixture of methanol and water. The adiabatic ﬂame temperature of this diluted mixture is, however, signiﬁcantly less than that of pure methanol, actually below",
+     "is_mock": false,
+     "page": 3,
+     "page_url": "https://ntrs.nasa.gov/api/citations/20130014061/downloads/20130014061.pdf#page=3",
+     "evidence": ""
+    }
+   ],
+   "refused": false,
+   "warnings": [
+    "Offline mode: no LLM used; showing the best-matching source passages (BM25).",
+    "1 sentence(s) are unsupported by any retrieved context (possible hallucination or outside knowledge); review them in the verification details."
+   ],
+   "uses_mock_data": false,
+   "cost_usd": 0.0,
+   "latency_ms": 17,
+   "verification": {
+    "checked": 3,
+    "supported": 3,
+    "weak": 0,
+    "unsupported": 0,
+    "uncited": 5,
+    "sentences": [
+     {
+      "text": "Most relevant passages found (offline mode, not synthesized by AI):",
+      "refs": [],
+      "overlap": 0.0,
+      "missing_numbers": [],
+      "missing_terms": [],
+      "unmatched_words": [
+       "most",
+       "offlin",
+       "mode",
+       "synthesiz"
+      ],
+      "status": "uncited",
+      "context_status": "unsupported",
+      "context_overlap": 0.0,
+      "miscited": false,
+      "suggested_refs": [],
+      "inference": []
+     },
+     {
+      "text": "A primary objective of the experiments is to determine the Limiting Oxygen Index (LOI) as a function of ambient pressure and determine how the presence of a suppressant influences the LOI .",
+      "refs": [],
+      "overlap": 1.0,
+      "missing_numbers": [],
+      "missing_terms": [],
+      "unmatched_words": [],
+      "status": "uncited",
+      "context_status": "supported",
+      "context_overlap": 1.0,
+      "miscited": false,
+      "suggested_refs": [
+       "S1"
+      ],
+      "inference": []
+     },
+     {
+      "text": "The basic outline of the procedure to construct this diagram is as follows:",
+      "refs": [],
+      "overlap": 1.0,
+      "missing_numbers": [],
+      "missing_terms": [],
+      "unmatched_words": [],
+      "status": "uncited",
+      "context_status": "supported",
+      "context_overlap": 1.0,
+      "miscited": false,
+      "suggested_refs": [
+       "S1"
+      ],
+      "inference": []
+     },
+     {
+      "text": "Select the test pressure… [S1]",
+      "refs": [
+       "S1"
+      ],
+      "overlap": 1.0,
+      "missing_numbers": [],
+      "missing_terms": [],
+      "unmatched_words": [],
+      "status": "supported",
+      "context_status": "supported",
+      "context_overlap": 1.0,
+      "miscited": false,
+      "suggested_refs": [],
+      "inference": []
+     },
+     {
+      "text": "Specifically, the hypothesis posits that the lack of buoyant convection in microgravity will lead to significant differences in the… [S2]",
+      "refs": [
+       "S2"
+      ],
+      "overlap": 1.0,
+      "missing_numbers": [],
+      "missing_terms": [],
+      "unmatched_words": [],
+      "status": "supported",
+      "context_status": "supported",
+      "context_overlap": 1.0,
+      "miscited": false,
+      "suggested_refs": [],
+      "inference": []
+     },
+     {
+      "text": "This occurs when about 30% of the mass of the droplet is water, and the droplet then begins to burn as a binary mixture of methanol and water.",
+      "refs": [],
+      "overlap": 1.0,
+      "missing_numbers": [],
+      "missing_terms": [],
+      "unmatched_words": [],
+      "status": "uncited",
+      "context_status": "supported",
+      "context_overlap": 1.0,
+      "miscited": false,
+      "suggested_refs": [
+       "S3"
+      ],
+      "inference": []
+     },
+     {
+      "text": "The adiabatic ﬂame temperature of this diluted mixture is, however, signiﬁcantly less than that of pure methanol, actually below the temperature range,",
+      "refs": [],
+      "overlap": 1.0,
+      "missing_numbers": [],
+      "missing_terms": [],
+      "unmatched_words": [],
+      "status": "uncited",
+      "context_status": "supported",
+      "context_overlap": 1.0,
+      "miscited": false,
+      "suggested_refs": [
+       "S3"
+      ],
+      "inference": []
+     },
+     {
+      "text": "1200 - 1700 K, that results in chemical-kinetic gas-phase ﬂame… [S3]",
+      "refs": [
+       "S3"
+      ],
+      "overlap": 1.0,
+      "missing_numbers": [],
+      "missing_terms": [],
+      "unmatched_words": [],
+      "status": "supported",
+      "context_status": "supported",
+      "context_overlap": 1.0,
+      "miscited": false,
+      "suggested_refs": [],
+      "inference": []
+     }
+    ],
+    "claims": 8,
+    "miscited": 0,
+    "inference": 0,
+    "faithfulness": {
+     "supported": 7,
+     "weak": 0,
+     "unsupported": 1,
+     "score": 0.88
+    },
+    "citation_correctness": 1.0
+   }
+  },
+  {
+   "question": "Is there combustion data at lunar or Martian gravity?",
+   "answer": "Most relevant passages found (offline mode, not synthesized by AI):\n- **NASA Combustion Science (Glenn Research Center) – Flammability of Materials on the Moon (FM2)**: FM2 is the first-ever combustion experiment to be performed on another planetary body. Building on the success of the decades-long combustion science ground (1g) program and International Space Station (ISS) microgravity (~0g) combustion experiment campaigns, FM2 investigates burning materials on the Moon at its 1/6 reduced gravity level.\nLearn More\nEdge view of Solid Inflammability Boundary at… [S1]\n- **Flammability of Materials on the Moon (FM2) – Background**: FM 2 is the first-ever combustion experiment to be performed on another planetary body. Building on the success of the decades-long combustion science ground (1g) program and International Space Station (ISS) microgravity (~0g) combustion experiment campaigns, FM 2 investigates burning materials on the Moon at its 1/6 reduced gravity level. Previous computational modeling, bolstered by… [S2]\n- **Apollo 13 – oxygen tank explosion and lessons learned – Apollo 13Mission**: s more rugged than the former landing sites and offered an extensive geologic area to explore around Mare Imbrium, the largest lava plain on the Moon.\nDuring the 10-day lunar mission, Lovell and Haise planned to conduct two four-hour spacewalks to set up the Lunar Surface Experiment Package, a series of five investigations to collect data about the lunar environment after departure, and to… [S3]",
+   "citations": [
+    {
+     "ref": "S1",
+     "kind": "document",
+     "source_id": "NASA-COMBUSTION-SCIENCE",
+     "title": "NASA Combustion Science (Glenn Research Center)",
+     "url": "https://www.nasa.gov/glenn/glenn-expertise-space-exploration/physical-sciences-program/combustion-science/",
+     "snippet": "FM2 is the first-ever combustion experiment to be performed on another planetary body. Building on the success of the decades-long combustion science ground (1g) program and International Space Station (ISS) microgravity (~0g) combustion experiment campaigns, FM2 investigates burning materials on th",
+     "is_mock": false,
+     "page": null,
+     "page_url": "https://www.nasa.gov/glenn/glenn-expertise-space-exploration/physical-sciences-program/combustion-science/",
+     "evidence": ""
+    },
+    {
+     "ref": "S2",
+     "kind": "document",
+     "source_id": "NASA-CS-FM2",
+     "title": "Flammability of Materials on the Moon (FM2)",
+     "url": "https://www.nasa.gov/glenn/glenn-expertise-space-exploration/physical-sciences-program/combustion-science/flammability-of-materials-on-the-moon-fm2/",
+     "snippet": "FM 2 is the first-ever combustion experiment to be performed on another planetary body. Building on the success of the decades-long combustion science ground (1g) program and International Space Station (ISS) microgravity (~0g) combustion experiment campaigns, FM 2 investigates burning materials on ",
+     "is_mock": false,
+     "page": null,
+     "page_url": "https://www.nasa.gov/glenn/glenn-expertise-space-exploration/physical-sciences-program/combustion-science/flammability-of-materials-on-the-moon-fm2/",
+     "evidence": ""
+    },
+    {
+     "ref": "S3",
+     "kind": "document",
+     "source_id": "NASA-APOLLO-13",
+     "title": "Apollo 13 – oxygen tank explosion and lessons learned",
+     "url": "https://sma.nasa.gov/sma-disciplines/accllp/apollo-13",
+     "snippet": "s more rugged than the former landing sites and offered an extensive geologic area to explore around Mare Imbrium, the largest lava plain on the Moon.\nDuring the 10-day lunar mission, Lovell and Haise planned to conduct two four-hour spacewalks to set up the Lunar Surface Experiment Package, a serie",
+     "is_mock": false,
+     "page": null,
+     "page_url": "https://sma.nasa.gov/sma-disciplines/accllp/apollo-13",
+     "evidence": ""
+    }
+   ],
+   "refused": false,
+   "warnings": [
+    "Offline mode: no LLM used; showing the best-matching source passages (BM25).",
+    "1 sentence(s) are unsupported by any retrieved context (possible hallucination or outside knowledge); review them in the verification details."
+   ],
+   "uses_mock_data": false,
+   "cost_usd": 0.0,
+   "latency_ms": 10,
+   "verification": {
+    "checked": 3,
+    "supported": 3,
+    "weak": 0,
+    "unsupported": 0,
+    "uncited": 3,
+    "sentences": [
+     {
+      "text": "Most relevant passages found (offline mode, not synthesized by AI):",
+      "refs": [],
+      "overlap": 0.0,
+      "missing_numbers": [],
+      "missing_terms": [],
+      "unmatched_words": [
+       "most",
+       "offlin",
+       "mode",
+       "synthesiz"
+      ],
+      "status": "uncited",
+      "context_status": "unsupported",
+      "context_overlap": 0.0,
+      "miscited": false,
+      "suggested_refs": [],
+      "inference": []
+     },
+     {
+      "text": "Building on the success of the decades-long combustion science ground (1g) program and International Space Station (ISS) microgravity (~0g) combustion experiment campaigns, FM2 investigates burning materials on the Moon at its 1/6 reduced gravity level.",
+      "refs": [],
+      "overlap": 1.0,
+      "missing_numbers": [],
+      "missing_terms": [],
+      "unmatched_words": [],
+      "status": "uncited",
+      "context_status": "supported",
+      "context_overlap": 1.0,
+      "miscited": false,
+      "suggested_refs": [
+       "S1",
+       "S2"
+      ],
+      "inference": []
+     },
+     {
+      "text": "Edge view of Solid Inflammability Boundary at… [S1]",
+      "refs": [
+       "S1"
+      ],
+      "overlap": 1.0,
+      "missing_numbers": [],
+      "missing_terms": [],
+      "unmatched_words": [],
+      "status": "supported",
+      "context_status": "supported",
+      "context_overlap": 1.0,
+      "miscited": false,
+      "suggested_refs": [],
+      "inference": []
+     },
+     {
+      "text": "Building on the success of the decades-long combustion science ground (1g) program and International Space Station (ISS) microgravity (~0g) combustion experiment campaigns, FM 2 investigates burning materials on the Moon at its 1/6 reduced gravity level.",
+      "refs": [],
+      "overlap": 1.0,
+      "missing_numbers": [],
+      "missing_terms": [],
+      "unmatched_words": [],
+      "status": "uncited",
+      "context_status": "supported",
+      "context_overlap": 1.0,
+      "miscited": false,
+      "suggested_refs": [
+       "S1",
+       "S2"
+      ],
+      "inference": []
+     },
+     {
+      "text": "Previous computational modeling, bolstered by… [S2]",
+      "refs": [
+       "S2"
+      ],
+      "overlap": 1.0,
+      "missing_numbers": [],
+      "missing_terms": [],
+      "unmatched_words": [],
+      "status": "supported",
+      "context_status": "supported",
+      "context_overlap": 1.0,
+      "miscited": false,
+      "suggested_refs": [],
+      "inference": []
+     },
+     {
+      "text": "During the 10-day lunar mission, Lovell and Haise planned to conduct two four-hour spacewalks to set up the Lunar Surface Experiment Package, a series of five investigations to collect data about the lunar environment after departure, and to… [S3]",
+      "refs": [
+       "S3"
+      ],
+      "overlap": 1.0,
+      "missing_numbers": [],
+      "missing_terms": [],
+      "unmatched_words": [],
+      "status": "supported",
+      "context_status": "supported",
+      "context_overlap": 1.0,
+      "miscited": false,
+      "suggested_refs": [],
+      "inference": []
+     }
+    ],
+    "claims": 6,
+    "miscited": 0,
+    "inference": 0,
+    "faithfulness": {
+     "supported": 5,
+     "weak": 0,
+     "unsupported": 1,
+     "score": 0.83
+    },
+    "citation_correctness": 1.0
+   }
+  }
+ ]
+}

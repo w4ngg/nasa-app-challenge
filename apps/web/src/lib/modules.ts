@@ -22,9 +22,7 @@ export const modules: Module[] = [
     planned: "Two or three investigations or materials side by side: fuels, oxygen ranges, run counts, hardware and publications.",
   },
   {
-    view: "assistant", label: "Research assistant", built: false,
-    planned: "Questions answered from PSI records and NASA reports, with every claim linked to its source.",
-    note: "A first version lives in apps/assistant in the repository; it is not connected to this site yet.",
+    view: "assistant", label: "Research assistant", built: true,
   },
   {
     view: "habitat", label: "Habitat check", built: false,

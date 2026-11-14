@@ -12,8 +12,15 @@ const detailUrl = (id: string) => routeUrl({ view: "overview", id, filters: empt
 const name = (r: Investigation) => r.acronym || r.id;
 const FUELS_SHOWN = 8;
 
+const NEAR = 1; // percentage points
+
 function spans(r: Investigation, level: number, basis: "ambient" | "oxidizer_stream") {
   return r.conditions.o2.some((o) => o.basis === basis && o.min_percent <= level && level <= o.max_percent);
+}
+
+/** A recorded run within NEAR points of the level, not just a range around it. */
+function near(r: Investigation, level: number, basis: "ambient" | "oxidizer_stream") {
+  return r.conditions.o2.some((o) => o.basis === basis && o.values.some((v) => Math.abs(v - level) <= NEAR));
 }
 
 function PanelHead({ num, id, title }: { num: number; id: string; title: string }) {
@@ -80,8 +87,11 @@ export function OverviewPage({ summary, onLink }: {
 
   const mission = missions.find((m) => m.o2 === level) ?? null;
   const ambient = records.filter((r) => spans(r, level, "ambient"));
+  const ambientNear = ambient.filter((r) => near(r, level, "ambient"));
+  const ambientRangeOnly = ambient.filter((r) => !ambientNear.includes(r));
   const burner = records.filter((r) => spans(r, level, "oxidizer_stream") && !ambient.includes(r));
   const solids = ambient.filter((r) => r.conditions.fuel_categories.includes("solid"));
+  const solidsNear = solids.filter((r) => ambientNear.includes(r));
   const references = [
     { value: 21, label: "21%: Earth air (ISS cabin)", selected: level === 21 },
     { value: 34, label: "34%: proposed exploration atmosphere", selected: level === 34 },
@@ -124,16 +134,17 @@ export function OverviewPage({ summary, onLink }: {
           </div>
           <div className="readout" aria-live="polite">
             <p>
-              <strong>At {level}% O₂: </strong>
-              {ambient.length > 0
-                ? <>the tested chamber-oxygen range of {ambient.length} {ambient.length === 1 ? "investigation" : "investigations"} includes this level: {list(ambient)}.</>
-                : <span className="readout-gap">no investigation's tested chamber-oxygen range includes this level.</span>}
+              <strong>At {level}% chamber O₂: </strong>
+              {ambient.length === 0 && <span className="readout-gap">no investigation's tested range includes this level.</span>}
+              {ambientNear.length > 0 && <>runs recorded within ±{NEAR} point in {list(ambientNear)}.</>}
+              {ambientNear.length === 0 && ambient.length > 0 && <span className="readout-gap">no run recorded within ±{NEAR} point.</span>}
+              {ambientRangeOnly.length > 0 && <> Tested range includes it, without a run that close: {list(ambientRangeOnly)}.</>}
               {burner.length > 0 && <> Burner-fed oxygen ranges include it in {list(burner)}.</>}
             </p>
             <p>
               <strong>Solid materials: </strong>
               {solids.length > 0
-                ? <>{list(solids)}.</>
+                ? <>{solidsNear.length > 0 ? <>runs within ±{NEAR} point in {list(solidsNear)}</> : <>range only, in {list(solids)}</>}.</>
                 : <span className="readout-gap">no data at this level.{stats.topSolid && <> The highest chamber oxygen for a burned solid is {percentRange(stats.topSolid.max, stats.topSolid.max)} ({name(stats.topSolid.r)}).</>}</span>}
             </p>
           </div>
@@ -192,10 +203,9 @@ export function OverviewPage({ summary, onLink }: {
               </li>
             )}
           </ul>
-          {/* TODO: connect apps/assistant here. */}
           <div className="slot-empty">
             <p className="slot-title">Research assistant</p>
-            <p>Not built yet. <a href={viewUrl("assistant")} onClick={onLink}>What it will do</a>.</p>
+            <p>Ask follow-up questions; every answer cites NASA PSI records and reports. <a href={viewUrl("assistant")} onClick={onLink}>Open the research assistant</a>.</p>
           </div>
         </section>
       </div>

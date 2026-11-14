@@ -491,6 +491,39 @@ def test_gold_facts_are_grounded_in_their_source_chunks():
             assert all(re.search(k, text) for k in f["keywords"]), (q["id"], f["fact"])
 
 
+# ---------- Catalog conditions from the web app and the hidden mock tool ----------
+
+def test_catalog_conditions_fill_structured_filters(tmp_path, monkeypatch):
+    from assistant import integrations
+    catalog = {"investigations": [{
+        "id": "PSI-25", "platform": "iss",
+        "conditions": {"fuels": ["PMMA", "Nomex"], "fuel_categories": ["solid"], "run_count": 129,
+                       "o2": [{"basis": "ambient", "min_percent": 13.6, "max_percent": 22.2}]},
+    }, {
+        "id": "PSI-10", "platform": "iss",
+        "conditions": {"fuels": ["Ethylene"], "fuel_categories": ["gas"], "run_count": 327,
+                       "o2": [{"basis": "ambient", "min_percent": 19.8, "max_percent": 40},
+                              {"basis": "oxidizer_stream", "min_percent": 21.2, "max_percent": 85}]},
+    }]}
+    path = tmp_path / "index.json"
+    path.write_text(json.dumps(catalog), encoding="utf-8")
+    monkeypatch.setattr(config, "CATALOG_JSON", path)
+    cond = integrations.catalog_conditions()
+    assert cond["PSI-25"]["material"] == "PMMA, Nomex" and cond["PSI-25"]["o2_max"] == 22.2
+    assert cond["PSI-10"]["o2_range"] == "19.8–40 (chamber); 21.2–85 (burner-fed)"
+    assert cond["PSI-25"]["gravity"] == "microgravity (ISS)"
+    row = integrations._fill({"psi_id": "PSI-25", "material": "", "o2_max": ""}, cond["PSI-25"])
+    assert row["material"] == "PMMA, Nomex" and row["o2_max"] == 22.2
+
+
+def test_mock_prediction_tool_is_hidden_without_a_model(monkeypatch):
+    from assistant.prompts import active_tools
+    monkeypatch.setattr(config, "PREDICT_IMPORT", "")
+    assert "predict_flammability" not in [t["function"]["name"] for t in active_tools()]
+    monkeypatch.setattr(config, "PREDICT_IMPORT", "module5.model:predict")
+    assert "predict_flammability" in [t["function"]["name"] for t in active_tools()]
+
+
 # ---------- streaming, search cap, scenario ranking ----------
 from assistant import ranking  # noqa: E402
 

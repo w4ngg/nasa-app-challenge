@@ -54,15 +54,6 @@ export function FilterPanel({ facets, filters, onChange, totalInvestigations }: 
 
   return (
     <div className="filters">
-      <div className="filter-group">
-        <label className="field-label" htmlFor="filter-search">Search</label>
-        <input
-          id="filter-search" type="search" value={filters.q}
-          placeholder="Experiment name, PSI ID, fuel…"
-          onChange={(event) => onChange({ ...filters, q: event.target.value })}
-        />
-      </div>
-
       <fieldset className="filter-group">
         <legend>Oxygen (O₂, % by volume)</legend>
         <div className="range-inputs">

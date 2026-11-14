@@ -30,6 +30,8 @@ class O2Observation(Record):
     source_file: str
     source_column: str
     runs_with_value: int = Field(ge=0)
+    # Distinct recorded levels (percent, one decimal), to tell runs near a level from a range that merely spans it.
+    values: list[float] = Field(default_factory=list)
 
 
 class Conditions(Record):
