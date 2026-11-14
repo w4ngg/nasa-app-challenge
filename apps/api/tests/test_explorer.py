@@ -78,6 +78,7 @@ def test_conditions_are_derived_from_tables(client):
     assert conditions["fuel_runs"] == {"n-Heptane": 1, "Methanol": 1}
     assert conditions["o2"][0]["min_percent"] == 15.0 and conditions["o2"][0]["max_percent"] == 21.0
     assert conditions["run_count"] == 2
+    assert conditions["o2"][0]["values"] == [15.0, 21.0]
     assert detail["tables"][0]["rows"] == [["Methanol", "0.21"], ["Heptane", "0.15"]]
 
 

@@ -71,15 +71,47 @@ export async function getFacets(): Promise<Facets> {
   };
 }
 
-function searchText(r: Investigation): string {
-  return [r.id, r.title, r.acronym ?? "", r.family ?? "", r.objective, r.approach, r.hardware ?? "", ...r.conditions.fuels]
-    .join(" ").toLowerCase();
+// Search: every word of the query must appear somewhere in the investigation or in
+// one of its linked publications (title, authors, DOI). Hyphens count as spaces, so
+// "opposed-flow" and "opposed flow" both match.
+export const normalize = (s: string) => s.toLowerCase().replace(/[-‐-―_]/g, " ");
+export const queryWords = (q: string) => normalize(q).split(/\s+/).filter(Boolean);
+
+interface SearchEntry { own: string; pubs: { title: string; text: string }[] }
+const searchCache = new WeakMap<CatalogIndex, Map<string, SearchEntry>>();
+
+function searchEntries(index: CatalogIndex): Map<string, SearchEntry> {
+  let entries = searchCache.get(index);
+  if (entries) return entries;
+  const pubs = new Map(index.publications.map((p) => [p.id, p]));
+  entries = new Map(index.investigations.map((r) => [r.id, {
+    own: normalize([r.id, r.title, r.acronym ?? "", r.family ?? "", r.objective, r.approach, r.hardware ?? "", ...r.conditions.fuels].join(" ")),
+    pubs: [],
+  }]));
+  for (const link of index.links) {
+    const p = pubs.get(link.publication_id);
+    entries.get(link.investigation_id)?.pubs.push(p
+      ? { title: p.title, text: normalize(`${p.title} ${p.authors} ${p.doi ?? ""}`) }
+      : { title: "", text: "" });
+  }
+  searchCache.set(index, entries);
+  return entries;
 }
 
-/** Values inside one filter are OR-ed; different filters are AND-ed. */
+/** Whether the words match, and the publication that supplied the match when the record itself does not. */
+export function textMatch(entry: SearchEntry, words: string[]): { ok: boolean; publication?: string } {
+  if (words.length === 0) return { ok: true };
+  const missing = words.filter((w) => !entry.own.includes(w));
+  if (missing.length === 0) return { ok: true };
+  const all = `${entry.own} ${entry.pubs.map((p) => p.text).join(" ")}`;
+  if (!words.every((w) => all.includes(w))) return { ok: false };
+  const source = entry.pubs.find((p) => missing.every((w) => p.text.includes(w))) ?? entry.pubs.find((p) => missing.some((w) => p.text.includes(w)));
+  return { ok: true, publication: source?.title };
+}
+
+/** Values inside one filter are OR-ed; different filters are AND-ed. Text search is handled by textMatch. */
 export function matches(r: Investigation, f: Filters): boolean {
   const any = (selected: string[], values: string[]) => selected.length === 0 || selected.some((v) => values.includes(v));
-  const term = f.q.trim().toLowerCase();
   const o2Active = validPercent(f.o2Min) || validPercent(f.o2Max) || f.ambientOnly;
   const low = validPercent(f.o2Min) ? Number(f.o2Min) : 0;
   const high = validPercent(f.o2Max) ? Number(f.o2Max) : 100;
@@ -89,17 +121,30 @@ export function matches(r: Investigation, f: Filters): boolean {
     && any(f.hardware, r.hardware_tags)
     && any(f.fuel, r.conditions.fuels)
     && (!o2Active || r.conditions.o2.some((o) => (!f.ambientOnly || o.basis === "ambient") && o.min_percent <= high && o.max_percent >= low))
-    && (!f.hasTable || r.conditions.run_count > 0)
-    && (!term || searchText(r).includes(term));
+    && (!f.hasTable || r.conditions.run_count > 0);
 }
 
 export async function getAllInvestigations(): Promise<Investigation[]> {
   return (await loadIndex()).investigations;
 }
 
-export async function listInvestigations(filters: Filters, offset: number, limit: number): Promise<Page<Investigation>> {
-  const records = (await loadIndex()).investigations.filter((r) => matches(r, filters));
-  return { items: records.slice(offset, offset + limit), total: records.length, offset, limit };
+export interface SearchPage extends Page<Investigation> {
+  /** Investigation ID to the publication title that matched the search, when the match came from a publication. */
+  matchedPublications: Record<string, string>;
+}
+
+export async function listInvestigations(filters: Filters, offset: number, limit: number): Promise<SearchPage> {
+  const index = await loadIndex();
+  const entries = searchEntries(index);
+  const words = queryWords(filters.q);
+  const matchedPublications: Record<string, string> = {};
+  const records = index.investigations.filter((r) => {
+    if (!matches(r, filters)) return false;
+    const result = textMatch(entries.get(r.id)!, words);
+    if (result.publication) matchedPublications[r.id] = result.publication;
+    return result.ok;
+  });
+  return { items: records.slice(offset, offset + limit), total: records.length, offset, limit, matchedPublications };
 }
 
 export async function getInvestigation(id: string): Promise<InvestigationDetail> {

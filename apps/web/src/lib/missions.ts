@@ -31,7 +31,7 @@ export const missions: Mission[] = [
     name: "Exploration habitat (proposed)",
     o2: 34,
     pressure: "8.2 psia",
-    note: "NASA's recommended atmosphere for vehicles with frequent spacewalks, such as lunar habitats.",
+    note: "Recommended by NASA's Exploration Atmospheres Working Group for future missions; it cuts spacewalk prebreathe to minutes.",
     source: { label: "NASA NTRS 20220005716", url: "https://ntrs.nasa.gov/citations/20220005716" },
   },
 ];

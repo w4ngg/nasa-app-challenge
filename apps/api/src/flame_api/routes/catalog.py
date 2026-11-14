@@ -1,4 +1,5 @@
 import logging
+import re
 from collections import Counter
 from typing import Annotated
 
@@ -46,11 +47,19 @@ ListParam = Annotated[list[str], Query()]
 Percent = Annotated[float | None, Query(ge=0, le=100)]
 
 
-def search_text(record: Investigation) -> str:
-    return " ".join([
+def normalize(text: str) -> str:
+    """Lower-case and treat hyphens as spaces, matching apps/web/src/lib/data.ts."""
+    return re.sub(r"[-‐-―_]", " ", text.casefold())
+
+
+def search_text(record: Investigation, catalog: Catalog) -> str:
+    pubs = {p.id: p for p in catalog.publications}
+    linked = [pubs[l.publication_id] for l in catalog.links if l.investigation_id == record.id]
+    return normalize(" ".join([
         record.id, record.title, record.acronym or "", record.family or "", record.objective,
         record.approach, record.hardware or "", " ".join(record.conditions.fuels),
-    ]).casefold()
+        *(f"{p.title} {p.authors} {p.doi or ''}" for p in linked),
+    ]))
 
 
 def matches_o2(record: Investigation, low: float, high: float, ambient_only: bool) -> bool:
@@ -73,7 +82,7 @@ def investigations(
     Any oxygen bound (or o2_ambient_only) keeps only investigations whose
     experimental tables report oxygen overlapping the requested range.
     """
-    term = q.strip().casefold()
+    words = normalize(q).split()
     families = {f.casefold() for f in family}
     o2_active = o2_min is not None or o2_max is not None or o2_ambient_only
     low, high = o2_min if o2_min is not None else 0, o2_max if o2_max is not None else 100
@@ -88,7 +97,7 @@ def investigations(
         and (not fuel or set(fuel) & set(r.conditions.fuels))
         and (not o2_active or matches_o2(r, low, high, o2_ambient_only))
         and (not has_table or r.conditions.run_count > 0)
-        and (not term or term in search_text(r))
+        and (not words or all(w in search_text(r, catalog) for w in words))
     ]
     return Page(items=records[offset:offset + limit], total=len(records), offset=offset, limit=limit)
 

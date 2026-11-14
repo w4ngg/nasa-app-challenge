@@ -115,6 +115,11 @@ h1 { font-size: clamp(24px, 3vw, 32px); letter-spacing: -.03em; line-height: 1.2
 .subgroup-title { font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 2px; }
 
 .results-panel { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; min-width: 0; }
+.library-search { padding: 18px 24px 4px; }
+.library-search input { width: 100%; min-width: 0; background: var(--surface); border: 1px solid var(--line-strong); border-radius: 7px; padding: 11px 12px; font-size: 15px; }
+.library-search input::placeholder { color: var(--muted); }
+.matched-pub { font-size: 13px; color: var(--ink-soft); line-height: 1.5; margin-top: 6px; }
+.matched-pub span { color: var(--muted); }
 .results-header { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; flex-wrap: wrap; padding: 18px 24px 0; }
 .results-header h2 { font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .link-button { border: 0; background: none; padding: 4px 0; color: var(--link); text-decoration: underline; text-underline-offset: 3px; font-size: 14px; }
@@ -289,7 +294,7 @@ footer { display: flex; justify-content: space-between; gap: 8px 20px; flex-wrap
 @media (max-width: 600px) {
   .content { padding: 0 16px; }
   .page-header { padding-top: 20px; }
-  .results-header, .chips { padding-left: 16px; padding-right: 16px; }
+  .results-header, .chips, .library-search { padding-left: 16px; padding-right: 16px; }
   .record { padding: 18px 16px; }
   .record h2 { font-size: 17px; }
   .panel { padding: 18px 16px; }
@@ -305,7 +310,8 @@ footer { display: flex; justify-content: space-between; gap: 8px 20px; flex-wrap
 }
 
 @media (pointer: coarse) {
-  button, .filter-group input[type="search"], .range-inputs input { min-height: 44px; }
+  button, .library-search input, .range-inputs input { min-height: 44px; }
+  .library-search input { font-size: 16px; }
   .check { padding: 9px 0; }
   .chart-row > * { padding: 11px 0; }
   .filter-group input, .range-inputs input { font-size: 16px; }
