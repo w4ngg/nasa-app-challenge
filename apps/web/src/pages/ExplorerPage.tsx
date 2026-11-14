@@ -21,6 +21,7 @@ export function ExplorerPage({ route, navigate, summary, facets, onOpen }: {
   onOpen: (event: MouseEvent<HTMLAnchorElement>, id: string) => void;
 }) {
   const [records, setRecords] = useState<Investigation[]>([]);
+  const [matchedPublications, setMatchedPublications] = useState<Record<string, string>>({});
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -39,6 +40,7 @@ export function ExplorerPage({ route, navigate, summary, facets, onOpen }: {
       listInvestigations(filtersFromUrl(new URLSearchParams(filterKey)), route.page * PAGE_SIZE, PAGE_SIZE).then((page) => {
         if (cancelled) return;
         setRecords(page.items);
+        setMatchedPublications(page.matchedPublications);
         setTotal(page.total);
       }).catch(() => {
         if (cancelled) return;
@@ -56,6 +58,7 @@ export function ExplorerPage({ route, navigate, summary, facets, onOpen }: {
     document.getElementById("results-title")?.scrollIntoView({ block: "start" });
   };
   const count = activeCount(route.filters);
+  const panelCount = count - (route.filters.q.trim() ? 1 : 0); // search lives outside the filter panel
   const chips = facets ? activeChips(route.filters) : [];
 
   return (
@@ -72,7 +75,7 @@ export function ExplorerPage({ route, navigate, summary, facets, onOpen }: {
         <aside className="sidebar" aria-label="Filters">
           <button type="button" className="filters-toggle" aria-expanded={filtersOpen} aria-controls="filter-panel"
             onClick={() => setFiltersOpen((v) => !v)}>
-            {filtersOpen ? "Hide filters" : "Show filters"}{count > 0 && <span className="badge-count">{count}</span>}
+            {filtersOpen ? "Hide filters" : "Show filters"}{panelCount > 0 && <span className="badge-count">{panelCount}</span>}
           </button>
           <div id="filter-panel" className={filtersOpen ? "filter-panel open" : "filter-panel"}>
             {facets ? (
@@ -83,6 +86,15 @@ export function ExplorerPage({ route, navigate, summary, facets, onOpen }: {
         </aside>
 
         <section className="results-panel" aria-labelledby="results-title">
+          <div className="library-search" role="search">
+            <label className="field-label" htmlFor="library-search">Search experiments and publications</label>
+            <input
+              id="library-search" type="search" value={route.filters.q}
+              placeholder="Experiment, fuel, paper title, author or DOI"
+              onChange={(event) => changeFilters({ ...route.filters, q: event.target.value })}
+            />
+            <p className="field-help">Every word must appear in the investigation or one of its {summary ? `${summary.publications} linked publications` : "linked publications"}.</p>
+          </div>
           <div className="results-header">
             <h2 id="results-title" aria-live="polite">
               {invalidO2 ? "Oxygen range is not valid" : loading ? "Filtering…" : `${total} ${total === 1 ? "investigation" : "investigations"} found`}
@@ -123,7 +135,8 @@ export function ExplorerPage({ route, navigate, summary, facets, onOpen }: {
             {!invalidO2 && !error && records.length > 0 && (
               <div className={loading ? "record-list is-stale" : "record-list"}>
                 {records.map((record) => (
-                  <InvestigationCard key={record.id} record={record} href={routeUrl({ ...route, id: record.id })} onOpen={onOpen} />
+                  <InvestigationCard key={record.id} record={record} href={routeUrl({ ...route, id: record.id })} onOpen={onOpen}
+                    matchedPublication={matchedPublications[record.id]} />
                 ))}
               </div>
             )}

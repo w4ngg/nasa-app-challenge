@@ -188,6 +188,7 @@ def derive_conditions(tables: list[ExperimentalTable]) -> Conditions:
             observations.append(O2Observation(
                 min_percent=min(values), max_percent=max(values), basis=spec.o2_basis,
                 source_file=table.file_name, source_column=spec.o2_column or "", runs_with_value=runs,
+                values=sorted({round(v, 1) for v in values}),
             ))
     order = {name: i for i, (name, _, _) in enumerate(FUELS)}
     fuels.sort(key=lambda name: order.get(name, len(order)))

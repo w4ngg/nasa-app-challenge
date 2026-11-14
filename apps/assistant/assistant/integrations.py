@@ -28,12 +28,52 @@ def _to_float(v: Any) -> float | None:
         return None
 
 
+def catalog_conditions() -> dict[str, dict]:
+    """Conditions per PSI ID from the web catalog (apps/web/public/data/index.json).
+
+    Fuel and oxygen there are read from each investigation's PSI experiment tables. Oxygen
+    filters use the chamber-atmosphere range only; burner-fed oxygen is reported in the note.
+    """
+    if not config.CATALOG_JSON.exists():
+        return {}
+    out = {}
+    for inv in json.loads(config.CATALOG_JSON.read_text(encoding="utf-8")).get("investigations", []):
+        c = inv.get("conditions") or {}
+        ambient = [o for o in c.get("o2", []) if o.get("basis") == "ambient"]
+        burner = [o for o in c.get("o2", []) if o.get("basis") == "oxidizer_stream"]
+        lo = min((o["min_percent"] for o in ambient), default=None)
+        hi = max((o["max_percent"] for o in ambient), default=None)
+        o2_range = f"{lo:g}–{hi:g} (chamber)" if lo is not None else ""
+        if burner:
+            b_lo, b_hi = min(o["min_percent"] for o in burner), max(o["max_percent"] for o in burner)
+            o2_range = "; ".join(x for x in (o2_range, f"{b_lo:g}–{b_hi:g} (burner-fed)") if x)
+        platform = inv.get("platform")
+        out[inv["id"]] = {
+            "fuel_type": ", ".join(c.get("fuel_categories", [])),
+            "material": ", ".join(c.get("fuels", [])),
+            "o2_min": "" if lo is None else lo, "o2_max": "" if hi is None else hi,
+            "o2_range": o2_range,
+            "gravity": {"iss": "microgravity (ISS)", "cygnus": "microgravity (Cygnus)", "ground": "1 g (ground study)"}.get(platform, ""),
+            "runs": str(c.get("run_count") or ""),
+        }
+    return out
+
+
+def _fill(row: dict, extra: dict | None) -> dict:
+    for key, value in (extra or {}).items():
+        if row.get(key) in (None, ""):
+            row[key] = value
+    return row
+
+
 def load_investigations() -> list[dict]:
     if config.INVESTIGATIONS_FILE.exists():
         with open(config.INVESTIGATIONS_FILE, encoding="utf-8") as f:
             rows = list(csv.DictReader(f))
+        conditions = catalog_conditions()
         for r in rows:
             r["is_mock"] = False
+            _fill(r, conditions.get(str(r.get("psi_id", ""))))
         return rows
     with open(config.MOCK_INVESTIGATIONS_FILE, encoding="utf-8") as f:
         rows = json.load(f)
@@ -132,12 +172,16 @@ def psi_records() -> list[dict]:
     """Bản ghi chuẩn hóa cho mọi nghiên cứu: ưu tiên metadata PSI đầy đủ, nếu không có thì dùng bảng investigations."""
     if config.PSI_METADATA_FILE.exists():
         hits = json.loads(config.PSI_METADATA_FILE.read_text(encoding="utf-8"))["hits"]["hits"]
+        conditions = catalog_conditions()
         out = []
         for h in hits:
             s = h["_source"]
             hw = s.get("Experiment Hardware") or {}
             start, end = (s.get("Investigation Start Date") or "")[-4:], (s.get("Investigation End Date") or "")[-4:]
+            cond = conditions.get(s["Accession"], {})
             out.append({
+                "fuel_type": cond.get("fuel_type", ""), "material": cond.get("material", ""),
+                "o2_range": cond.get("o2_range", ""), "gravity": cond.get("gravity", ""),
                 "psi_id": s["Accession"], "acronym": s.get("Acronym") or "", "title": s.get("Title") or "",
                 "sub_area": s.get("SubResearch Area") or "", "project_type": s.get("Project Type") or "",
                 "platform": s.get("Flight Platform") or "",

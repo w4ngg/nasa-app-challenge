@@ -12,7 +12,9 @@ Flame Atlas lets engineers and researchers find NASA Physical Sciences Informati
 - **Honest gaps.** Chamber oxygen is kept apart from oxygen fed through a burner (inverse flames reach 85%). Investigations without an oxygen column say "not recorded" instead of guessing.
 - **Investigation pages** with the test conditions, the full experiment table (with the columns used highlighted), the PSI description, related investigations and linked publications.
 
-The left rail lists seven modules. Overview and the Experiment library are built; 3D flame chamber, Material comparison, Research assistant, Habitat check and Test run lab have pages that say "Not built yet" and what each will do.
+- **Research assistant.** Questions answered only from NASA PSI records, NTRS reports and the challenge resources (apps/assistant: BM25 retrieval, DeepSeek, citation guardrails). Every sentence carries a source tag that opens the source, PDFs at the cited page. It runs on your machine: `cd apps/assistant && uvicorn assistant.api:app --port 8003`, with `DEEPSEEK_API_KEY` in `apps/assistant/.env` (without a key it shows source passages only). The static site shows saved answers from `apps/assistant/scripts/export_samples.py` when no local assistant is running.
+
+The left rail lists seven modules. Overview, the Experiment library and the Research assistant are built; 3D flame chamber, Material comparison, Habitat check and Test run lab have pages that say "Not built yet" and what each will do.
 
 Planned next: SI summaries, scenario-based ranking ("which experiments matter for a PMMA fire in an ISS cabin at 21% O₂?") and evidence-gap interpretation.
 

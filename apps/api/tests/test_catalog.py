@@ -58,6 +58,11 @@ def test_search_and_pagination_return_matching_total(client):
     assert len(response.json()["items"]) == 1
     assert client.get("/api/v1/investigations", params={"family": "flex"}).json()["total"] == 1
     assert client.get("/api/v1/investigations", params={"q": "no-match"}).json()["total"] == 0
+    # Words match in any order, and publication titles, authors and DOIs count.
+    assert client.get("/api/v1/investigations", params={"q": "flame cool"}).json()["total"] == 2
+    assert client.get("/api/v1/investigations", params={"q": "No DOI record"}).json()["total"] == 1
+    assert client.get("/api/v1/investigations", params={"q": "test author"}).json()["total"] == 2
+    assert client.get("/api/v1/investigations", params={"q": "10.1234/shared"}).json()["total"] == 2
     assert client.get("/api/v1/investigations", params={"offset": -1}).status_code == 422
     assert client.get("/api/v1/investigations", params={"limit": 0}).status_code == 422
 

@@ -12,6 +12,7 @@ export interface O2Observation {
   source_file: string;
   source_column: string;
   runs_with_value: number;
+  values: number[];
 }
 
 export interface Conditions {

@@ -37,7 +37,9 @@ class AskRequest(BaseModel):
 
 @app.get("/health")
 def health() -> dict:
-    return {"ok": True}
+    from . import config
+    offline = config.OFFLINE_MODE == "1" or (config.OFFLINE_MODE == "auto" and not config.DEEPSEEK_API_KEY)
+    return {"ok": True, "mode": "offline" if offline else "llm", "model": None if offline else config.DEEPSEEK_MODEL}
 
 
 @app.get("/trace/{trace_id}")
