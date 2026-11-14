@@ -28,7 +28,7 @@ from .retriever import _SYN, tokenize
 SUPPORTED_MIN = 0.5
 WEAK_MIN = 0.3
 
-_TAG = re.compile(r"\[([SIP]\d+)\]")
+_TAG = re.compile(r"\[([SIPR]\d+)\]")
 # từ quá chung, không mang thông tin để kiểm chứng
 _GENERIC = {tokenize(w)[0] for w in """
 nasa evidence source sources data result results study studies investigation investigations experiment
