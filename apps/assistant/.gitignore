@@ -1,0 +1,11 @@
+# Theo quy ước repo: dữ liệu tải về / sinh ra không commit.
+# Tạo lại bằng: python scripts/fetch_sources.py && python scripts/fetch_ntrs.py && python -m assistant.ingest
+.env
+.usage.json
+logs/
+data/raw/*
+!data/raw/.gitkeep
+data/processed/*
+!data/processed/.gitkeep
+data/investigations.csv
+eval/results.jsonl

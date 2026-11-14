@@ -1,0 +1,13 @@
+{"id": "q01", "question": "Why do flames look spherical in microgravity?", "expect": "answer"}
+{"id": "q02", "question": "Tại sao nên tắt quạt thông gió khi có cháy trên tàu vũ trụ?", "expect": "answer"}
+{"id": "q03", "question": "Which PSI investigations studied smoke detection in microgravity?", "expect": "answer"}
+{"id": "q04", "question": "What gaseous suppressants were tested in the FLEX experiment?", "expect": "answer"}
+{"id": "q05", "question": "Sự cố Apollo 1 liên quan gì đến nghiên cứu cháy vật liệu trong môi trường giàu oxy?", "expect": "answer"}
+{"id": "q06", "question": "So sánh BASS và Saffire: vật liệu, quy mô mẫu và mục tiêu khác nhau thế nào?", "expect": "answer"}
+{"id": "q07", "question": "What caused the fire aboard Mir in 1997 and what lessons were learned?", "expect": "answer"}
+{"id": "q08", "question": "Which hardware was used by the ACME experiments?", "expect": "answer"}
+{"id": "q09", "question": "Nghiên cứu nào của NASA có ứng dụng cho cảm biến báo cháy trên Trái Đất?", "expect": "answer"}
+{"id": "q10", "question": "What was the measured flame spread rate of cotton on the Moon at 0.16 g in PSI?", "expect": "refuse"}
+{"id": "q11", "question": "How do rocket engine propellants become unstable during combustion?", "expect": "refuse"}
+{"id": "q12", "question": "Công thức nấu phở bò là gì?", "expect": "refuse"}
+{"id": "q13", "question": "Ai là CEO của SpaceX?", "expect": "refuse"}
