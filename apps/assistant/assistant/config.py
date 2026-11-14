@@ -59,5 +59,7 @@ CHUNKS_FILE = DATA_DIR / "processed" / "chunks.jsonl"
 MOCK_CHUNKS_FILE = DATA_DIR / "mock" / "chunks.jsonl"
 INVESTIGATIONS_FILE = Path(os.getenv("INVESTIGATIONS_CSV", str(DATA_DIR / "investigations.csv")))
 MOCK_INVESTIGATIONS_FILE = DATA_DIR / "mock" / "investigations.json"
+# Metadata PSI đầy đủ (scripts/fetch_sources.py) – dùng cho bảng so sánh; thiếu thì dùng bảng investigations
+PSI_METADATA_FILE = Path(os.getenv("PSI_METADATA_FILE", str(DATA_DIR / "raw" / "psi_combustion.json")))
 # Hàm predict() của Module 5, dạng "package.module:function". Để trống -> dùng mock.
 PREDICT_IMPORT = os.getenv("PREDICT_IMPORT", "")

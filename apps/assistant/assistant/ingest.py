@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import csv
 import json
+import logging
 import re
 import sys
 from pathlib import Path
@@ -17,6 +18,7 @@ from pathlib import Path
 from . import config
 
 RAW_DIR = config.DATA_DIR / "raw"
+logging.getLogger("pypdf").setLevel(logging.ERROR)  # bỏ cảnh báo vô hại khi đọc PDF
 CHUNK_CHARS = 1000
 OVERLAP_CHARS = 150
 
@@ -104,6 +106,10 @@ def main() -> int:
             if not meta:
                 print(f"  ! {rel} chưa có trong sources.csv -> source_id = tên file (nên bổ sung)")
             source_id = meta.get("source_id") or path.stem
+            # link PDF để mở đúng trang: cột pdf_url trong sources.csv, hoặc url nếu chính nó là PDF
+            pdf_url = meta.get("pdf_url") or ""
+            if not pdf_url and path.suffix.lower() == ".pdf" and meta.get("url", "").split("?")[0].lower().endswith(".pdf"):
+                pdf_url = meta["url"]
             try:
                 units = read_units(path)
             except Exception as e:  # PDF hỏng/không đọc được -> bỏ qua, không dừng cả quá trình
@@ -117,10 +123,12 @@ def main() -> int:
                     if len(text.strip()) < 40:  # bỏ mẩu quá ngắn (nhãn ảnh, nút bấm...)
                         continue
                     i += 1
+                    m = re.fullmatch(r"p\. (\d+)", section or "")
                     out.write(json.dumps({
                         "id": f"{source_id}#{i}", "source_id": source_id,
                         "title": meta.get("title") or path.stem, "url": meta.get("url", ""),
                         "section": section, "text": text.strip(), "is_mock": False,
+                        "page": int(m.group(1)) if m else None, "pdf_url": pdf_url,
                     }, ensure_ascii=False) + "\n")
             n += i
             if i == 0 and path.suffix.lower() == ".pdf":

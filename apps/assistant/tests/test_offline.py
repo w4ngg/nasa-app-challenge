@@ -15,6 +15,7 @@ from assistant import config  # noqa: E402
 # Test cố định trên dữ liệu MOCK, không phụ thuộc dữ liệu thật đã tải về
 config.CHUNKS_FILE = Path("/nonexistent/chunks.jsonl")
 config.INVESTIGATIONS_FILE = Path("/nonexistent/investigations.csv")
+config.PSI_METADATA_FILE = Path("/nonexistent/psi_combustion.json")
 # Trace của test ghi vào file tạm, không lẫn với log thật
 import tempfile  # noqa: E402
 config.TRACE_FILE = Path(tempfile.mkdtemp()) / "traces.jsonl"
@@ -267,6 +268,128 @@ def test_estimate_tokens_vietnamese_costs_more():
     en, vi = "flame spread over solid fuel", "ngọn lửa lan trên nhiên liệu rắn"
     assert cost.estimate_tokens(vi) / len(vi) > cost.estimate_tokens(en) / len(en)
     assert cost.estimate_tokens("abcd" * 10, chars_per_token=4) == 10
+
+
+# ---------------- (3) stemming + từ đồng nghĩa ----------------
+from assistant import integrations  # noqa: E402
+from assistant.retriever import query_terms, stem  # noqa: E402
+from assistant.schema import Chunk  # noqa: E402
+from assistant.verify import check_sentence, verify_answer  # noqa: E402
+
+
+def test_stemmer_conservative():
+    assert stem("firefighters") == stem("firefighter")
+    assert stem("investigators") == stem("investigator")
+    assert stem("studies") == "study" and stem("burning") == "burn"
+    assert stem("flames") == stem("flame") and stem("measured") == stem("measure")
+    for keep in ("speed", "string", "gas", "co2", "bass-ii", "analysis", "status"):
+        assert stem(keep) == keep
+
+
+def test_synonym_expansion_weighted():
+    t = query_terms("firefighter equipment")
+    assert t[stem("firefighter")] == 1.0 and t[stem("fireman")] == 0.5
+
+
+def _mini(chunks):
+    return DocumentRetriever([Chunk(id=f"D{i}#1", source_id=f"D{i}", title=f"Doc {i}", text=x)
+                              for i, x in enumerate(chunks)])
+
+
+def test_synonym_retrieval_finds_fireman_doc():
+    r = _mini(["Lightweight air tanks for firemen developed from spacesuit technology.",
+               "Smoke particle sizes measured in microgravity.", "Droplet combustion of heptane."])
+    hits = r.search("improved firefighter breathing equipment", k=3, min_score=0)
+    assert hits and hits[0][0].source_id == "D0"
+
+
+# ---------------- (2) link mở đúng trang PDF ----------------
+def test_page_url_on_chunk_and_citation():
+    c = Chunk(id="R#1", source_id="R", title="Guide", text="flame spread over solid fuel in oxygen",
+              url="https://x.gov/guide.pdf", section="p. 12", page=12, pdf_url="https://x.gov/guide.pdf")
+    assert c.page_url == "https://x.gov/guide.pdf#page=12"
+    assert Chunk(id="P#1", source_id="P", title="t", text="x", url="https://psi").page_url == "https://psi"
+    llm = UsageLLM([NS(content="Flame spread over solid fuel depends on oxygen [S1].", tool_calls=None)])
+    a = Assistant(llm=llm, retriever=DocumentRetriever([c])).ask("flame spread solid fuel oxygen")
+    assert a.citations[0].page == 12 and a.citations[0].page_url.endswith("#page=12")
+
+
+# ---------------- (4) so sánh dạng bảng ----------------
+_FAKE_RECS = [
+    {"psi_id": "PSI-26", "acronym": "BASS", "title": "Burning and Suppression of Solids", "hardware": "MSG", "link": ""},
+    {"psi_id": "PSI-25", "acronym": "BASS-II", "title": "Burning and Suppression of Solids - II", "hardware": "MSG", "link": ""},
+    {"psi_id": "PSI-98", "acronym": "SAFFIRE-I", "title": "Spacecraft Fire Experiment-I", "hardware": "Cygnus", "link": ""},
+    {"psi_id": "PSI-99", "acronym": "SAFFIRE-II", "title": "Spacecraft Fire Experiment-II", "hardware": "Cygnus", "link": ""},
+    {"psi_id": "PSI-47", "acronym": "DAFT / DAFT-2", "title": "Dust and Aerosol Test", "hardware": "ISS", "link": ""},
+    {"psi_id": "PSI-102", "acronym": "SAME", "title": "Smoke and Aerosol Measurement Experiment", "hardware": "MSG", "link": ""},
+    {"psi_id": "PSI-10", "acronym": "ACME/Flame Design", "title": "ACME Flame Design", "hardware": "CIR", "link": ""},
+    {"psi_id": "PSI-20", "acronym": "ACME BRE", "title": "ACME Burning Rate Emulator", "hardware": "CIR", "link": ""},
+]
+
+
+def test_resolve_and_detect_names(monkeypatch):
+    monkeypatch.setattr(integrations, "psi_records", lambda: _FAKE_RECS)
+    ids = lambda names: [r["psi_id"] for r in integrations.resolve_investigations(names)[0]]  # noqa: E731
+    assert ids(["BASS"]) == ["PSI-26"]                                   # khớp chính xác trước
+    assert ids(["Saffire"]) == ["PSI-98", "PSI-99"]                      # family -> I, II
+    assert ids(["DAFT-2"]) == ["PSI-47"] and ids(["ACME"]) == ["PSI-10", "PSI-20"]
+    assert integrations.resolve_investigations(["nope"])[1] == ["nope"]
+    q = "How was the same instrument used differently in SAME and DAFT?"
+    assert set(integrations.detect_investigation_names(q)) == {"same", "daft"}
+    assert integrations.detect_investigation_names("Is the same thing true?") == []
+
+
+def test_compare_tool_builds_table(monkeypatch):
+    monkeypatch.setattr(integrations, "psi_records", lambda: _FAKE_RECS)
+    llm = UsageLLM([
+        NS(content="", tool_calls=[_tool_call("compare_investigations", {"investigations": ["BASS", "Saffire"]})]),
+        NS(content="Table follows [I1][I2][I3].", tool_calls=None),
+    ])
+    a = Assistant(llm=llm).ask("Compare BASS and Saffire")
+    res = json.loads([m for m in llm.seen[-1] if m["role"] == "tool"][0]["content"])
+    table = res["table_markdown"]
+    assert table.startswith("| Attribute | PSI-26 BASS [I1] | PSI-98 SAFFIRE-I [I2] | PSI-99 SAFFIRE-II [I3] |")
+    assert "| Hardware | MSG | Cygnus | Cygnus |" in table
+    assert "Hardware" in res["different_attributes"]
+    assert [c.kind for c in a.citations] == ["investigation"] * 3
+
+
+def test_compare_offline_mode(monkeypatch):
+    monkeypatch.setattr(integrations, "psi_records", lambda: _FAKE_RECS)
+    a = Assistant(offline=True).ask("Compare BASS and Saffire")
+    assert "| Attribute |" in a.answer and any(c.source_id == "PSI-26" for c in a.citations)
+
+
+# ---------------- (1) kiểm tra trích dẫn ----------------
+EV = ("FLEX measured the effectiveness of gaseous suppressants CO2, He and SF6 on burning droplets in "
+      "microgravity. Air tanks pressurized at 4,500 psi.")
+
+
+def test_check_sentence_levels():
+    assert check_sentence("FLEX tested gaseous suppressants such as CO2 and SF6 [S1].", EV)["status"] == "supported"
+    bad = check_sentence("Saffire burned large cotton fabric samples inside Cygnus [S1].", EV)
+    assert bad["status"] == "unsupported"
+    num = check_sentence("The air tanks were pressurized at 6,000 psi [S1].", EV)
+    assert num["status"] == "weak" and num["missing_numbers"] == ["6,000"]
+    assert check_sentence("Air tanks were pressurized at 4500 psi [S1].", EV)["missing_numbers"] == []
+
+
+def test_verify_answer_skips_tables_and_meta():
+    ans = ("| Attribute | A [I1] |\n|---|---|\n| Hardware | MSG |\n"
+           "- FLEX tested gaseous suppressants such as CO2 and SF6 [S1].\n"
+           "Limitations: the evidence does not report flame temperatures [S1].")
+    v = verify_answer(ans, {"S1": EV})
+    assert v["checked"] == 1 and v["supported"] == 1
+
+
+def test_agent_attaches_verification_and_warns():
+    llm = UsageLLM([NS(content="Ventilation shutdown is advised [S1]. Rocket propellants explode violently [S1].",
+                       tool_calls=None)])
+    a = Assistant(llm=llm).ask("Should ventilation be turned off during a cabin fire?")
+    assert a.verification["checked"] == 2 and a.verification["unsupported"] >= 1
+    assert any("unsupported" in w for w in a.warnings)
+    ev = [e for e in get_trace(a.trace_id)["events"] if e["kind"] == "verification"][0]
+    assert ev["flagged"]
 
 
 if __name__ == "__main__":

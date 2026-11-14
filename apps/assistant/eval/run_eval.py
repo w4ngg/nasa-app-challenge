@@ -6,7 +6,7 @@
   python eval/run_eval.py path/to/questions.jsonl
 
 Checks per question:
-  behavior  – answered vs refused matches "expect"
+  behavior  – answered vs refused matches "expect" ("partial" = answered with a Limitations line; counts as answer)
   sources   – at least one citation's source_id starts with one of "expect_sources" (if given)
 Detailed results are written to eval/results.jsonl. Always read the "answer" items by hand:
 does each cited passage really support the sentence it is attached to?
@@ -57,9 +57,13 @@ def main() -> None:
             stats[q.get("category", "-")][0] += ok
             stats[q.get("category", "-")][1] += 1
             src = "-" if source_ok is None else ("ok" if source_ok else "MISS")
+            searches = sum(1 for t in a.tool_calls if t["name"] == "search_documents")
+            partial = (not a.refused) and "limitation" in a.answer.lower()
             print(f"{'PASS' if ok else 'FAIL'} {q['id']} {q.get('category', ''):<10} expect={q['expect']:<6} "
-                  f"got={got:<6} sources={src:<4} cites={len(a.citations)} ${a.cost_usd:.4f} | {q['question'][:55]}")
-            out.write(json.dumps({**q, "got": got, "behavior_ok": behavior_ok, "source_ok": source_ok, "ok": ok,
+                  f"got={got:<6}{'(partial)' if partial else '':<9} sources={src:<4} cites={len(a.citations):<2} "
+                  f"searches={searches} ${a.cost_usd:.4f} | {q['question'][:50]}")
+            out.write(json.dumps({**q, "got": got, "partial": partial, "searches": searches,
+                                  "behavior_ok": behavior_ok, "source_ok": source_ok, "ok": ok,
                                   **a.to_dict()}, ensure_ascii=False, default=str) + "\n")
     print(f"\n{passed}/{len(questions)} passed | " +
           " | ".join(f"{k} {v[0]}/{v[1]}" for k, v in stats.items()) +

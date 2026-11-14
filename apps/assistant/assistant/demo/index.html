@@ -67,6 +67,11 @@ summary { cursor: pointer; }
 .ev.retrieval { border-color: #3b82c4; } .ev.llm_call { border-color: #8b5cf6; } .ev.tool_call { border-color: #0e9f6e; }
 .ev.guardrail { border-color: #d97706; } .ev.fallback, .ev.error { border-color: var(--bad); }
 .muted { color: var(--muted); } .small { font-size: 12px; }
+.msg table.md { margin: 6px 0; font-size: 12px; display: block; overflow-x: auto; }
+.msg table.md th, .msg table.md td { border: 1px solid var(--line); white-space: nowrap; max-width: 260px; overflow: hidden; text-overflow: ellipsis; }
+tr.v-supported td:first-child { border-left: 3px solid var(--ok); }
+tr.v-weak td:first-child { border-left: 3px solid var(--warn); }
+tr.v-unsupported td:first-child { border-left: 3px solid var(--bad); }
 .card { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; margin: 6px 0; }
 .card.hl { outline: 2px solid var(--accent); }
 .empty { color: var(--muted); padding: 24px 8px; text-align: center; }
@@ -193,11 +198,28 @@ function showTab(t) {
 document.querySelectorAll("#tabs button").forEach((b) => b.onclick = () => { showTab(b.dataset.t); if (b.dataset.t === "hist") loadHist(); });
 
 // ---------- chat ----------
+function inline(s) {
+  return esc(s).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+    .replace(/\[([SIP]\d+)\]/g, '<button class="cite" data-ref="$1">$1</button>');
+}
 function renderAnswerText(text) {
-  let h = esc(text);
-  h = h.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
-  h = h.replace(/\[([SIP]\d+)\]/g, '<button class="cite" data-ref="$1">$1</button>');
-  return h.split("\n").map((l) => l.startsWith("- ") ? "• " + l.slice(2) : l).join("<br>");
+  // markdown tối giản: bảng "| a | b |", gạch đầu dòng, **đậm**, nhãn [S1]
+  const out = [], lines = String(text).split("\n");
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].trim().startsWith("|")) {
+      const rows = [];
+      while (i < lines.length && lines[i].trim().startsWith("|")) rows.push(lines[i++].trim());
+      i--;
+      const cells = (r) => r.replace(/^\||\|$/g, "").split("|").map((c) => c.trim());
+      const body = rows.filter((r) => !/^\|[\s:|-]+\|$/.test(r));
+      out.push('<table class="md">' + body.map((r, k) => "<tr>" + cells(r).map((c) =>
+        k === 0 ? `<th>${inline(c)}</th>` : `<td title="${esc(c)}">${inline(c)}</td>`).join("") + "</tr>").join("") + "</table>");
+      continue;
+    }
+    const l = lines[i];
+    out.push((l.startsWith("- ") ? "• " + inline(l.slice(2)) : inline(l)) + "<br>");
+  }
+  return out.join("");
 }
 function renderMsgs() {
   const box = $("#msgs");
@@ -212,6 +234,8 @@ function renderMsgs() {
         <span class="chip">${a.latency_ms} ms</span>
         <span class="chip">tok ${a.prompt_tokens}/${a.completion_tokens}</span>
         <span class="chip">${fmt$(a.cost_usd)}</span>
+        ${a.verification && a.verification.checked ? `<span class="chip ${a.verification.unsupported ? "bad" : a.verification.weak ? "warn" : "ok"}"
+          title="sentence-level citation check">verified ${a.verification.supported}/${a.verification.checked}</span>` : ""}
         <span class="chip">trace ${esc(a.trace_id)}</span></div>
         ${a.warnings.length ? `<div class="warnings">⚠ ${a.warnings.map(esc).join("<br>⚠ ")}</div>` : ""}`}
     </div>`).join("");
@@ -228,15 +252,30 @@ function selectAnswer(i, ref) {
   renderCites(a, ref); loadTrace(a.trace_id);
   showTab(ref ? "cites" : document.querySelector("#tabs .on").dataset.t === "trace" ? "trace" : "cites");
 }
+function renderVerify(v) {
+  if (!v || !v.checked) return "";
+  const lab = {supported: "ok", weak: "warn", unsupported: "bad"};
+  return `<h3>Citation check <span class="muted small">(heuristic, sentence vs. cited text)</span></h3>
+    <div class="meta"><span class="chip ok">supported ${v.supported}</span><span class="chip warn">weak ${v.weak}</span>
+      <span class="chip bad">unsupported ${v.unsupported}</span><span class="chip">uncited ${v.uncited}</span></div>
+    <table><tr><th>sentence</th><th>refs</th><th class="num">overlap</th><th>issues</th></tr>
+    ${v.sentences.map((x) => `<tr class="v-${x.status}"><td>${inline(x.text)}</td><td class="small">${esc(x.refs.join(" "))}</td>
+      <td class="num"><span class="chip ${lab[x.status]}">${x.overlap}</span></td>
+      <td class="small">${[x.missing_numbers.length ? "numbers not in source: " + esc(x.missing_numbers.join(", ")) : "",
+        x.missing_terms.length ? "terms not in source: " + esc(x.missing_terms.join(", ")) : "",
+        x.status !== "supported" && x.unmatched_words.length ? "unmatched: " + esc(x.unmatched_words.slice(0, 5).join(", ")) : ""]
+        .filter(Boolean).join("<br>")}</td></tr>`).join("")}</table><h3>Sources</h3>`;
+}
 function renderCites(a, hl) {
   const box = $("#t-cites");
   if (!a.citations.length) { box.innerHTML = '<div class="empty">No citations (refused or no evidence).</div>'; return; }
-  box.innerHTML = a.citations.map((c) => `
+  box.innerHTML = renderVerify(a.verification) + a.citations.map((c) => `
     <div class="card ${c.ref === hl ? "hl" : ""}" id="cite-${c.ref}">
       <div class="row"><span class="cite">${c.ref}</span><strong>${esc(c.source_id)}</strong>
         <span class="chip">${esc(c.kind)}</span>${c.is_mock ? '<span class="chip warn">MOCK</span>' : ""}</div>
       <div>${esc(c.title)}</div>
-      ${c.url ? `<div class="small"><a href="${esc(c.url)}" target="_blank" rel="noopener">${esc(c.url)}</a></div>` : ""}
+      <div class="row small">${c.page_url && c.page ? `<a class="btn" href="${esc(c.page_url)}" target="_blank" rel="noopener">Open PDF p.${c.page}</a>` : ""}
+        ${c.url ? `<a href="${esc(c.url)}" target="_blank" rel="noopener">${esc(c.url)}</a>` : ""}</div>
       <pre>${esc(c.snippet)}</pre>
     </div>`).join("");
   if (hl) document.getElementById("cite-" + hl)?.scrollIntoView({block: "nearest"});
@@ -289,6 +328,9 @@ function renderTrace(t) {
     if (e.kind === "guardrail") return `<div class="ev guardrail">${at} <strong>guardrail</strong> cited ${esc((e.cited || []).join(", ") || "–")}
       ${e.removed_invalid_tags?.length ? `<span class="chip bad">removed ${esc(e.removed_invalid_tags.join(", "))}</span>` : ""}
       ${e.model_refused ? '<span class="chip warn">model refused</span>' : ""}${e.forced_refusal ? '<span class="chip bad">forced refusal</span>' : ""}</div>`;
+    if (e.kind === "verification") return `<div class="ev guardrail">${at} <strong>citation check</strong>
+      supported ${e.supported}/${e.checked} · weak ${e.weak} · unsupported ${e.unsupported} · uncited ${e.uncited}
+      ${(e.flagged || []).map((f) => `<div class="small">• <span class="chip ${f.status === "unsupported" ? "bad" : "warn"}">${f.status} ${f.overlap}</span> ${esc(f.text.slice(0, 160))}</div>`).join("")}</div>`;
     if (e.kind === "compression") return `<div class="ev">${at} <strong>history</strong> in ${e.history_in} · kept ${e.kept} · summarized ${e.summarized} (${esc(e.method)})</div>`;
     if (e.kind === "evidence_budget") return `<div class="ev">${at} <strong>evidence</strong> ${Number(e.sent_chars).toLocaleString()} / ${Number(e.budget).toLocaleString()} chars · deduped ${e.deduped} · truncated ${e.truncated}</div>`;
     return `<div class="ev ${esc(e.kind)}">${at} <strong>${esc(e.kind)}</strong> <code>${esc(JSON.stringify(e))}</code></div>`;
@@ -304,9 +346,17 @@ function renderTrace(t) {
 
 // ---------- context preview ----------
 $("#btnPreview").onclick = async () => {
-  const q = $("#q").value.trim(); if (!q) return;
+  // Ô nhập trống (vd. vừa Ask xong) -> xem lại câu hỏi gần nhất, với lịch sử TRƯỚC câu đó
+  let q = $("#q").value.trim(), hist = history, note = "";
+  if (!q) {
+    const last = [...answers].reverse().find((a) => !a.error);
+    if (!last) { $("#t-ctx").innerHTML = '<div class="empty">Type a question in the box first, then click “Preview context &amp; cost”.</div>'; showTab("ctx"); return; }
+    q = last.question; hist = history.slice(0, Math.max(history.length - 2, 0));
+    note = `<div class="chip warn" style="margin-bottom:8px">Input box is empty – showing the context of your last question: “${esc(q)}”</div>`;
+  }
   busy(true);
-  try { lastPreview = await api("/api/preview", {question: q, history}); renderPreview(lastPreview); showTab("ctx"); }
+  try { lastPreview = await api("/api/preview", {question: q, history: hist}); renderPreview(lastPreview);
+    if (note) $("#t-ctx").insertAdjacentHTML("afterbegin", note); showTab("ctx"); }
   catch (e) { $("#t-ctx").innerHTML = `<div class="empty">${esc(e.message)}</div>`; showTab("ctx"); }
   finally { busy(false); }
 };

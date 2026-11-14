@@ -14,11 +14,21 @@ class Chunk:
     url: str = ""
     section: str = ""
     is_mock: bool = False
+    page: int | None = None  # trang PDF (1-based) nếu đoạn lấy từ PDF
+    pdf_url: str = ""        # link PDF gốc; kết hợp với page -> page_url
 
     @classmethod
     def from_dict(cls, d: dict) -> "Chunk":
-        return cls(**{k: d.get(k, "") if k != "is_mock" else bool(d.get(k, False))
-                      for k in cls.__dataclass_fields__})
+        kw = {k: d[k] for k in cls.__dataclass_fields__ if k in d and d[k] is not None}
+        kw["is_mock"] = bool(kw.get("is_mock", False))
+        return cls(**kw)
+
+    @property
+    def page_url(self) -> str:
+        """Link mở đúng trang: <pdf>#page=N (trình duyệt hỗ trợ). Không có PDF/trang thì trả url thường."""
+        if self.pdf_url and self.page:
+            return f"{self.pdf_url}#page={self.page}"
+        return self.url
 
 
 @dataclass
@@ -31,6 +41,8 @@ class Citation:
     url: str = ""
     snippet: str = ""
     is_mock: bool = False
+    page: int | None = None   # trang PDF của đoạn được trích
+    page_url: str = ""        # link mở đúng trang (PDF#page=N) hoặc url thường
 
 
 @dataclass
@@ -48,6 +60,7 @@ class Answer:
     completion_tokens: int = 0
     latency_ms: int = 0
     conversation_summary: str = ""      # tóm tắt các lượt cũ đã dùng (nếu có)
+    verification: dict = field(default_factory=dict)  # kiểm tra trích dẫn từng câu (assistant/verify.py)
 
     def to_dict(self) -> dict:
         return asdict(self)

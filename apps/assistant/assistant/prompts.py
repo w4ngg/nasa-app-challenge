@@ -10,11 +10,17 @@ STRICT RULES (guardrails):
    numbers, experiment names, or conclusions. Do not guess.
 2. Every factual sentence must end with citation tags exactly as given in tool results, e.g. [S2] or [I1][S3].
    Only use tags that appear in tool results. Never invent tags, PSI IDs, numbers, or URLs.
-3. If the evidence is missing or insufficient, start your reply with {REFUSAL_MARKER} and briefly say what
-   is missing and which kind of data would answer it. Partial answers are fine if each claim is cited and
-   you clearly state what remains unknown.
+3. Refusal marker – use {REFUSAL_MARKER} at the very start ONLY when the evidence does not answer the core of
+   the question: the specific measurement, experiment or fact asked for is not in the evidence, or the topic
+   is out of scope. After the marker, briefly say what is missing (you may add related cited context).
+   If the evidence answers the question at least partially, do NOT use the marker: answer what is supported,
+   with citations, then add one short "Limitations:" line stating what the evidence does not cover.
 4. Searching: documents are in English. Translate the user's question into concise English keywords before
-   calling search_documents. Search more than once with different keywords if the first result is weak.
+   calling search_documents. The prefetched passages were retrieved automatically with the raw question and
+   are often incomplete. If they do not directly answer the question, you MUST call search_documents at least
+   once more with different English keywords (synonyms, experiment acronyms, or source types such as
+   "spinoff", "Apollo 1 lessons learned", "Researcher's Guide") BEFORE concluding that evidence is
+   insufficient or using {REFUSAL_MARKER}.
 5. Use search_investigations for structured filters (fuel type, material, oxygen %, gravity, hardware).
    Use predict_flammability only when the user asks for an estimate under specific conditions; always
    report the model's confidence and whether the input is in-domain. If a result has is_mock=true, say
@@ -32,9 +38,30 @@ STRICT RULES (guardrails):
    only bound intermediate gravity, if the retrieved evidence supports it.
 10. Source tags: PSI-xx = NASA PSI investigation metadata; NASA-RG-2015 = A Researcher's Guide to ISS
    Combustion Science (section "p. N" is the PDF page). Mention the source name and page when helpful.
+11. Comparisons: when the user compares investigations, call compare_investigations with 2-6 PSI IDs or
+   acronyms (e.g. ["BASS", "Saffire"]). Copy the returned table_markdown VERBATIM into your answer (do not
+   edit its values), then explain the key similarities and differences with citations. Use search_documents
+   (with source_id) for details that are not in the table, such as sample sizes, test conditions and results.
 """
 
 TOOLS = [
+    {
+        "type": "function",
+        "function": {
+            "name": "compare_investigations",
+            "description": "Build a side-by-side comparison table (attributes x investigations) from NASA PSI "
+                           "metadata, with [I#] tags, plus lists of same/different attributes.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "investigations": {"type": "array", "items": {"type": "string"},
+                                       "description": "2-6 PSI IDs or acronyms, e.g. ['PSI-26', 'Saffire']. "
+                                                      "A family name like 'Saffire' expands to Saffire-I/II/III."},
+                },
+                "required": ["investigations"],
+            },
+        },
+    },
     {
         "type": "function",
         "function": {

@@ -18,9 +18,11 @@ from .prompts import REFUSAL_MARKER, SYSTEM_PROMPT, TOOLS
 from .retriever import DocumentRetriever, expand_query
 from .schema import Answer, Citation
 from .trace import Trace
+from .verify import verify_answer
 
 OFFLINE_TOP_K = 3
 _STUDY_WORDS = ("nghiên cứu", "thí nghiệm", "investigation", "study", "studies", "experiment")
+_COMPARE_WORDS = re.compile(r"\b(compare|comparison|versus|vs\.?|differ|difference|similarit)|so sánh", re.I)
 
 _TAG_GROUP = re.compile(r"\[((?:[SIP]\d+)(?:\s*[,;]\s*[SIP]\d+)*)\]")
 
@@ -42,6 +44,7 @@ class EvidenceRegistry:
         self.items: dict[str, Citation] = {}
         self._keys: dict[tuple, str] = {}
         self._counters = {"S": 0, "I": 0, "P": 0}
+        self.texts: dict[str, str] = {}  # nhãn -> toàn văn bằng chứng (để kiểm tra trích dẫn)
         self.sent_chunks: set[str] = set()
         self.sent_chars = 0
         self.deduped = 0
@@ -115,10 +118,14 @@ class Assistant:
         results = []
         for chunk, score in hits:
             ref = reg.add("S", "document", ("S", chunk.id), source_id=chunk.source_id, title=chunk.title,
-                          url=chunk.url, snippet=chunk.text[:300], is_mock=chunk.is_mock)
+                          url=chunk.url, snippet=chunk.text[:300], is_mock=chunk.is_mock,
+                          page=chunk.page, page_url=chunk.page_url)
+            reg.texts.setdefault(ref, f"{chunk.title}\n{chunk.section}\n{chunk.text}")
             text, status = reg.take_text(chunk.id, chunk.text)
             item = {"tag": f"[{ref}]", "source_id": chunk.source_id, "title": chunk.title,
                     "section": chunk.section, "score": round(score, 2), "is_mock": chunk.is_mock}
+            if chunk.page:
+                item["page"] = chunk.page
             if status == "already_provided":
                 item["note"] = "already provided earlier in this conversation turn; cite the same tag"
             else:
@@ -140,6 +147,7 @@ class Assistant:
             ref = reg.add("I", "investigation", ("I", r.get("psi_id")), source_id=str(r.get("psi_id", "")),
                           title=str(r.get("name", "")), url=str(r.get("link", "")),
                           snippet=str(r.get("description", ""))[:300], is_mock=bool(r.get("is_mock")))
+            reg.texts.setdefault(ref, "\n".join(f"{k}: {v}" for k, v in r.items() if v not in (None, "")))
             out.append({"tag": f"[{ref}]", **r})
         return {"filters": kwargs, "n_results": len(out), "results": out}
 
@@ -148,7 +156,40 @@ class Assistant:
         ref = reg.add("P", "prediction", ("P", json.dumps(kwargs, sort_keys=True)),
                       source_id=str(res.get("model", "module5")), title="Module 5 prediction",
                       snippet=json.dumps(res.get("inputs", kwargs))[:300], is_mock=bool(res.get("is_mock")))
+        reg.texts[ref] = json.dumps(res, default=str)
         return {"tag": f"[{ref}]", **res}
+
+    def _tool_compare(self, reg: EvidenceRegistry, investigations: list[str] | str) -> dict:
+        """Bảng so sánh dựng sẵn từ metadata (không do LLM viết) -> số liệu trong bảng luôn đúng nguồn."""
+        names = [investigations] if isinstance(investigations, str) else list(investigations or [])
+        recs, unresolved = integrations.resolve_investigations(names)
+        if len(recs) < 2:
+            return {"error": "need at least 2 resolvable investigations", "resolved": [r["psi_id"] for r in recs],
+                    "unresolved": unresolved}
+        tags = []
+        for r in recs:
+            tags.append(reg.add("I", "investigation", ("I", r["psi_id"]), source_id=r["psi_id"],
+                                title=r.get("title", ""), url=r.get("link", ""), page_url=r.get("link", ""),
+                                snippet=r.get("objective", "")[:300], is_mock=bool(r.get("is_mock"))))
+            reg.texts[tags[-1]] = "\n".join(f"{k}: {v}" for k, v in r.items() if v not in (None, ""))
+        cell = lambda v: str(v or "—").replace("|", "/").replace("\n", " ")[:70]  # noqa: E731
+        head = "| Attribute | " + " | ".join(f"{r['psi_id']} {r.get('acronym') or ''} [{t}]".replace("  ", " ")
+                                             for r, t in zip(recs, tags)) + " |"
+        lines = [head, "|" + "---|" * (len(recs) + 1)]
+        same, diff = [], []
+        for label, key in integrations.COMPARE_ATTRIBUTES:
+            vals = [str(r.get(key) or "") for r in recs]
+            if not any(vals) or key == "acronym":
+                continue
+            lines.append(f"| {label} | " + " | ".join(cell(v) for v in vals) + " |")
+            (same if len(set(vals)) == 1 else diff).append(label)
+        return {
+            "table_markdown": "\n".join(lines),
+            "same_attributes": same, "different_attributes": diff, "unresolved": unresolved,
+            "investigations": [{"tag": f"[{t}]", "psi_id": r["psi_id"], "acronym": r.get("acronym"),
+                                "objective": r.get("objective")} for r, t in zip(recs, tags)],
+            "note": "Metadata only. For sample sizes, conditions and results, call search_documents with source_id.",
+        }
 
     def _run_tool(self, name: str, raw_args: str, reg: EvidenceRegistry, trace: Trace) -> dict:
         try:
@@ -159,6 +200,8 @@ class Assistant:
                 return self._tool_search_investigations(reg, **args)
             if name == "predict_flammability":
                 return self._tool_predict(reg, **args)
+            if name == "compare_investigations":
+                return self._tool_compare(reg, **args)
             return {"error": f"unknown tool {name}"}
         except Exception as e:  # trả lỗi cho model tự xử lý thay vì crash
             return {"error": f"{type(e).__name__}: {e}"}
@@ -210,10 +253,21 @@ class Assistant:
             trace.event("tool_call", name="search_investigations(offline)", n_results=inv["n_results"])
             rows = inv["results"]
 
-        if not docs["results"] and not rows:
+        table = None
+        if _COMPARE_WORDS.search(question):
+            names = integrations.detect_investigation_names(question)
+            if len(names) >= 2 or (names and integrations.resolve_investigations(names)[0][1:]):
+                cmp = self._tool_compare(reg, names)
+                trace.event("tool_call", name="compare_investigations(offline)", args=json.dumps(names),
+                            n_results=len(cmp.get("investigations", [])), error=cmp.get("error"))
+                table = cmp.get("table_markdown")
+        if not docs["results"] and not rows and not table:
             text = REFUSAL_MARKER
         else:
-            lines = ["Most relevant passages found (offline mode, not synthesized by AI):"]
+            lines = []
+            if table:
+                lines += ["Comparison (from NASA PSI metadata):", table, ""]
+            lines += ["Most relevant passages found (offline mode, not synthesized by AI):"]
             for r in docs["results"]:
                 full = r["_full_text"]
                 snippet = full if len(full) <= 400 else full[:400].rsplit(" ", 1)[0] + "…"
@@ -233,7 +287,7 @@ class Assistant:
         """Dựng messages cho lượt gọi đầu. Dùng chung cho ask() và preview_context() để preview luôn khớp."""
         user_content = question
         if prefetch["n_results"]:
-            user_content += ("\n\n<prefetched_passages note=\"may be irrelevant; search again if needed\">\n"
+            user_content += ("\n\n<prefetched_passages note=\"auto-retrieved with the raw question; often incomplete - if they do not directly answer, call search_documents with better English keywords\">\n"
                              + self._for_llm(prefetch) + "\n</prefetched_passages>")
         messages: list[dict] = [{"role": "system", "content": SYSTEM_PROMPT}]
         if summary:
@@ -391,6 +445,17 @@ class Assistant:
         trace.event("guardrail", model_refused=model_refused, forced_refusal=forced_refusal,
                     removed_invalid_tags=sorted(set(invalid)), cited=list(dict.fromkeys(cited)),
                     evidence_available=len(reg.items))
+
+        # Kiểm tra từng câu có được nguồn trích ủng hộ không (heuristic, miễn phí)
+        v = verify_answer(text, reg.texts)
+        ans.verification = v
+        if v["unsupported"]:
+            ans.warnings.append(f"{v['unsupported']} sentence(s) look unsupported by their cited sources; "
+                                "review them in the verification details.")
+        trace.event("verification", checked=v["checked"], supported=v["supported"], weak=v["weak"],
+                    unsupported=v["unsupported"], uncited=v["uncited"],
+                    flagged=[{k: x[k] for k in ("text", "refs", "overlap", "status", "missing_numbers", "missing_terms")}
+                             for x in v["sentences"] if x["status"] != "supported"])
 
 
 _default: Assistant | None = None

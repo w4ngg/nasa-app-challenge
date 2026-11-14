@@ -51,12 +51,79 @@ def expand_query(text: str) -> str:
     return f"{text} {' '.join(extra)}" if extra else text
 
 
-def tokenize(text: str) -> list[str]:
+def stem(t: str) -> str:
+    """Stemmer tiếng Anh tối giản, bảo thủ: gộp số nhiều / -ing / -ed / e cuối.
+
+    firefighters -> firefighter, investigators -> investigator, studies -> study, flames/flame -> flam,
+    burning -> burn, measured/measure -> measur. Không đụng số, từ viết tắt có số/gạch (co2, bass-ii), từ <= 3 ký tự.
+    """
+    if len(t) <= 3 or not t.isalpha() or not t.isascii():
+        return t
+    if t.endswith("ies") and len(t) > 4:
+        t = t[:-3] + "y"
+    elif t.endswith("sses"):
+        t = t[:-2]
+    elif t.endswith("ing") and len(t) - 3 >= 4:
+        t = t[:-3]
+    elif t.endswith("ed") and not t.endswith("eed") and len(t) - 2 >= 4:
+        t = t[:-2]
+    elif t.endswith("s") and not t.endswith(("ss", "us", "is")):
+        t = t[:-1]
+    if t.endswith("e") and len(t) > 4:
+        t = t[:-1]
+    return t
+
+
+def tokenize(text: str, do_stem: bool = True) -> list[str]:
     text = unicodedata.normalize("NFKC", text).lower()
     text = text.replace("o₂", "o2").replace("co₂", "co2")
     # [^\W_] giữ nguyên từ có dấu (vd "phở") thay vì cắt thành mảnh "ph" khớp nhầm tài liệu tiếng Anh
-    return [t for t in re.findall(r"[^\W_]+(?:[.\-][^\W_]+)*", text)
-            if len(t) > 1 and t not in _STOPWORDS]
+    toks = [t for t in re.findall(r"[^\W_]+(?:[.\-][^\W_]+)*", text) if len(t) > 1 and t not in _STOPWORDS]
+    return [stem(t) for t in toks] if do_stem else toks
+
+
+# Nhóm từ đồng nghĩa chuyên ngành (query expansion). Từ trong cùng nhóm được thêm vào truy vấn với trọng số
+# SYNONYM_WEIGHT. Bổ sung khi gặp câu hỏi tìm không ra (xem recall test trong tests/).
+SYNONYM_GROUPS = [
+    ["firefighter", "fireman", "firemen", "firefighting"],
+    ["extinguish", "extinguishment", "extinction", "suppression", "suppressant", "quench", "blowoff"],
+    ["microgravity", "weightless", "weightlessness", "zero-g", "low-gravity"],
+    ["spread", "propagation", "propagate"],
+    ["ventilation", "ventilated", "airflow", "fan", "forced-flow"],
+    ["smoke", "aerosol", "particulate"],
+    ["detector", "detection", "sensor", "alarm"],
+    ["flammability", "flammable", "ignitability", "combustibility", "combustible"],
+    ["spacecraft", "cabin", "capsule"],
+    ["moon", "lunar"], ["mars", "martian"],
+    ["pmma", "acrylic", "plexiglass", "plexiglas"],
+    ["fabric", "textile", "cloth"],
+    ["droplet", "drop"],
+    ["oxygen", "o2"],
+    ["investigation", "experiment", "study"],
+    ["apparatus", "hardware", "equipment", "facility"],
+    ["clothing", "garment", "attire", "gear", "ensemble", "suit"],
+    ["breathing", "respiratory"],
+    ["tank", "cylinder", "bottle"],
+]
+SYNONYM_WEIGHT = 0.5
+_SYN: dict[str, set[str]] = {}
+for _g in SYNONYM_GROUPS:
+    _stems = {stem(w) for w in _g}
+    for _s in _stems:
+        _SYN.setdefault(_s, set()).update(_stems - {_s})
+_PHRASES = {"co2": ["carbon", "dioxid"], "sf6": ["sulfur", "hexafluorid"]}  # dạng đã stem
+
+
+def query_terms(query: str, synonyms: bool = True) -> dict[str, float]:
+    """Token truy vấn kèm trọng số: từ gốc 1.0, từ đồng nghĩa SYNONYM_WEIGHT."""
+    terms: dict[str, float] = {}
+    for t in tokenize(query):
+        terms[t] = 1.0
+    if synonyms:
+        for t in list(terms):
+            for s in _SYN.get(t, set()) | set(_PHRASES.get(t, ())):
+                terms.setdefault(s, SYNONYM_WEIGHT)
+    return terms
 
 
 class BM25:
@@ -71,14 +138,17 @@ class BM25:
         n = len(docs)
         self.idf = {t: math.log(1 + (n - f + 0.5) / (f + 0.5)) for t, f in df.items()}
 
-    def scores(self, query: list[str]) -> list[float]:
+    def scores(self, query: list[str] | dict[str, float]) -> list[float]:
+        """query: list token (trọng số 1) hoặc dict token -> trọng số (từ đồng nghĩa có trọng số thấp hơn)."""
+        weights = query if isinstance(query, dict) else {t: 1.0 for t in query}
+        weights = {t: w for t, w in weights.items() if t in self.idf}
         out = []
         for tf, dl in zip(self.docs, self.lens):
             s = 0.0
-            for t in query:
+            for t, w in weights.items():
                 f = tf.get(t)
                 if f:
-                    s += self.idf[t] * f * (self.k1 + 1) / (f + self.k1 * (1 - self.b + self.b * dl / self.avgdl))
+                    s += w * self.idf[t] * f * (self.k1 + 1) / (f + self.k1 * (1 - self.b + self.b * dl / self.avgdl))
             out.append(s)
         return out
 
@@ -112,7 +182,7 @@ class DocumentRetriever:
         # đọc config lúc gọi (không phải lúc import) để chỉnh được khi đang chạy (demo UI)
         k = config.TOP_K if k is None else k
         min_score = config.MIN_SCORE if min_score is None else min_score
-        scores = self.bm25.scores(tokenize(query))
+        scores = self.bm25.scores(query_terms(query))
         # Danh sách tên bài báo dày từ khóa nhưng ít nội dung giải thích -> giảm trọng số
         scores = [s * SECTION_WEIGHTS.get(c.section, 1.0) for c, s in zip(self.chunks, scores)]
         ranked = sorted(zip(self.chunks, scores), key=lambda x: x[1], reverse=True)

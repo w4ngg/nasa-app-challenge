@@ -28,6 +28,30 @@ python eval/run_eval.py       # eval với DeepSeek (TỐN QUOTA, khoảng $0.04
 
 Mọi output cho người dùng đều bằng **tiếng Anh**: câu trả lời, câu từ chối, cảnh báo, kể cả khi câu hỏi viết bằng tiếng Việt (quy tắc 7 trong `prompts.py`). Bộ eval `eval/questions.jsonl` cũng toàn bằng tiếng Anh. Câu hỏi tiếng Việt vẫn tìm được tài liệu nhờ từ điển `VI_EN_GLOSSARY`.
 
+## Chất lượng câu trả lời
+
+**Kiểm tra trích dẫn** (`assistant/verify.py`). Không gọi LLM nên miễn phí. Mỗi câu có nhãn `[S#]/[I#]/[P#]` được so với toàn văn nguồn được trích theo 3 dấu hiệu:
+1. độ trùng từ khóa (có tính stemming và từ đồng nghĩa);
+2. mọi con số trong câu phải có trong nguồn;
+3. thuật ngữ viết tắt hoặc công thức (SF6, CO2…) phải có trong nguồn.
+
+Mỗi câu được xếp loại `supported`, `weak` (nên đọc lại) hoặc `unsupported` (có cảnh báo trong `warnings`). Kết quả nằm trong `Answer.verification` và trong trace, đồng thời hiển thị ở tab Citations của giao diện demo. Bỏ qua dòng bảng và dòng "Limitations:".
+
+Hiệu chỉnh trên 130 câu trong 17 câu trả lời DeepSeek thật:
+
+| Trường hợp | Kết quả |
+|---|---|
+| Trích dẫn đúng | 96% `supported`, 4% `weak`, 0 `unsupported` |
+| Cố ý gắn câu với đoạn sai nguồn | Bắt được 130/130 |
+
+Đây là heuristic: câu diễn đạt lại quá xa nguồn có thể bị đánh `weak` dù đúng. Vì vậy bước này chỉ cảnh báo, không tự xóa câu.
+
+**Link mở đúng trang PDF.** Đoạn lấy từ PDF (Researcher's Guide, NTRS) có `page` và `page_url` dạng `…pdf#page=N`. Trong giao diện có nút "Open PDF p.N".
+
+**Tìm kiếm hiểu từ đồng nghĩa** (`retriever.py`). Gồm stemming tiếng Anh nhẹ (firefighters → firefighter, investigators → investigator) và `SYNONYM_GROUPS` gồm các nhóm từ chuyên ngành (firefighter/fireman, suppression/extinguishment, PMMA/acrylic…) với trọng số 0.5. Recall@5 trên bộ eval tăng từ 16/18 lên 18/18.
+
+**So sánh dạng bảng.** Tool `compare_investigations` nhận 2–6 mã PSI hoặc tên viết tắt; tên chung như "Saffire" được mở rộng thành Saffire-I, II và III. Tool dựng bảng thuộc tính × nghiên cứu từ metadata PSI kèm nhãn `[I#]`, và liệt kê thuộc tính giống/khác. Bảng do code tạo nên giá trị luôn đúng với nguồn; LLM chỉ chép lại và diễn giải. Chế độ offline cũng tự dựng bảng khi câu hỏi có "compare", "vs" hoặc "so sánh".
+
 ## Giao diện demo (cho dev)
 
 ```bash
@@ -167,6 +191,7 @@ assistant/
   trace.py         ghi trace từng request; trace_view.py để xem lại
   context.py       nén lịch sử hội thoại
   cost.py, context_view.py   ước lượng token/chi phí, xem context
+  verify.py        kiểm tra trích dẫn từng câu
   cli.py, api.py   chat terminal / HTTP API
   demo_server.py, demo/index.html   giao diện demo cho dev
 data/mock/         dữ liệu giả, có nhãn [MOCK]

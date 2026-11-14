@@ -39,7 +39,11 @@ def main() -> None:
         a = bot.ask(q, history)
         print(f"\nAssistant{' (từ chối)' if a.refused else ''}:\n{a.answer}\n")
         for c in a.citations:
-            print(f"  [{c.ref}] {c.source_id} — {c.title}{' (MOCK)' if c.is_mock else ''} {c.url}")
+            print(f"  [{c.ref}] {c.source_id} — {c.title}{' (MOCK)' if c.is_mock else ''} {c.page_url or c.url}")
+        v = a.verification
+        if v.get("checked"):
+            print(f"  ✔ citation check: {v['supported']}/{v['checked']} supported, {v['weak']} weak, "
+                  f"{v['unsupported']} unsupported")
         for w in a.warnings:
             print(f"  ⚠️  {w}")
         if debug:
