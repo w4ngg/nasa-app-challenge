@@ -7,19 +7,120 @@ và bot từ chối khi không tìm thấy bằng chứng. LLM dùng **DeepSeek*
 
 ## Chạy nhanh
 
+Yêu cầu Python 3.10 trở lên. Dữ liệu đã có sẵn trong repo (`data/processed/chunks.jsonl`: 1.371 chunk từ 61 nguồn NASA, cùng `data/investigations.csv` và `data/raw/psi_combustion.json`), nên **pull về là chạy được ngay**, cho kết quả giống nhau trên mọi máy.
+
 ```bash
+git checkout feat/ai-assistant && git pull
 cd apps/assistant
+python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
-cp .env.example .env          # điền DEEPSEEK_API_KEY (không có key -> tự chạy offline)
-python scripts/fetch_sources.py   # PSI + Researcher's Guide + các trang NASA (khoảng 1 phút)
-python scripts/fetch_ntrs.py      # 25 PDF báo cáo từ NTRS (khoảng 10 phút, có thể bỏ qua)
-python -m assistant.ingest        # tạo data/processed/chunks.jsonl
-python -m pytest tests -q     # test offline, không cần key
-python -m assistant.cli --debug   # chat thử trên terminal (không có key -> tự chạy offline)
-python -m assistant.cli --offline # ép chế độ offline
-uvicorn assistant.api:app --port 8003   # HTTP API cho Module 6
-python eval/run_eval.py       # chạy bộ câu hỏi kiểm thử (tốn ít tiền API)
+python -m pytest tests -q          # phải ra "43 passed" – không cần key, không tốn tiền
+python -m assistant.demo_server    # giao diện demo: http://127.0.0.1:8765 (chế độ offline miễn phí)
+python -m assistant.cli --offline  # chat trên terminal, không gọi LLM
 ```
+
+Muốn dùng DeepSeek thì mỗi người dùng key của mình:
+
+```bash
+cp .env.example .env               # Windows: copy .env.example .env
+# mở .env, điền DEEPSEEK_API_KEY=sk-...  (file .env đã bị gitignore, KHÔNG commit)
+python -m assistant.cli --debug    # có key -> gọi DeepSeek (TỐN QUOTA, khoảng $0.003–0.01 mỗi câu)
+```
+
+Các lệnh khác:
+
+```bash
+uvicorn assistant.api:app --port 8003   # HTTP API cho Module 6
+python eval/run_eval.py --estimate      # ước lượng chi phí eval (miễn phí)
+python eval/run_eval.py --offline       # eval chỉ dùng BM25 (miễn phí) -> eval/results_offline.jsonl
+python eval/run_eval.py --rescore eval/results_v3_deepseek.jsonl   # chấm 3 tiêu chí cho kết quả DeepSeek đã lưu (miễn phí)
+python eval/run_eval.py                 # eval với DeepSeek (TỐN QUOTA, khoảng $0.07 cho 17 câu)
+```
+
+`eval/results_v3_deepseek.jsonl` là kết quả DeepSeek tham chiếu: 17/17 đạt, faithfulness 0.97, citation correctness 0.97, answer correctness 0.96.
+
+**Tạo lại dữ liệu từ đầu** (không bắt buộc; chỉ cần khi muốn cập nhật nguồn, mất khoảng 11 phút và cần mạng):
+
+```bash
+python scripts/fetch_sources.py   # PSI + Researcher's Guide + các trang NASA
+python scripts/fetch_ntrs.py      # 25 PDF báo cáo từ NTRS (~32 MB, không commit)
+python -m assistant.ingest        # ghi đè data/processed/chunks.jsonl
+```
+
+## Ngôn ngữ
+
+Mọi output cho người dùng đều bằng **tiếng Anh**: câu trả lời, câu từ chối, cảnh báo, kể cả khi câu hỏi viết bằng tiếng Việt (quy tắc 7 trong `prompts.py`). Bộ eval `eval/questions.jsonl` cũng toàn bằng tiếng Anh. Câu hỏi tiếng Việt vẫn tìm được tài liệu nhờ từ điển `VI_EN_GLOSSARY`.
+
+## Chất lượng câu trả lời
+
+**Kiểm tra trích dẫn** (`assistant/verify.py`). Không gọi LLM nên miễn phí. Mỗi câu có nhãn `[S#]/[I#]/[P#]` được so với toàn văn nguồn được trích theo 3 dấu hiệu:
+1. độ trùng từ khóa (có tính stemming và từ đồng nghĩa);
+2. mọi con số trong câu phải có trong nguồn;
+3. thuật ngữ viết tắt hoặc công thức (SF6, CO2…) phải có trong nguồn.
+
+Mỗi câu được xếp loại `supported`, `weak` (nên đọc lại) hoặc `unsupported` (có cảnh báo trong `warnings`). Kết quả nằm trong `Answer.verification` và trong trace, đồng thời hiển thị ở tab Citations của giao diện demo. Bỏ qua dòng bảng và dòng "Limitations:".
+
+Hiệu chỉnh trên 130 câu trong 17 câu trả lời DeepSeek thật:
+
+| Trường hợp | Kết quả |
+|---|---|
+| Trích dẫn đúng | 96% `supported`, 4% `weak`, 0 `unsupported` |
+| Cố ý gắn câu với đoạn sai nguồn | Bắt được 130/130 |
+
+Đây là heuristic: câu diễn đạt lại quá xa nguồn có thể bị đánh `weak` dù đúng. Vì vậy bước này chỉ cảnh báo, không tự xóa câu.
+
+**Kiểm định theo 3 tiêu chí độc lập** (`assistant/verify.py`, `assistant/evaluate.py`). Không gọi LLM nên miễn phí.
+
+| Tiêu chí | Câu hỏi | Cách đo |
+|---|---|---|
+| Faithfulness | Câu có suy ra được từ context đã truy xuất không? | So mỗi câu với **toàn bộ** evidence trong lượt (kể cả nguồn không được trích) → `context_status` |
+| Citation correctness | Nguồn gắn tag có thật sự chứng minh câu đó không? | So với nguồn được gắn tag → `status`. Nếu câu có trong context nhưng nằm ở nguồn khác → `miscited` + `suggested_refs` |
+| Answer correctness | Câu trả lời có đúng với tài liệu NASA gốc không? | `reference_facts` trong `eval/questions.jsonl`: 28 gold fact cho q01–q13, mỗi fact gắn với chunk nguồn (test kiểm fact có trong nguồn). Chấm theo tỉ lệ fact được nhắc tới. |
+
+Ngoài ra còn hai bổ sung:
+- **Cờ suy luận và khái quát hóa:** các từ như therefore, implies, reflects, likely, always, all, cùng dòng `Interpretation:`. Prompt rule 12 cấm suy luận vượt bằng chứng; nếu cần diễn giải thì phải viết thành một dòng `Interpretation:` riêng có trích tiền đề.
+- **Toàn văn evidence:** `Citation.evidence` chứa toàn văn đoạn nguồn, còn `snippet` chỉ có 300 ký tự. `Answer.suggested_sources` là các nguồn được gợi ý cho câu gắn nhầm tag. Giao diện demo có nút **Export review report (.md)**, xuất câu trả lời, bảng kiểm từng câu và toàn văn evidence để người ngoài kiểm định.
+
+```bash
+python eval/run_eval.py --rescore eval/results.jsonl   # chấm lại câu trả lời DeepSeek đã lưu, miễn phí
+python eval/run_eval.py --offline                      # ghi ra eval/results_offline.jsonl, không ghi đè kết quả DeepSeek
+```
+
+Kết quả chấm lại 17 câu DeepSeek (13 câu trả lời, 4 câu bẫy đều từ chối đúng):
+
+| Tiêu chí | Điểm |
+|---|---|
+| Faithfulness | 0.97 |
+| Citation correctness | 0.97 |
+| Answer correctness | 0.96 |
+
+Có 1 câu không có trong context (q05, model tự suy đoán tên PI bị lỗi OCR), 1 câu gắn nhầm tag và 4 câu chứa từ suy luận.
+
+Đây là heuristic dựa trên từ ngữ, con số và thuật ngữ, **không kiểm logic**. Mọi câu bị gắn cờ và mọi câu suy luận vẫn cần người đọc kiểm tra. Answer correctness chỉ đo độ phủ gold fact, không phát hiện được câu sai nằm ngoài bộ gold.
+
+**Link mở đúng trang PDF.** Đoạn lấy từ PDF (Researcher's Guide, NTRS) có `page` và `page_url` dạng `…pdf#page=N`. Trong giao diện có nút "Open PDF p.N".
+
+**Tìm kiếm hiểu từ đồng nghĩa** (`retriever.py`). Gồm stemming tiếng Anh nhẹ (firefighters → firefighter, investigators → investigator) và `SYNONYM_GROUPS` gồm các nhóm từ chuyên ngành (firefighter/fireman, suppression/extinguishment, PMMA/acrylic…) với trọng số 0.5. Recall@5 trên bộ eval tăng từ 16/18 lên 18/18.
+
+**So sánh dạng bảng.** Tool `compare_investigations` nhận 2–6 mã PSI hoặc tên viết tắt; tên chung như "Saffire" được mở rộng thành Saffire-I, II và III. Tool dựng bảng thuộc tính × nghiên cứu từ metadata PSI kèm nhãn `[I#]`, và liệt kê thuộc tính giống/khác. Bảng do code tạo nên giá trị luôn đúng với nguồn; LLM chỉ chép lại và diễn giải. Chế độ offline cũng tự dựng bảng khi câu hỏi có "compare", "vs" hoặc "so sánh".
+
+## Giao diện demo (cho dev)
+
+```bash
+python -m assistant.demo_server          # mở http://127.0.0.1:8765
+```
+
+Server chỉ dùng thư viện có sẵn của Python và chỉ chạy trên máy local. Giao diện gồm:
+- **Chat**: bấm vào câu trả lời để xem chi tiết; bấm vào nhãn `[S1]` để mở đúng trích dẫn đó.
+- **Citations**: nguồn, link, đoạn trích của từng nhãn.
+- **Trace**: các đoạn tìm được kèm điểm, từng lượt gọi LLM (token, thời gian, chi phí), tool đã gọi, guardrail, và JSON gốc.
+- **Context & cost**: xem trước messages và chi phí trước khi hỏi (miễn phí).
+- **Retriever**: thử BM25 trực tiếp (query, k, min score, lọc theo nguồn).
+- **Investigations**: lọc bảng nghiên cứu.
+- **Settings**: chỉnh `TOP_K`, `MIN_SCORE`, `MAX_TOOL_ROUNDS`, `EVIDENCE_CHAR_BUDGET`… khi đang chạy. Thay đổi chỉ lưu trong bộ nhớ; muốn giữ lâu dài thì sửa `.env`.
+- **History**: các request trước, lấy từ trace.
+
+**Quota:** mặc định giao diện chạy **Offline (miễn phí)**. Ở chế độ DeepSeek, mỗi câu hỏi hiện hộp xác nhận kèm chi phí ước lượng trước khi gọi. Server cũng từ chối mọi request DeepSeek thiếu `confirm_paid=true`.
 
 ## Chế độ offline (không cần API key)
 
@@ -44,6 +145,22 @@ python -m assistant.trace_view 9d3df2 --json
 ```
 
 `ask()` trả về `trace_id`, `latency_ms`, `prompt_tokens`, `completion_tokens`. HTTP: `GET /trace/{trace_id}`. Log có chứa câu hỏi của người dùng nên **không commit** (`logs/` đã có trong `.gitignore`).
+
+**Xem context và ước lượng chi phí** (không gọi LLM, không tốn tiền):
+
+```bash
+python -m assistant.context_view "So sánh BASS và Saffire"          # bảng token và chi phí
+python -m assistant.context_view "So sánh BASS và Saffire" --full   # in toàn bộ messages
+```
+
+Trong chat CLI gõ `/context <câu hỏi>` (dùng cả lịch sử hiện tại). Python: `from assistant import preview_context`. HTTP: `POST /context` (thêm `?include_messages=true` để lấy cả messages).
+
+Kết quả gồm:
+- số ký tự và token ước lượng của từng phần: system prompt, tool schema, tóm tắt lịch sử, lịch sử gần đây, câu hỏi, bằng chứng tìm trước;
+- chi phí theo 3 kịch bản: `direct` (trả lời ngay), `typical` (1 lần search), `worst` (tối đa số vòng tool), có tính cả lượt tóm tắt lịch sử nếu cần;
+- số tiền còn lại trong ngân sách, quy ra số câu hỏi.
+
+Messages trong bản xem trước giống hệt lượt gọi đầu của `ask()` (có test kiểm chứng). Token được ước lượng bằng heuristic. Khi `logs/traces.jsonl` đã có lượt gọi DeepSeek thật, hệ số ký tự/token được **tự hiệu chỉnh** theo số token thật.
 
 **Nén context** (cấu hình trong `.env`):
 
@@ -125,7 +242,10 @@ assistant/
   ingest.py        tài liệu -> chunks.jsonl
   trace.py         ghi trace từng request; trace_view.py để xem lại
   context.py       nén lịch sử hội thoại
+  cost.py, context_view.py   ước lượng token/chi phí, xem context
+  verify.py        kiểm tra trích dẫn từng câu
   cli.py, api.py   chat terminal / HTTP API
+  demo_server.py, demo/index.html   giao diện demo cho dev
 data/mock/         dữ liệu giả, có nhãn [MOCK]
 eval/              bộ câu hỏi kiểm thử + script chạy
 tests/             test offline với LLM giả

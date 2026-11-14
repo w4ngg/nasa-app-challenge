@@ -15,6 +15,7 @@ from assistant import config  # noqa: E402
 # Test cố định trên dữ liệu MOCK, không phụ thuộc dữ liệu thật đã tải về
 config.CHUNKS_FILE = Path("/nonexistent/chunks.jsonl")
 config.INVESTIGATIONS_FILE = Path("/nonexistent/investigations.csv")
+config.PSI_METADATA_FILE = Path("/nonexistent/psi_combustion.json")
 # Trace của test ghi vào file tạm, không lẫn với log thật
 import tempfile  # noqa: E402
 config.TRACE_FILE = Path(tempfile.mkdtemp()) / "traces.jsonl"
@@ -69,7 +70,7 @@ def test_invented_citation_is_removed_and_refused():
     llm = FakeLLM([NS(content="Ngọn lửa cháy mạnh hơn [S99].", tool_calls=None)])
     a = Assistant(llm=llm).ask("xin chào")
     assert a.refused and not a.citations
-    assert any("không hợp lệ" in w for w in a.warnings)
+    assert any("invalid" in w for w in a.warnings)
 
 
 def test_refusal_marker():
@@ -230,8 +231,258 @@ def test_evidence_budget_truncates():
         config.EVIDENCE_CHAR_BUDGET = old
 
 
+# ---------------- preview context / ước lượng chi phí ----------------
+from assistant import cost  # noqa: E402
+
+
+def test_preview_matches_real_first_call():
+    q = "Có nên tắt quạt thông gió khi cháy không?"
+    hist = _history(2)
+    p = Assistant(llm=BrokenLLM()).preview_context(q, hist)       # preview không gọi LLM
+    llm = UsageLLM([NS(content="Tắt thông gió [S1].", tool_calls=None)])
+    Assistant(llm=llm).ask(q, hist)
+    assert p["messages"] == llm.seen[0]                            # context giống hệt request thật
+
+
+def test_preview_parts_and_scenarios():
+    p = Assistant(llm=BrokenLLM()).preview_context("flame spread solid fuel oxygen")
+    names = [x["part"] for x in p["parts"]]
+    assert names[0] == "system_prompt" and names[1] == "tool_schema"
+    assert p["first_call_input_tokens"] > 0 and p["prefetch_hits"]
+    costs = {s["scenario"]: s for s in p["scenarios"]}
+    assert costs["direct"]["cost_usd"] < costs["typical"]["cost_usd"] < costs["worst"]["cost_usd"]
+    assert costs["worst"]["llm_calls"] == config.MAX_TOOL_ROUNDS + 1
+
+
+def test_preview_long_history_does_not_touch_summary_cache():
+    hist = _history(9)
+    p = Assistant(llm=BrokenLLM()).preview_context("next question", hist)
+    assert p["history"]["needs_llm_summary"] is True
+    typical_with = next(s for s in p["scenarios"] if s["scenario"] == "typical")
+    assert typical_with["llm_calls"] == 3                          # + 1 lượt tóm tắt
+    _, _, stats = prepare_history(hist, summarize_fn=lambda older: "real summary")
+    assert stats["method"] == "llm"                                # preview không ghi cache
+
+
+def test_estimate_tokens_vietnamese_costs_more():
+    en, vi = "flame spread over solid fuel", "ngọn lửa lan trên nhiên liệu rắn"
+    assert cost.estimate_tokens(vi) / len(vi) > cost.estimate_tokens(en) / len(en)
+    assert cost.estimate_tokens("abcd" * 10, chars_per_token=4) == 10
+
+
+# ---------------- (3) stemming + từ đồng nghĩa ----------------
+from assistant import integrations  # noqa: E402
+from assistant.retriever import query_terms, stem  # noqa: E402
+from assistant.schema import Chunk  # noqa: E402
+from assistant.verify import check_sentence, verify_answer  # noqa: E402
+
+
+def test_stemmer_conservative():
+    assert stem("firefighters") == stem("firefighter")
+    assert stem("investigators") == stem("investigator")
+    assert stem("studies") == "study" and stem("burning") == "burn"
+    assert stem("flames") == stem("flame") and stem("measured") == stem("measure")
+    for keep in ("speed", "string", "gas", "co2", "bass-ii", "analysis", "status"):
+        assert stem(keep) == keep
+
+
+def test_synonym_expansion_weighted():
+    t = query_terms("firefighter equipment")
+    assert t[stem("firefighter")] == 1.0 and t[stem("fireman")] == 0.5
+
+
+def _mini(chunks):
+    return DocumentRetriever([Chunk(id=f"D{i}#1", source_id=f"D{i}", title=f"Doc {i}", text=x)
+                              for i, x in enumerate(chunks)])
+
+
+def test_synonym_retrieval_finds_fireman_doc():
+    r = _mini(["Lightweight air tanks for firemen developed from spacesuit technology.",
+               "Smoke particle sizes measured in microgravity.", "Droplet combustion of heptane."])
+    hits = r.search("improved firefighter breathing equipment", k=3, min_score=0)
+    assert hits and hits[0][0].source_id == "D0"
+
+
+# ---------------- (2) link mở đúng trang PDF ----------------
+def test_page_url_on_chunk_and_citation():
+    c = Chunk(id="R#1", source_id="R", title="Guide", text="flame spread over solid fuel in oxygen",
+              url="https://x.gov/guide.pdf", section="p. 12", page=12, pdf_url="https://x.gov/guide.pdf")
+    assert c.page_url == "https://x.gov/guide.pdf#page=12"
+    assert Chunk(id="P#1", source_id="P", title="t", text="x", url="https://psi").page_url == "https://psi"
+    llm = UsageLLM([NS(content="Flame spread over solid fuel depends on oxygen [S1].", tool_calls=None)])
+    a = Assistant(llm=llm, retriever=DocumentRetriever([c])).ask("flame spread solid fuel oxygen")
+    assert a.citations[0].page == 12 and a.citations[0].page_url.endswith("#page=12")
+
+
+# ---------------- (4) so sánh dạng bảng ----------------
+_FAKE_RECS = [
+    {"psi_id": "PSI-26", "acronym": "BASS", "title": "Burning and Suppression of Solids", "hardware": "MSG", "link": ""},
+    {"psi_id": "PSI-25", "acronym": "BASS-II", "title": "Burning and Suppression of Solids - II", "hardware": "MSG", "link": ""},
+    {"psi_id": "PSI-98", "acronym": "SAFFIRE-I", "title": "Spacecraft Fire Experiment-I", "hardware": "Cygnus", "link": ""},
+    {"psi_id": "PSI-99", "acronym": "SAFFIRE-II", "title": "Spacecraft Fire Experiment-II", "hardware": "Cygnus", "link": ""},
+    {"psi_id": "PSI-47", "acronym": "DAFT / DAFT-2", "title": "Dust and Aerosol Test", "hardware": "ISS", "link": ""},
+    {"psi_id": "PSI-102", "acronym": "SAME", "title": "Smoke and Aerosol Measurement Experiment", "hardware": "MSG", "link": ""},
+    {"psi_id": "PSI-10", "acronym": "ACME/Flame Design", "title": "ACME Flame Design", "hardware": "CIR", "link": ""},
+    {"psi_id": "PSI-20", "acronym": "ACME BRE", "title": "ACME Burning Rate Emulator", "hardware": "CIR", "link": ""},
+]
+
+
+def test_resolve_and_detect_names(monkeypatch):
+    monkeypatch.setattr(integrations, "psi_records", lambda: _FAKE_RECS)
+    ids = lambda names: [r["psi_id"] for r in integrations.resolve_investigations(names)[0]]  # noqa: E731
+    assert ids(["BASS"]) == ["PSI-26"]                                   # khớp chính xác trước
+    assert ids(["Saffire"]) == ["PSI-98", "PSI-99"]                      # family -> I, II
+    assert ids(["DAFT-2"]) == ["PSI-47"] and ids(["ACME"]) == ["PSI-10", "PSI-20"]
+    assert integrations.resolve_investigations(["nope"])[1] == ["nope"]
+    q = "How was the same instrument used differently in SAME and DAFT?"
+    assert set(integrations.detect_investigation_names(q)) == {"same", "daft"}
+    assert integrations.detect_investigation_names("Is the same thing true?") == []
+
+
+def test_compare_tool_builds_table(monkeypatch):
+    monkeypatch.setattr(integrations, "psi_records", lambda: _FAKE_RECS)
+    llm = UsageLLM([
+        NS(content="", tool_calls=[_tool_call("compare_investigations", {"investigations": ["BASS", "Saffire"]})]),
+        NS(content="Table follows [I1][I2][I3].", tool_calls=None),
+    ])
+    a = Assistant(llm=llm).ask("Compare BASS and Saffire")
+    res = json.loads([m for m in llm.seen[-1] if m["role"] == "tool"][0]["content"])
+    table = res["table_markdown"]
+    assert table.startswith("| Attribute | PSI-26 BASS [I1] | PSI-98 SAFFIRE-I [I2] | PSI-99 SAFFIRE-II [I3] |")
+    assert "| Hardware | MSG | Cygnus | Cygnus |" in table
+    assert "Hardware" in res["different_attributes"]
+    assert [c.kind for c in a.citations] == ["investigation"] * 3
+
+
+def test_compare_table_edited_by_model_is_restored(monkeypatch):
+    monkeypatch.setattr(integrations, "psi_records", lambda: _FAKE_RECS)
+    edited = ("| Attribute | PSI-26 BASS [I1] | PSI-98 SAFFIRE-I [I2] |\n|---|---|---|\n"
+              "| Title | Burning of Solids | Spacecraft Fire Experiment-I |\n| Hardware | MSG | Cygnus |\n"
+              "BASS used the glovebox [I1].")
+    llm = UsageLLM([
+        NS(content="", tool_calls=[_tool_call("compare_investigations", {"investigations": ["BASS", "SAFFIRE-I"]})]),
+        NS(content=edited, tool_calls=None),
+    ])
+    a = Assistant(llm=llm).ask("Compare BASS and SAFFIRE-I")
+    assert "| Title | Burning and Suppression of Solids | Spacecraft Fire Experiment-I |" in a.answer
+    assert "Burning of Solids |" not in a.answer
+    assert any("Restored" in w for w in a.warnings)
+    assert any(e["kind"] == "table_restored" for e in get_trace(a.trace_id)["events"])
+
+
+def test_compare_offline_mode(monkeypatch):
+    monkeypatch.setattr(integrations, "psi_records", lambda: _FAKE_RECS)
+    a = Assistant(offline=True).ask("Compare BASS and Saffire")
+    assert "| Attribute |" in a.answer and any(c.source_id == "PSI-26" for c in a.citations)
+
+
+# ---------------- (1) kiểm tra trích dẫn ----------------
+EV = ("FLEX measured the effectiveness of gaseous suppressants CO2, He and SF6 on burning droplets in "
+      "microgravity. Air tanks pressurized at 4,500 psi.")
+
+
+def test_check_sentence_levels():
+    assert check_sentence("FLEX tested gaseous suppressants such as CO2 and SF6 [S1].", EV)["status"] == "supported"
+    bad = check_sentence("Saffire burned large cotton fabric samples inside Cygnus [S1].", EV)
+    assert bad["status"] == "unsupported"
+    num = check_sentence("The air tanks were pressurized at 6,000 psi [S1].", EV)
+    assert num["status"] == "weak" and num["missing_numbers"] == ["6,000"]
+    assert check_sentence("Air tanks were pressurized at 4500 psi [S1].", EV)["missing_numbers"] == []
+
+
+def test_verify_answer_skips_tables_and_meta():
+    ans = ("| Attribute | A [I1] |\n|---|---|\n| Hardware | MSG |\n"
+           "- FLEX tested gaseous suppressants such as CO2 and SF6 [S1].\n"
+           "Limitations: the evidence does not report flame temperatures [S1].")
+    v = verify_answer(ans, {"S1": EV})
+    assert v["checked"] == 1 and v["supported"] == 1
+
+
+def test_agent_attaches_verification_and_warns():
+    llm = UsageLLM([NS(content="Ventilation shutdown is advised [S1]. Rocket propellants explode violently [S1].",
+                       tool_calls=None)])
+    a = Assistant(llm=llm).ask("Should ventilation be turned off during a cabin fire?")
+    assert a.verification["checked"] == 2 and a.verification["unsupported"] >= 1
+    assert any("unsupported" in w for w in a.warnings)
+    ev = [e for e in get_trace(a.trace_id)["events"] if e["kind"] == "verification"][0]
+    assert ev["flagged"]
+
+
 if __name__ == "__main__":
     for name, fn in list(globals().items()):
         if name.startswith("test_"):
             fn()
             print("ok", name)
+
+
+# ---------- three RAG criteria: faithfulness / citation correctness / answer correctness ----------
+from assistant.evaluate import pin_saved_citations, score_facts  # noqa: E402
+
+EV2 = "Saffire-I burned a Sibal fabric sample, 75% cotton and 25% fiberglass, inside the Cygnus vehicle."
+
+
+def test_faithful_but_miscited_sentence_gets_suggested_tag():
+    ans = "Saffire-I burned Sibal fabric of 75% cotton and 25% fiberglass in Cygnus [S1]."
+    v = verify_answer(ans, {"S1": EV, "S2": EV2})
+    x = v["sentences"][0]
+    assert x["status"] != "supported" and x["context_status"] == "supported"
+    assert x["miscited"] and x["suggested_refs"] == ["S2"]
+    assert v["miscited"] == 1 and v["faithfulness"]["score"] == 1.0
+
+
+def test_hallucinated_sentence_is_unfaithful():
+    v = verify_answer("Saturn rings contain frozen methane lakes and volcanic glaciers [S1].", {"S1": EV, "S2": EV2})
+    assert v["sentences"][0]["context_status"] == "unsupported" and v["faithfulness"]["unsupported"] == 1
+
+
+def test_inference_words_and_interpretation_lines_are_flagged():
+    ans = ("FLEX tested CO2, He and SF6 suppressants on droplets, implying all suppressants fail in space [S1].\n"
+           "Interpretation: FLEX suppressant results matter for ISS design [S1].")
+    v = verify_answer(ans, {"S1": EV})
+    assert v["inference"] == 2
+    assert "implying" in v["sentences"][0]["inference"] and "interpretation" in v["sentences"][1]["inference"]
+
+
+def test_disclaimer_and_term_variants_not_flagged():
+    ev = "FLEX burned heptane droplets in oxygen and nitrogen mixtures; O₂ fraction was varied."
+    v = verify_answer("FLEX-1 burned heptane droplets while the O2 fraction was varied [S1].\n"
+                      "Verify all figures against the original NASA sources before design use.", {"S1": ev})
+    assert v["claims"] == 1 and v["supported"] == 1 and v["inference"] == 0
+
+
+def test_answer_correctness_gold_facts():
+    facts = [{"fact": "FLEX suppressants", "keywords": ["co2|carbon dioxide", "helium|\\bhe\\b"], "source": "x"},
+             {"fact": "SF6", "keywords": ["sf6"], "source": "x"}]
+    r = score_facts("FLEX tested carbon dioxide and helium.", facts)
+    assert r["covered"] == 1 and r["score"] == 0.5 and r["facts"][1]["missing"] == ["sf6"]
+
+
+def test_pin_saved_citations_maps_snippet_to_full_chunk():
+    bot = Assistant(offline=True)
+    reg = __import__("assistant.agent", fromlist=["EvidenceRegistry"]).EvidenceRegistry()
+    ch = bot.retriever.chunks[0]
+    reg.texts["S1"] = "something else"
+    n = pin_saved_citations(bot, reg, [{"ref": "S1", "kind": "document", "snippet": ch.text[:300]}])
+    assert n == 1 and reg.texts["S1"].endswith(ch.text) and reg.texts["_replay_S1"] == "something else"
+
+
+def test_agent_answer_carries_full_evidence_and_criteria():
+    llm = UsageLLM([NS(content="Ventilation shutdown is advised [S1].", tool_calls=None)])
+    a = Assistant(llm=llm).ask("Should ventilation be turned off during a cabin fire?")
+    assert a.citations and a.citations[0].evidence and len(a.citations[0].evidence) >= len(a.citations[0].snippet)
+    assert "faithfulness" in a.verification and "citation_correctness" in a.verification
+
+
+def test_gold_facts_are_grounded_in_their_source_chunks():
+    real = Path(__file__).resolve().parent.parent / "data" / "processed" / "chunks.jsonl"
+    if not real.exists():
+        return  # gold facts reference the real corpus; skipped when only mock data is present
+    import re
+    chunks = {json.loads(l)["id"]: json.loads(l) for l in real.read_text(encoding="utf-8").split("\n") if l.strip()}
+    qfile = Path(__file__).resolve().parent.parent / "eval" / "questions.jsonl"
+    for line in qfile.read_text(encoding="utf-8").splitlines():
+        q = json.loads(line)
+        for f in q.get("reference_facts", []):
+            c = chunks[f["source"]]
+            text = (c["title"] + " " + c["text"]).lower()
+            assert all(re.search(k, text) for k in f["keywords"]), (q["id"], f["fact"])

@@ -116,7 +116,7 @@ def main() -> int:
                     seen[nid] = True
                     sources.append({"filename": f"ntrs/{fname}", "source_id": f"NTRS-{nid}",
                                     "title": f"{best.get('title', '')} [NTRS {nid}; related: {', '.join(psis)}]",
-                                    "url": f"{NTRS}/citations/{nid}"})
+                                    "url": f"{NTRS}/citations/{nid}", "pdf_url": link})
         index_rows.append(row)
         print(f"[{i}/{len(title_psi)}] {row['status']:<12} {score:.2f} {title[:70]}")
         time.sleep(DELAY_S)
@@ -126,7 +126,7 @@ def main() -> int:
         w.writeheader()
         w.writerows(index_rows)
     with open(OUT / "sources.csv", "w", encoding="utf-8", newline="") as f:
-        w = csv.DictWriter(f, fieldnames=["filename", "source_id", "title", "url"])
+        w = csv.DictWriter(f, fieldnames=["filename", "source_id", "title", "url", "pdf_url"])
         w.writeheader()
         w.writerows(sources)
 

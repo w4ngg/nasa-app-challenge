@@ -30,8 +30,8 @@ class UsageTracker:
     def check_budget(self) -> None:
         if self.total_cost() >= config.BUDGET_USD:
             raise BudgetExceeded(
-                f"Đã dùng ${self.total_cost():.2f}, vượt ngân sách ${config.BUDGET_USD:.2f}. "
-                "Tăng LLM_BUDGET_USD trong .env nếu nhóm đồng ý.")
+                f"LLM budget reached: spent ${self.total_cost():.2f} of ${config.BUDGET_USD:.2f}. "
+                "Raise LLM_BUDGET_USD in .env if the team agrees.")
 
     def add(self, usage: Any) -> float:
         if usage is None:
@@ -56,7 +56,7 @@ class DeepSeekClient:
 
         key = api_key or config.DEEPSEEK_API_KEY
         if not key:
-            raise RuntimeError("Thiếu DEEPSEEK_API_KEY. Copy .env.example thành .env và điền key.")
+            raise RuntimeError("Missing DEEPSEEK_API_KEY. Copy .env.example to .env and set the key.")
         self.client = OpenAI(api_key=key, base_url=config.DEEPSEEK_BASE_URL)
         self.model = model or config.DEEPSEEK_MODEL
         self.tracker = tracker or UsageTracker()

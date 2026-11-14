@@ -41,17 +41,26 @@ def extractive_summary(older: list[dict]) -> str:
 
 
 def prepare_history(history: list[dict] | None,
-                    summarize_fn: Callable[[list[dict]], str] | None = None) -> tuple[list[dict], str, dict]:
-    """Trả về (tin nhắn gần đây giữ nguyên, tóm tắt phần cũ, thống kê cho trace)."""
+                    summarize_fn: Callable[[list[dict]], str] | None = None,
+                    dry_run: bool = False) -> tuple[list[dict], str, dict]:
+    """Trả về (tin nhắn gần đây giữ nguyên, tóm tắt phần cũ, thống kê cho trace).
+
+    dry_run=True (dùng cho preview_context): không gọi LLM, không ghi cache. Nếu request thật sẽ phải
+    tóm tắt bằng LLM thì stats["needs_llm_summary"]=True và `older` được trả trong stats để ước lượng chi phí.
+    """
     msgs = [c for c in (clean_message(m) for m in (history or [])) if c]
     keep = max(config.HISTORY_KEEP_TURNS, 0) * 2
     recent = msgs[-keep:] if keep else []
     older = msgs[:-keep] if keep else msgs
     summary, method = "", "none"
+    needs_llm_summary = False
     if older:
         key = hashlib.sha1(json.dumps(older, ensure_ascii=False).encode()).hexdigest()
         if key in _CACHE:
             summary, method = _CACHE[key], "cache"
+        elif dry_run:
+            needs_llm_summary = config.HISTORY_SUMMARY
+            summary, method = extractive_summary(older), "preview_extractive"
         else:
             if summarize_fn and config.HISTORY_SUMMARY:
                 try:
@@ -65,6 +74,9 @@ def prepare_history(history: list[dict] | None,
             _CACHE[key] = summary
     stats = {"history_in": len(msgs), "kept": len(recent), "summarized": len(older),
              "method": method, "summary_chars": len(summary)}
+    if dry_run:
+        stats["needs_llm_summary"] = needs_llm_summary
+        stats["older_messages"] = older
     return recent, summary, stats
 
 
