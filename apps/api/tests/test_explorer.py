@@ -131,9 +131,10 @@ def test_graph_hierarchy_cross_links_and_evidence():
     from flame_api.graph import build_graph
     catalog = normalize_documents(
         [{**doc("PSI-69", "FLEX"), "objective": "Measure droplet extinction and the effectiveness of fire suppressants.",
+          # Listed on one side only, by the ID that sorts after the other: must still give an edge.
+          "related_glds": "PSI-26",
           "publications": [{"title": "Droplet extinction in microgravity", "authorList": "A", "doi": "10.1234/shared"}]},
          {**doc("PSI-26", "BASS", hardware="Microgravity Science Glovebox"), "objective": "Flame spread over solids.",
-          "related_glds": "PSI-69",
           "publications": [{"title": "Droplet extinction in microgravity", "authorList": "A", "doi": "10.1234/shared"}]}],
         "combustion", datetime.now(timezone.utc),
         {"PSI-69": [("PSI-69_Experimental table_FLEX.csv", FLEX)]},
@@ -146,7 +147,8 @@ def test_graph_hierarchy_cross_links_and_evidence():
     assert ("PSI-69", "uses_fuel", "fuel:methanol") in kinds
     assert ("PSI-69", "studies", "concept:suppression") in kinds
     assert ("PSI-26", "studies", "concept:flame-spread") in kinds
-    assert ("PSI-26", "related_to", "PSI-69") in kinds
+    assert ("PSI-69", "related_to", "PSI-26") in kinds
+    assert sum(1 for e in g["edges"] if e["type"] == "related_to") == 1
     shared = [e for e in g["edges"] if e["type"] == "lists_publication"]
     assert len(shared) == 2 and len({e["target"] for e in shared}) == 1  # one publication, two parents
     assert all(e["evidence"] and e["url"] for e in g["edges"])

@@ -1,12 +1,9 @@
-# Dữ liệu local
+# Local data
 
-| Thư mục | Nội dung |
-| --- | --- |
-| `raw/` | Metadata NASA PSI nguyên bản và manifest URL/SHA-256 theo snapshot |
-| `processed/` | Catalog chuẩn hóa được API đọc |
-| `documents/` | Nơi dành cho abstract/toàn văn ở giai đoạn tiếp theo |
-| `indexes/` | Nơi dành cho index truy hồi ở giai đoạn tiếp theo |
+| Folder | Contents | In Git |
+| --- | --- | --- |
+| `raw/` | PSI metadata and experiment tables as downloaded, with a URL and SHA-256 manifest per snapshot | No |
+| `processed/` | The validated catalog (`catalog.json`) read by the API and the static export | No |
+| `documents/`, `indexes/` | Reserved for full texts and retrieval indexes | No |
 
-Các thư mục được giữ trong Git bằng `.gitkeep`; dữ liệu sinh ra được bỏ qua. Không cần tạo dữ liệu giả để khởi động ứng dụng: API và web hỗ trợ kho trống.
-
-Nhập dữ liệu bằng CLI được mô tả trong [pipeline](../pipelines/README.md). Catalog và metadata tải ở phiên làm việc trước chưa có trong checkout này.
+The web app uses the exported copy in `apps/web/public/data`, which is committed so the site runs without fetching anything. See [pipelines/README.md](../pipelines/README.md) to refresh it.

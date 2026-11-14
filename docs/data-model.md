@@ -1,38 +1,43 @@
-# Mô hình dữ liệu
+# Data model
 
-## Các thực thể đã triển khai
+Pydantic models in `apps/api/src/flame_api/models.py`; TypeScript mirrors in `apps/web/src/types.ts`.
 
-| Thực thể | Ý nghĩa | Định danh |
+## Entities
+
+| Entity | Meaning | Identifier |
 | --- | --- | --- |
-| `Investigation` | Hồ sơ nghiên cứu: mục tiêu, phương pháp, thiết bị, nguồn | Mã PSI |
-| `Publication` | Một bản ghi tài liệu liên quan | Hash của DOI chuẩn hóa; nếu thiếu DOI, hash định danh mục nguồn |
-| `PublicationLink` | Một mục Publications được liệt kê trong hồ sơ | Cặp investigation ID và số thứ tự mục nguồn |
-| `Catalog` | Snapshot đã chuẩn hóa, có phiên bản schema | `schema_version`, `retrieved_at` |
+| `Investigation` | A PSI record: objectives, approach, hardware, platform, topic, dates, conditions, source link | PSI accession (`PSI-25`) |
+| `Conditions` | Derived from the investigation's experiment tables: fuels with category and row counts, oxygen observations, run count | Part of the investigation |
+| `O2Observation` | Oxygen range from one table, in percent by volume, with basis (`ambient` chamber or `oxidizer_stream` burner-fed), source column and distinct recorded levels | Part of conditions |
+| `ExperimentalTable` | A PSI experiment table: columns, rows, the fuel and oxygen columns used | File name |
+| `Publication` | One publication record | Hash of the normalized DOI; without a DOI, hash of the source entry |
+| `PublicationLink` | One entry in an investigation's publication list | Investigation ID + entry number |
+| `Catalog` | A validated snapshot, schema version 2 | `retrieved_at` |
 
 ```mermaid
 erDiagram
   INVESTIGATION ||--o{ PUBLICATION_LINK : lists
   PUBLICATION ||--o{ PUBLICATION_LINK : appears_in
+  INVESTIGATION ||--o{ EXPERIMENTAL_TABLE : has
+  INVESTIGATION ||--|| CONDITIONS : derived_from_tables
 ```
 
-`PublicationLink.relation = listed_in_psi` không xác nhận quan hệ tài trợ, tác giả hay nguồn dữ liệu trực tiếp. Một publication không tự động kế thừa mọi điều kiện thí nghiệm trong investigation liên quan.
+`PublicationLink.relation = listed_in_psi` says only that PSI lists the publication on the record; it does not claim authorship, funding or that the publication used that data. A publication does not inherit the investigation's test conditions.
 
-## Quy tắc dữ liệu
+The knowledge graph built from these entities is described in [knowledge-graph.md](knowledge-graph.md).
 
-1. DOI dữ liệu của investigation và DOI của publication là hai trường riêng.
-2. DOI được chuẩn hóa tiền tố và chữ hoa/thường. Cùng DOI có thể gộp bản ghi; mọi mục liên kết và tiêu đề tại nguồn vẫn giữ nguyên.
-3. Thiếu DOI: giữ từng mục nguồn riêng. Không tự gộp bằng tiêu đề hoặc xóa năm để so khớp, vì có thể là các phiên bản hội nghị/tạp chí khác nhau.
-4. Cùng tiêu đề nhưng DOI khác: giữ riêng.
-5. `availability` phân biệt `metadata_only`, `abstract`, `full_text`. Import metadata chỉ tạo trạng thái `metadata_only`.
-6. `family` từ acronym là phân loại ban đầu có căn cứ ghi riêng. Nghiên cứu mặt đất không có acronym cần được đối chiếu thủ công; các `related_ids` vẫn giữ để xem quan hệ dữ liệu.
-7. Thống kê được tính từ catalog. Số bản ghi phụ thuộc snapshot và chính sách đối chiếu, không cố định theo kết quả khảo sát sơ bộ trước đó.
+## Rules
 
-## Các thực thể dự kiến bổ sung
+1. The dataset DOI of an investigation and the DOI of a publication are separate fields.
+2. DOIs are normalized (prefix and case). Records with the same DOI are merged; every source entry and title is kept.
+3. Without a DOI, each source entry stays separate. Titles are never used to merge, because a conference and a journal version can share one.
+4. Fuel names come from a dictionary match on the table's fuel column (`ingestion/tables.py`); a cell that does not name a material is not guessed.
+5. Oxygen is normalized to percent by volume from fractions, percents, ranges, lists and text. Chamber oxygen and burner-fed oxygen are never mixed. A table without an oxygen column means "not recorded", not zero.
+6. Program (`family`) comes from the PSI acronym. Ground studies without an acronym are not assigned to a program by keyword.
+7. Statistics are computed from the catalog; they depend on the snapshot.
 
-- `ExperimentalRun`: investigation, test ID, loại thí nghiệm/mô phỏng, vật liệu, hình học, kích thước, trọng lực và điều kiện.
-- `Measurement`: run ID, đại lượng, giá trị, đơn vị, sai số, phương pháp đo và vị trí nguồn.
-- `Document`: publication ID, phiên bản tài liệu, nguồn và mức nội dung truy cập được.
-- `EvidenceChunk`: nội dung, document ID, trang/bảng/đoạn hoặc dòng dữ liệu.
-- `Insight`: nhận định, các evidence ID hỗ trợ, điều kiện áp dụng, giới hạn và nhãn phân biệt kết luận tác giả với tổng hợp của SI.
+## Not modelled yet
 
-Khi thêm số đo, phân biệt O2 trong buồng với O2 ở dòng cấp đầu đốt; trọng lực nơi đo với trọng lực nơi muốn áp dụng; giá trị thiếu với số 0. Giữ đơn vị gốc cùng giá trị đã chuẩn hóa.
+- Per-run measurements beyond fuel and oxygen (spread rate, burn time, pressure, airflow), with units and methods.
+- Full-text documents and evidence chunks with page locations in the web catalog (the assistant has its own corpus).
+- Findings: a stated conclusion linked to its evidence and conditions.

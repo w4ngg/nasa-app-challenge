@@ -1,38 +1,32 @@
-# Phạm vi sản phẩm
+# Product scope
 
-Flame Atlas hỗ trợ tìm và hiểu bằng chứng từ nghiên cứu cháy trong vi trọng lực cho môi trường có người ở ngoài không gian.
+Flame Atlas helps spacecraft fire-safety engineers and combustion researchers answer one question: **what has NASA tested, and where does the evidence stop?**
 
-## Người dùng và luồng chính
+## Users and main flows
 
-Nhà nghiên cứu, sinh viên và kỹ sư mô tả nhu cầu: phòng ngừa, phát hiện hoặc dập cháy. Hệ thống tìm hồ sơ, công bố và dữ liệu liên quan; giải thích độ phù hợp; hỗ trợ so sánh và xuất dữ liệu có nguồn.
+1. **Overview.** Pick a cabin atmosphere (Apollo 1, ISS, the proposed 34% exploration atmosphere) or any oxygen level; see which investigations recorded runs near it and which only span it, with solid materials called out; see the evidence gaps.
+2. **Knowledge map.** Search a topic; the graph brings the matching branches forward; select a node to see the evidence path back to NASA PSI; compare nodes with compatibility warnings.
+3. **Experiment library.** Filter by fuel, oxygen range, environment, hardware, topic and program; search experiments and their publications by title, author or DOI; open an investigation to read its conditions and the source experiment tables.
+4. **Research assistant.** Ask a question; the answer cites PSI records, NTRS reports and the challenge resources sentence by sentence.
 
-Chương trình (FLEX, BASS, ACME...) và mục tiêu an toàn là hai chiều phân loại khác nhau. Một nghiên cứu có thể phục vụ nhiều mục tiêu. Liên quan về chủ đề không đồng nghĩa điều kiện thử tương đương.
+Program (FLEX, BASS, ACME…) and safety goal are different ways to group research; one study can serve several goals. Being about the same topic does not make test conditions equivalent.
 
-## Roadmap
+## Done
 
-### Nền tảng hiện có
+- [x] Investigations, publications and their many-to-many links, with PSI provenance.
+- [x] Fuel and oxygen conditions extracted from 22 PSI experiment tables (about 2,000 rows).
+- [x] Overview with mission presets, oxygen coverage, fuels, evidence gaps and timeline.
+- [x] Experiment library with filters and publication search.
+- [x] Investigation pages with source tables.
+- [x] Knowledge map with evidence paths, compatibility-checked compare and a verification command.
+- [x] Research assistant connected to the web page, with saved answers for the static site.
+- [x] English UI, static deployment, tests in CI.
 
-- [x] Tách investigation, publication và quan hệ nhiều–nhiều.
-- [x] Nhập metadata PSI và lưu snapshot có nguồn.
-- [x] API đọc danh mục, tìm kiếm văn bản và phân trang.
-- [x] Web hiển thị hai loại bản ghi và trạng thái dữ liệu.
-- [x] Kiểm tra API, hợp đồng dữ liệu và build trong CI.
+## Next
 
-### MVP kế tiếp
+- [ ] Finding nodes: conclusions with page references, from full texts that are openly available.
+- [ ] Per-run measurements (spread rate, burn time) with units and methods, for quantitative comparison where conditions match.
+- [ ] Reports, science documents and presentations from PSI in the assistant's corpus.
+- [ ] Modules marked "Not built" in the app: 3D flame chamber, material comparison, habitat check, test run lab.
 
-- [ ] Đối chiếu các nhóm nghiên cứu mặt đất với chương trình nguồn.
-- [ ] Trích abstract/toàn văn và lưu vị trí nguồn.
-- [ ] Tìm theo mục tiêu an toàn và điều kiện nghiên cứu.
-- [ ] Xếp hạng độ phù hợp có giải thích, tách với độ đầy đủ bằng chứng.
-- [ ] So sánh 2–4 hồ sơ; chỉ rõ điều kiện chưa tương đương.
-- [ ] Trả lời bằng SI kèm bằng chứng và giới hạn áp dụng.
-- [ ] Xuất danh mục và báo cáo có nguồn.
-
-### Khi có dữ liệu phép thử đã chuẩn hóa
-
-- [ ] Nhập test conditions và measurements cho một nhóm thí nghiệm trước.
-- [ ] Vẽ dữ liệu quan sát; chọn điểm để mở phép thử nguồn.
-- [ ] Xuất CSV/JSON và mô tả biến cho mô hình dự đoán.
-- [ ] Đánh giá mô hình trên dữ liệu kiểm định trước khi cung cấp dự đoán.
-
-Giai đoạn hiện tại không sinh kết quả nghiên cứu, điểm rủi ro hay dự đoán cháy.
+The app does not produce risk scores or fire predictions. Any future model must be validated on held-out data before it shows a prediction.

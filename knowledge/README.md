@@ -1,25 +1,18 @@
-# Kho tri thức
+# Knowledge and SI
 
-Thư mục này xác định ranh giới cho phần trích nội dung, truy hồi và tổng hợp SI ở giai đoạn tiếp theo. Hiện chưa có provider mô hình, embedding hay toàn văn được nhập.
+Two parts of the project turn sources into answers. Both keep a link from every statement to its source.
 
-## Nguồn đầu vào
+## Research assistant (`apps/assistant`)
 
-1. Metadata investigation: bối cảnh, mục tiêu, phương pháp và thiết bị.
-2. Publication: abstract/toàn văn có thể truy cập, cùng DOI và nguồn.
-3. Bảng thí nghiệm: số đo và điều kiện, có định danh phép thử.
+Question answering over 61 NASA sources (24 PSI pages, 25 NTRS reports, the Researcher's Guide, challenge resources and NASA Glenn pages; 1,371 passages). Retrieval is BM25 with stemming, a synonym list and a small Vietnamese-to-English glossary; DeepSeek writes the answer from retrieved passages only. Guardrails remove citation tags that were not retrieved, turn an answer with no valid citation into a refusal, restore comparison tables the model edited, and check each sentence against its cited passage. Structured filters use the fuel and oxygen conditions from the web catalog. Without an API key it shows the best-matching passages. See `apps/assistant/README.md`.
 
-Metadata không được coi là toàn văn. Tài liệu chỉ có abstract được đánh dấu rõ; thiếu nội dung không được tự điền bằng mô hình.
+## Knowledge graph (`apps/api/src/flame_api/graph.py`)
 
-## Luồng dự kiến
+Investigations, publications, datasets, concepts and fuels, with evidence on every edge. See [docs/knowledge-graph.md](../docs/knowledge-graph.md).
 
-`Document → extraction → evidence chunks with locations → retrieval → source-grounded synthesis`
+## Rules for both
 
-- Giữ ID tài liệu, trang/đoạn/bảng và liên kết nguồn cho từng evidence chunk.
-- Dùng metadata có cấu trúc để lọc trước hoặc kết hợp với truy hồi ngữ nghĩa.
-- Phân biệt mức liên quan, mức khớp điều kiện và độ đầy đủ của bằng chứng.
-- SI chỉ tổng hợp từ bằng chứng đã truy hồi; các phép tính số đo chạy bằng mã có thể kiểm tra lại.
-- Kết luận có thể đi từ một hoặc nhiều investigation. Mỗi nhận định giữ tập evidence ID và giới hạn áp dụng.
-
-## Đánh giá trước khi đưa vào sản phẩm
-
-Chuẩn bị các câu hỏi có nguồn xác nhận, kiểm tra đúng trích dẫn, mức hỗ trợ cho từng nhận định, điều kiện chưa khớp, và cách trả lời khi không tìm được bằng chứng. Tách test dữ liệu chuẩn hóa khỏi đánh giá đầu ra mô hình.
+1. Metadata is not full text. A publication known only by its title is not summarized as if it had been read.
+2. Missing values stay missing; a model never fills them.
+3. Numbers are computed by code that can be rerun, not written by a model.
+4. Relevance, matching conditions and completeness of evidence are reported separately.

@@ -13,6 +13,7 @@ Dial: ENERGY 2 / RHYTHM 2 / MOTION 1
 - ENERGY 2: light, crisp surfaces with one strong blue and confident headings; dense and readable.
 - RHYTHM 2: numbered panels on a consistent grid with deliberate breaks. The panel that answers the main question spans the full width; supporting panels sit side by side.
 - MOTION 1: hover and focus states only. Data changes swap without animation; stale results dim while new ones load.
+  One exception with a purpose: on the knowledge map, motion explains where things went. The layout glides when nodes appear (400 ms), the camera moves to search results (500 ms) and dropped nodes push overlapping ones aside (250 ms). Selecting a node never moves the graph. All of it is off under `prefers-reduced-motion`.
 
 ## Kept from the reference, and dropped
 

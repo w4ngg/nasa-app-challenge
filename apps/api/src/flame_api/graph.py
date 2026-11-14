@@ -26,7 +26,8 @@ CONCEPTS: tuple[tuple[str, str, str], ...] = (
     ("diffusion-flames", "Diffusion flames", r"diffusion flame"),
     ("premixed", "Premixed flames", r"premixed"),
     ("flammability", "Material flammability", r"flammab"),
-    ("ignition", "Ignition", r"\bignit"),
+    # Not "ignited" / "igniter": every experiment lights its sample, few study ignition itself.
+    ("ignition", "Ignition", r"ignition (?:delay|limit|temperature|behavio|characteristic|time|energy|of|and)|ignitab|auto-?ignition|low-temperature ignition"),
     ("smoldering", "Smoldering", r"smolder|smoulder"),
     ("buoyancy", "Buoyancy and gravity effects", r"buoyan"),
     ("radiation", "Radiative heat transfer", r"radiati"),
@@ -69,6 +70,7 @@ def build_graph(catalog: Catalog) -> dict[str, Any]:
 
     node("resource:psi", type="resource", label="NASA PSI Combustion Science", url=PSI_HOME)
     pubs = {p.id: p for p in catalog.publications}
+    related_pairs: set[tuple[str, ...]] = set()
     tables = {}
     for t in catalog.tables:
         tables.setdefault(t.investigation_id, []).append(t)
@@ -110,8 +112,11 @@ def build_graph(catalog: Catalog) -> dict[str, Any]:
             edge(inv.id, did, "has_dataset", f"Experiment table listed on the PSI record ({len(t.rows)} rows)", inv.source_url)
 
         for rid in inv.related_ids:
-            if any(r.id == rid for r in catalog.investigations) and inv.id < rid:
-                edge(inv.id, rid, "related_to", "Listed as a related investigation on PSI", inv.source_url)
+            # One undirected edge per pair, whichever side lists the other (PSI often lists it on one side only).
+            pair = tuple(sorted((inv.id, rid)))
+            if any(r.id == rid for r in catalog.investigations) and pair not in related_pairs:
+                related_pairs.add(pair)
+                edge(inv.id, rid, "related_to", f"{inv.id} lists {rid} as a related investigation on PSI", inv.source_url)
 
     for link in catalog.links:
         p = pubs[link.publication_id]
