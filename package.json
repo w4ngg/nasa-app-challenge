@@ -1,0 +1,14 @@
+{
+  "name": "flame-atlas",
+  "version": "0.1.0",
+  "private": true,
+  "description": "NASA PSI microgravity combustion evidence dashboard",
+  "workspaces": ["apps/web"],
+  "engines": { "node": ">=22.12.0" },
+  "scripts": {
+    "dev:web": "npm run dev --workspace @flame-atlas/web",
+    "build": "npm run build --workspace @flame-atlas/web",
+    "typecheck": "npm run typecheck --workspace @flame-atlas/web",
+    "preview:web": "npm run preview --workspace @flame-atlas/web"
+  }
+}

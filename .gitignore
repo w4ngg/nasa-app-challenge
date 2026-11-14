@@ -1,0 +1,39 @@
+# Local configuration and credentials
+.env
+.env.*
+!.env.example
+.aws/
+.codex/
+.agents/
+
+# JavaScript
+node_modules/
+dist/
+*.tsbuildinfo
+coverage/
+
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+build/
+.coverage
+
+# Downloaded scientific data and generated artifacts
+data/raw/*
+!data/raw/.gitkeep
+data/processed/*
+!data/processed/.gitkeep
+data/documents/*
+!data/documents/.gitkeep
+data/indexes/*
+!data/indexes/.gitkeep
+outputs/
+
+# OS and editors
+.DS_Store
+.idea/
+*.log
