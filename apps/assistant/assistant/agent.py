@@ -14,7 +14,7 @@ import time
 from dataclasses import replace
 from typing import Any, Callable
 
-from . import config, integrations, kg, ranking
+from . import burn_model, charts, config, integrations, kg, ranking
 from .context import SUMMARY_SYSTEM, prepare_history, transcript
 from .prompts import REFUSAL_MARKER, SYSTEM_PROMPT, active_tools
 from .retriever import DocumentRetriever, expand_query
@@ -24,6 +24,11 @@ from .verify import verify_answer
 
 OFFLINE_TOP_K = 3
 _STUDY_WORDS = ("nghiên cứu", "thí nghiệm", "investigation", "study", "studies", "experiment")
+_CHART_RULES = (  # câu hỏi số liệu ở chế độ offline -> loại biểu đồ
+    (re.compile(r"burn(?:ing)? time|how long .*burn|burn.* longer", re.I), "flex_burn_time"),
+    (re.compile(r"oxygen (?:level|range|concentration|percent)|how much oxygen|% ?o2|o2 ?%|oxygen.*(?:tested|moon)", re.I), "oxygen_ranges"),
+    (re.compile(r"how many (?:runs|tests)|number of (?:runs|tests)|most (?:runs|tests)", re.I), "run_counts"),
+)
 _GRAPH_WORDS = re.compile(r"apollo[ -]?13|apollo[ -]?1\b|\bmir\b|oxygen candle|lithium perchlorate", re.I)
 _RANK_WORDS = re.compile(r"\b(rank|ranking|most relevant|prioriti[sz]e|top \d+|which investigations? (?:are|is|matter|should))|xếp hạng|phù hợp nhất|quan trọng nhất", re.I)
 _COMPARE_WORDS = re.compile(r"\b(compare|comparison|versus|vs\.?|differ|difference|similarit)|so sánh", re.I)
@@ -50,6 +55,8 @@ class EvidenceRegistry:
         self._counters = {"S": 0, "I": 0, "P": 0, "R": 0}
         self.texts: dict[str, str] = {}  # nhãn -> toàn văn bằng chứng (để kiểm tra trích dẫn)
         self.tables: list[str] = []      # bảng so sánh do tool tạo (để khôi phục nếu LLM sửa)
+        self.charts: list[dict] = []     # biểu đồ do chart_data tạo
+        self.tools_used: list[str] = []  # tên tool đã gọi (để gợi ý điều hướng)
         self.sent_chunks: set[str] = set()
         self.sent_chars = 0
         self.searches = 0                # số lần search_documents do model gọi (trần MAX_SEARCHES)
@@ -86,6 +93,9 @@ class EvidenceRegistry:
 class Assistant:
     def __init__(self, llm: Any = None, retriever: DocumentRetriever | None = None, offline: bool | None = None):
         self._llm = llm
+        # Nạp mô hình Module 5 (scikit-learn 1.6.1 / xgboost) TRƯỚC torch của retriever: trên macOS nạp sau torch
+        # bị crash (segfault, xung đột OpenMP). Không có mô hình / sai phiên bản -> trả False, không ảnh hưởng gì.
+        burn_model.available()
         self.retriever = retriever or DocumentRetriever()
         if offline is None:
             mode = config.OFFLINE_MODE
@@ -197,7 +207,7 @@ class Assistant:
                                 title=r.get("title", ""), url=r.get("link", ""), page_url=r.get("link", ""),
                                 snippet=r.get("objective", "")[:300], is_mock=bool(r.get("is_mock"))))
             reg.texts[tags[-1]] = "\n".join(f"{k}: {v}" for k, v in r.items() if v not in (None, ""))
-        cell = lambda v: str(v or "—").replace("|", "/").replace("\n", " ")[:70]  # noqa: E731
+        cell = lambda v: str(v or "–").replace("|", "/").replace("\n", " ")[:70]  # noqa: E731
         head = "| Attribute | " + " | ".join(f"{r['psi_id']} {r.get('acronym') or ''} [{t}]".replace("  ", " ")
                                              for r, t in zip(recs, tags)) + " |"
         lines = [head, "|" + "---|" * (len(recs) + 1)]
@@ -275,6 +285,66 @@ class Assistant:
                      "proof of cause. Cite each link's tag; links with tag null have no citable passage: omit them."),
         }
 
+    def _inv_tag(self, reg: EvidenceRegistry, psi: str, extra: list[str]) -> str | None:
+        rec = {r["psi_id"]: r for r in integrations.psi_records()}.get(psi)
+        if not rec:
+            return None
+        t = reg.add("I", "investigation", ("I", psi), source_id=psi, title=rec.get("title", ""),
+                    url=rec.get("link", ""), page_url=rec.get("link", ""), snippet=str(rec.get("objective", ""))[:300],
+                    is_mock=bool(rec.get("is_mock")))
+        base = reg.texts.get(t) or "\n".join(f"{k}: {v}" for k, v in rec.items() if v not in (None, ""))
+        add = [x for x in extra if x not in base]
+        reg.texts[t] = "\n".join([base] + add)
+        return t
+
+    def _tool_chart(self, reg: EvidenceRegistry, kind: str, investigations: list[str] | None = None,
+                    investigation: str | None = None, fuel: str | None = None) -> dict:
+        """Biểu đồ từ bảng thí nghiệm NASA (code tính số liệu). Web tự vẽ dưới câu trả lời."""
+        spec = charts.build(kind, investigations, investigation, fuel)
+        if "error" in spec:
+            return spec
+        tags = {}
+        for psi, lines in charts.evidence_lines(spec).items():
+            t = self._inv_tag(reg, psi, lines)
+            if t:
+                tags[psi] = f"[{t}]"
+        if kind == "oxygen_ranges":
+            sc = ranking.SCENARIOS["moon_base"]
+            r = reg.add("R", "scenario", ("R", "moon_base"), source_id="SPACEAPPS-2026-CH8",
+                        title=f"Scenario conditions – {sc['label']} (NASA Space Apps 2026 challenge statement)",
+                        url=ranking.CHALLENGE_URL, page_url=ranking.CHALLENGE_URL, snippet=sc["conditions"][:300])
+            reg.texts[r] = sc["conditions"]
+            tags["moon_base_conditions"] = f"[{r}]"
+        spec["tags"] = tags
+        reg.charts.append(spec)
+        out = charts.compact(spec)
+        out["evidence_by_investigation"] = {k: v for k, v in charts.evidence_lines(spec).items()}
+        out["instructions"] = ("The chart is drawn automatically under your answer. Describe the main pattern in 2-4 "
+                               "sentences with the tags in 'tags'; do not list every value; mention the notes' limits.")
+        return out
+
+    def _tool_predict_burn(self, reg: EvidenceRegistry, **kwargs: Any) -> dict:
+        """Mô hình Module 5 (FLEX): dự đoán thời gian cháy của giọt nhiên liệu."""
+        res = burn_model.predict(**kwargs)
+        if "error" in res:
+            return res
+        ref = reg.add("P", "prediction", ("P", json.dumps(kwargs, sort_keys=True, default=str)),
+                      source_id="MODULE5-FLEX-MODEL", title=res["model"],
+                      url=burn_model.NOTEBOOK_URL, page_url=burn_model.NOTEBOOK_URL,
+                      snippet=f"{res['fuel']} droplet, inputs {res['inputs']}: predicted burn time "
+                              f"{res['predicted_burn_time_s']} s (90% interval {res['interval_90_s'][0]}–{res['interval_90_s'][1]} s)")
+        reg.texts[ref] = "\n".join([
+            f"Module 5 machine-learning prediction (not a measurement). Model: {res['model']}.",
+            f"Fuel: {res['fuel']} droplet. Inputs: {res['inputs']}.",
+            f"Predicted burn time: {res['predicted_burn_time_s']} s; 90% prediction interval "
+            f"{res['interval_90_s'][0]} s to {res['interval_90_s'][1]} s. Meaning: {res['meaning']}.",
+            ("Outside the FLEX training range: " + "; ".join(res["out_of_training_range"])) if res["out_of_training_range"]
+            else "All inputs are inside the ranges tested in FLEX.",
+            "Known limits: " + " ".join(res["limits"])])
+        return {**res, "tag": f"[{ref}]",
+                "instructions": "Say clearly this is a model estimate, give the interval, the assumptions "
+                                "(e.g. assumed droplet diameter) and any out-of-range warning; cite the tag."}
+
     def _psi_doc_texts(self) -> dict[str, str]:
         if not hasattr(self, "_doc_texts_cache"):
             texts: dict[str, list[str]] = {}
@@ -310,7 +380,7 @@ class Assistant:
             reg.texts.setdefault(tag, "\n".join(f"{k}: {v}" for k, v in meta.items() if v not in (None, "")))
             why = "; ".join(row.get("reasons", []))[:170].replace("|", "/")
             name = f"{row['psi_id']} {row.get('acronym') or ''}".strip()
-            depth = row.get("evidence_depth", "—")
+            depth = row.get("evidence_depth", "–")
             lines.append(f"| {i} | {name} [{tag}] | {row['score']} | {depth} | {why} |")
             out.append({"rank": i, "tag": f"[{tag}]", **{k: v for k, v in row.items() if k != "title"}})
         table = "\n".join(lines)
@@ -327,6 +397,7 @@ class Assistant:
         }
 
     def _run_tool(self, name: str, raw_args: str, reg: EvidenceRegistry, trace: Trace) -> dict:
+        reg.tools_used.append(name)
         try:
             args = json.loads(raw_args or "{}")
             if name == "search_documents":
@@ -340,6 +411,10 @@ class Assistant:
                 return self._tool_rank(reg, **args)
             if name == "explore_graph":
                 return self._tool_explore_graph(reg, **args)
+            if name == "chart_data":
+                return self._tool_chart(reg, **args)
+            if name == "predict_burn_time":
+                return self._tool_predict_burn(reg, **args)
             if name == "search_investigations":
                 return self._tool_search_investigations(reg, **args)
             if name == "predict_flammability":
@@ -409,6 +484,18 @@ class Assistant:
             rows = inv["results"]
 
         table = None
+        kind = next((k for rx, k in _CHART_RULES if rx.search(question)), None)
+        if kind:
+            ch = self._tool_chart(reg, kind)
+            reg.tools_used.append("chart_data")
+            trace.event("tool_call", name="chart_data(offline)", args=json.dumps({"kind": kind}), error=ch.get("error"))
+            if "error" not in ch:
+                spec = reg.charts[-1]
+                lines = [f"{ch['title']} (chart below; numbers computed from the NASA experiment tables):"]
+                for name, text in charts.short_lines(spec)[:10]:
+                    psi = name.split(" ")[0] if name.startswith("PSI-") else spec.get("investigation", "")
+                    lines.append(f"- {name}: {text} {ch['tags'].get(psi, '')}".rstrip())
+                table = "\n".join(lines)
         scen = ranking.resolve_scenario(question) if _RANK_WORDS.search(question) else None
         if scen:
             rk = self._tool_rank(reg, scen)
@@ -436,7 +523,7 @@ class Assistant:
         else:
             lines = []
             if table:
-                lines += [table if scen or table.startswith("Knowledge graph") else
+                lines += [table if scen or table.startswith("Knowledge graph") or kind else
                           "Comparison (from NASA PSI metadata):\n" + table, ""]
             lines += ["Most relevant passages found (offline mode, not synthesized by AI):"]
             for r in docs["results"]:
@@ -619,6 +706,8 @@ class Assistant:
         if refused:
             text = text[len(REFUSAL_MARKER):].strip()
 
+        # Em dash -> comma/colon (team style rule R-02 for all text shown on the site)
+        text = re.sub(r"\s*—\s*", ", ", text)
         text, restored = self._restore_tables(text, reg.tables)
         if restored:
             ans.warnings.append(f"Restored {restored} comparison-table row(s) edited by the model to the source values.")
@@ -648,6 +737,8 @@ class Assistant:
         ans.answer = text
         ans.refused = refused
         ans.citations = [reg.items[r] for r in dict.fromkeys(cited)]
+        ans.charts = [] if refused else list(reg.charts)
+        ans.navigation = [] if refused else navigation_for(ans, reg.tools_used)
         ans.uses_mock_data = any(c.is_mock for c in ans.citations)
         if ans.uses_mock_data:
             ans.warnings.append("Answer is based on MOCK placeholder data, not real NASA data.")
@@ -679,6 +770,51 @@ class Assistant:
                                                 "suggested_refs", "inference", "missing_numbers", "missing_terms")}
                              for x in v["sentences"]
                              if x["status"] != "supported" or x["context_status"] != "supported" or x["inference"]])
+
+
+_ANALYTICS = {"PSI-69": ("flex", "FLEX droplet table"), "PSI-25": ("bass-ii", "BASS-II solid-sample table"),
+              "PSI-159": ("cfi-g-normal", "CFI-G flame table"), "PSI-99": ("saffire-ii", "SAFFIRE-II sample table")}
+_FLAME_SHAPE = re.compile(r"spherical|round|shape|look like|buoyan|hình cầu", re.I)
+
+
+def navigation_for(ans: Answer, tools_used: list[str]) -> list[dict]:
+    """Gợi ý phần tương ứng trên web để người dùng tự đọc thêm (Data analytics, thư viện thí nghiệm, knowledge map…)."""
+    nav: list[dict] = []
+    cited = [c.source_id for c in ans.citations]
+    psis = list(dict.fromkeys(s for s in cited if re.fullmatch(r"PSI-\d+", s)))
+    chart_psis = [ch.get("investigation") for ch in ans.charts if ch.get("investigation")]
+    data_psis = list(dict.fromkeys([p for p in chart_psis + psis if p in _ANALYTICS]))
+    if "predict_burn_time" in tools_used and "PSI-69" not in data_psis:
+        data_psis.insert(0, "PSI-69")
+    numeric = bool(ans.charts) or "predict_burn_time" in tools_used or bool(
+        re.search(r"\b(burn(?:ing)? time|burn rate|oxygen level|how many|data|measure|trend|percent|%)", ans.question, re.I))
+    if numeric:
+        for p in data_psis[:2]:
+            key, what = _ANALYTICS[p]
+            nav.append({"view": "lab", "params": {"dataset": key}, "label": f"Explore the {what} in Data analytics",
+                        "reason": "Filter and plot every test row yourself, with source links and data-quality notes."})
+        if any(ch["kind"] in ("oxygen_ranges", "run_counts") for ch in ans.charts) and not data_psis:
+            nav.append({"view": "explorer", "params": {}, "label": "Compare oxygen ranges in the Experiment library",
+                        "reason": "Every investigation's tested conditions and runs, with filters."})
+    if "predict_burn_time" in tools_used:
+        nav.append({"url": burn_model.NOTEBOOK_URL, "label": "Read how the burn-time model was built (Module 5 notebook)",
+                    "reason": "Training data, validation and known limits of the prediction."})
+    if "explore_graph" in tools_used or re.search(r"apollo|\bmir\b|incident|hardware|connected|relat", ans.question, re.I):
+        nav.append({"view": "map", "params": {}, "label": "See these links on the Knowledge map",
+                    "reason": "Investigations, materials, concepts and publications as a graph with evidence paths."})
+    if _FLAME_SHAPE.search(ans.question):
+        nav.append({"view": "chamber", "params": {}, "label": "See a microgravity flame in the 3D flame chamber",
+                    "reason": "Flame shape and spread driven by recorded experiment conditions."})
+    for p in psis[:3]:
+        nav.append({"view": "explorer", "params": {"id": p}, "label": f"Open {p} in the Experiment library",
+                    "reason": "The NASA PSI record: objectives, hardware, tables and publications."})
+    seen, out = set(), []
+    for n in nav:
+        k = json.dumps(n.get("params")) + n.get("view", n.get("url", ""))
+        if k not in seen:
+            seen.add(k)
+            out.append(n)
+    return out[:5]
 
 
 _default: Assistant | None = None
@@ -715,6 +851,10 @@ def _describe_call(name: str, raw_args: str) -> str:
         return f"Ranking investigations for scenario: {a.get('scenario', '')}"
     if name == "explore_graph":
         return f"Exploring the knowledge graph: {a.get('entity', '')}"
+    if name == "chart_data":
+        return f"Building a chart from the NASA experiment tables ({a.get('kind', '')})"
+    if name == "predict_burn_time":
+        return "Running the Module 5 burn-time model"
     if name == "search_investigations":
         return "Filtering the investigations table"
     if name == "predict_flammability":

@@ -13,6 +13,8 @@ export interface Route {
   id: string | null;
   filters: Filters;
   page: number;
+  /** Data analytics only: which experiment table to open (e.g. "flex"), so other pages can deep-link to it. */
+  dataset?: string | null;
 }
 
 export function readRoute(): Route {
@@ -24,6 +26,7 @@ export function readRoute(): Route {
     id: params.get("id"),
     filters: view === "explorer" ? filtersFromUrl(params) : emptyFilters,
     page: Math.max(0, Number(params.get("page")) || 0),
+    dataset: view === "lab" ? params.get("dataset") : null,
   };
 }
 
@@ -36,6 +39,7 @@ export function routeUrl(route: Route): string {
   } else if (route.view !== "overview") {
     params.set("view", route.view);
   }
+  if (route.view === "lab" && route.dataset) params.set("dataset", route.dataset);
   if (route.id) params.set("id", route.id);
   const query = params.toString();
   return query ? `?${query}` : window.location.pathname;

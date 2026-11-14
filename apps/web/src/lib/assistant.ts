@@ -46,6 +46,35 @@ export interface Verification {
   sentences?: VerifiedSentence[];
 }
 
+/** Chart computed by the assistant API from the NASA PSI experiment tables (apps/assistant/assistant/charts.py). */
+export interface ChartSpec {
+  kind: string;
+  type: "range" | "bar" | "scatter";
+  title: string;
+  subtitle?: string;
+  x_label?: string;
+  y_label?: string;
+  unit?: string;
+  series: { key: string; label: string }[];
+  rows?: { id?: string; label: string; series?: string; min?: number; max?: number; n?: number; value?: number }[];
+  points?: { series: string; x: number; y: number; test?: string; end?: string }[];
+  lines?: { series: string; points: { x: number; y: number; n: number }[] }[];
+  reference_lines?: { value: number; label: string; axis?: string }[];
+  notes?: string[];
+  source?: string;
+  investigation?: string;
+  tags?: Record<string, string>;
+}
+
+/** Where on the site the user can read more (in-app view + params, or an external url). */
+export interface NavItem {
+  view?: string;
+  params?: Record<string, string>;
+  url?: string;
+  label: string;
+  reason?: string;
+}
+
 export interface AssistantAnswer {
   question: string;
   answer: string;
@@ -61,6 +90,8 @@ export interface AssistantAnswer {
   completion_tokens?: number;
   tool_calls?: { name: string; args?: unknown; n_results?: number }[];
   suggested_sources?: AssistantCitation[];
+  charts?: ChartSpec[];
+  navigation?: NavItem[];
   mode?: AskMode;
   first_word_ms?: number;
 }

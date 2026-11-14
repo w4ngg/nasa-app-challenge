@@ -7,7 +7,8 @@
   python eval/run_eval.py --rescore eval/results_v2_deepseek.jsonl   # free: re-score saved answers
 
 Checks per question:
-  behavior  – answered vs refused matches "expect" ("partial" = answered with a Limitations line; counts as answer)
+  behavior  – answered vs refused matches "expect" ("partial" = answered with a Limitations line; counts as answer);
+              expect "correct" = wrong-premise question: answered AND the first ~500 chars say the premise is wrong
   sources   – at least one citation's source_id starts with one of "expect_sources" (if given)
   tool      – the model called "expect_tool" (compare_investigations / rank_investigations), if given
   english   – the answer contains no Vietnamese letters (output must be English, also for Vietnamese questions)
@@ -45,6 +46,10 @@ def is_english(text: str) -> bool:
 def _avg(xs):
     xs = [x for x in xs if x is not None]
     return f"{sum(xs) / len(xs):.2f} (n={len(xs)})" if xs else "-"
+
+
+_CORRECTION = re.compile(r"\bactually\b|\bnot (?:a|an|the|in|inside|liquid|water|true|correct)\b|did not|didn['’]t|was not|wasn['’]t|"
+                         r"\bincorrect|\bmistaken|\bpremise|rather than|\binstead\b|no,|\bin fact\b", re.I)
 
 
 def _print_criteria(rows: list[dict]) -> None:
@@ -112,6 +117,9 @@ def main() -> None:
         for q in questions:
             a = bot.ask(q["question"], q.get("history"))
             got = "refuse" if a.refused else "answer"
+            if q["expect"] == "correct":  # wrong premise: must answer AND say early that the premise is wrong
+                corrected = bool(_CORRECTION.search(a.answer[:500])) and not a.refused
+                got = "correct" if corrected else got
             behavior_ok = got == q["expect"]
             exp = q.get("expect_sources")
             source_ok = None
