@@ -1,16 +1,16 @@
 # Flame Atlas design direction
 
-Status: direction set by the team on 2026-11-14 from a reference prototype the team liked (a dark "mission console" Flame in Freefall mock-up), filtered through the antislop rules. Written up with the AI assistant.
+Status: set by the team on 2026-11-14. Layout ideas come from a reference prototype the team liked (a "mission console" Flame in Freefall mock-up); the palette is the team's choice of IBM Carbon "Enterprise Blue". Both are filtered through the antislop rules. Written up with the AI assistant.
 
 ## What the product is
 
 An evidence console for spacecraft fire-safety engineers and combustion researchers. People come to answer one question: **what has NASA actually tested, and where does the evidence stop?** The screen serves reading measurements, not selling a product.
 
-Design read: evidence dashboard for engineers and researchers, in a dark mission-console language.
+Design read: evidence dashboard for engineers and researchers, in an enterprise data-tool language (IBM Carbon palette).
 
 Dial: ENERGY 2 / RHYTHM 2 / MOTION 1
 
-- ENERGY 2: dark console with one warm accent and confident headings; still dense and readable.
+- ENERGY 2: light, crisp surfaces with one strong blue and confident headings; dense and readable.
 - RHYTHM 2: numbered panels on a consistent grid with deliberate breaks. The panel that answers the main question spans the full width; supporting panels sit side by side.
 - MOTION 1: hover and focus states only. Data changes swap without animation; stale results dim while new ones load.
 
@@ -18,32 +18,33 @@ Dial: ENERGY 2 / RHYTHM 2 / MOTION 1
 
 | Kept (owner's taste) | Dropped (antislop rule) |
 | --- | --- |
-| Dark console surfaces | Starfield background (R-07) |
-| Numbered panels ("1. …") as the page structure | A different glowing border color per card (R-01, R-13) |
-| Mission scenario cards (Apollo 1, ISS, exploration habitat) | Emoji as icons (Part 1 decorative) |
-| Ranked lists with a bar per row | Uppercase monospace labels with wide tracking (R-06) |
-| An oxygen slider to explore the data | Orange gradient call-to-action, capsule badges (R-01, R-09) |
+| Numbered panels ("1. …") as the page structure | Starfield background (R-07) |
+| Mission scenario cards (Apollo 1, ISS, exploration habitat) | A different glowing border color per card (R-01, R-13) |
+| Ranked lists with a bar per row | Emoji as icons (Part 1 decorative) |
+| An oxygen slider to explore the data | Uppercase monospace labels with wide tracking (R-06) |
+| | Gradient call-to-action, capsule badges (R-01, R-09) |
 | | Risk scores, spread rates and confidence values with no source (R-17, R-36): only catalog data or cited figures appear |
 
-The dark theme is the owner's chosen identity, not an AI default (R-21). There is no light mode yet; add both together if users ask.
+The reference's dark theme was replaced by the team's light Carbon palette. There is no dark mode; add both modes together if users ask (R-21, R-34).
 
 ## Identity motif
 
 **The oxygen track.** A fixed 0–100% axis with a tick at 21% (Earth air). Every tested oxygen range is drawn on the same axis everywhere it appears (cards, detail pages, the dashboard), so ranges are comparable at a glance. Chamber oxygen is solid; oxygen fed through a burner is hatched.
 
-## Color (validated with the dataviz palette validator, dark mode, surface `#151d28`)
+## Color
+
+Team palette (IBM Carbon, Enterprise Blue): `#FFFFFF`, `#F4F4F4`, `#0F62FE`, `#161616`, `#78A9FF`. Text and border grays are the matching steps of Carbon's gray scale.
 
 | Role | Value | Use |
 | --- | --- | --- |
-| Page / surface / raised | `#0e141c` / `#151d28` / `#1c2633` | Backgrounds |
-| Lines | `#2a3646` / `#38475b` | Hairline grids, borders |
-| Ink / soft / muted | `#e6edf5` / `#b4c2d1` / `#93a3b6` | Text (14.4 / 9.4 / 6.6 : 1 on surface) |
-| Link / focus | `#7cb8e8` / `#7cc4ff` | Links, focus rings |
-| **Oxygen mark** | `#d95926` | Oxygen ranges, the selected oxygen level. Nothing decorative. |
-| Oxygen text | `#f2955c` | Oxygen figures in text (7.5 : 1) |
-| Count mark | `#3987e5` | Single-series bars that are not oxygen (fuel run counts) |
+| Page / surface | `#F4F4F4` / `#FFFFFF` | Page background, panels |
+| Lines | `#E0E0E0` / `#C6C6C6` | Hairline grids, borders (Carbon gray 20 / 30) |
+| Ink / soft / muted | `#161616` / `#393939` / `#6F6F6F` | Text (18.1 / 11.6 / 5.0 : 1 on white; muted 4.6 : 1 on `#F4F4F4`) |
+| **Blue 60** | `#0F62FE` | The one accent: oxygen ranges and figures, the selected oxygen level, links, focus, the current page. 5.0 : 1 on white. |
+| Blue 10 / 20 tints | `#EDF5FF` / `#D0E2FF` | Selected mission card, hatch gaps, highlighted table columns |
+| **Blue 40** | `#78A9FF` | Secondary single-series bars (fuel row counts, timeline). 2.35 : 1 on white, so every bar prints its value and has a table view (dataviz relief rule). |
 
-Two marks pass every check together (CVD ΔE 26.8, normal-vision ΔE 31.8, both ≥ 3 : 1 on the surface).
+Validated with the dataviz palette validator (light, surface `#FFFFFF`): lightness, chroma, CVD ΔE 18.3 and normal-vision ΔE 20.9 pass; Blue 40 contrast is a WARN covered by the relief rule above.
 
 ## Type
 
