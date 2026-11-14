@@ -1,26 +1,23 @@
-@import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap");
-
-/* Direction: DESIGN.md. IBM Carbon "Enterprise Blue" palette, ENERGY 2 / RHYTHM 2 / MOTION 1.
-   Blue 60 (#0F62FE) is the one accent: oxygen data and interactive elements.
-   Blue 40 (#78A9FF) marks secondary single-series bars, which always print their value. */
+/* Base layout & component structure; Deep Space Obsidian tokens and typography
+   are applied in src/design/obsidian-theme.css */
 :root {
-  color-scheme: light;
-  --page: #f4f4f4;
-  --surface: #ffffff;
-  --raised: #f4f4f4;
-  --line: #e0e0e0;
-  --line-strong: #c6c6c6;
-  --ink: #161616;
-  --ink-soft: #393939;
-  --muted: #6f6f6f;
-  --link: #0f62fe;
-  --focus: #0f62fe;
-  --o2: #0f62fe;
-  --o2-text: #0f62fe;
-  --o2-soft: #edf5ff;
-  --count: #78a9ff;
-  --hover: #e8e8e8;
-  font-family: "DM Sans", system-ui, sans-serif;
+  color-scheme: dark;
+  --page: #05070e;
+  --surface: #0b101d;
+  --raised: #11182b;
+  --line: #1d2842;
+  --line-strong: #2c3d63;
+  --ink: #f1f5f9;
+  --ink-soft: #cbd5e1;
+  --muted: #7c8da6;
+  --link: #8fe3ff;
+  --focus: #4fa8ff;
+  --o2: #4fa8ff;
+  --o2-text: #8fe3ff;
+  --o2-soft: rgba(79, 168, 255, 0.14);
+  --count: #a78bfa;
+  --hover: #17213a;
+  font-family: "Plus Jakarta Sans", system-ui, sans-serif;
   color: var(--ink);
   background: var(--page);
   font-synthesis: none;
