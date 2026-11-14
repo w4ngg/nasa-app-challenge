@@ -4,7 +4,9 @@ import type { Filters } from "./filters";
 
 // Query-string routing: every view is index.html?…, so deep links work on static
 // hosts such as GitHub Pages without server-side rewrites.
-export type View = "overview" | "explorer";
+export type View = "overview" | "explorer" | "chamber" | "compare" | "assistant" | "habitat" | "lab";
+
+const views: View[] = ["overview", "explorer", "chamber", "compare", "assistant", "habitat", "lab"];
 
 export interface Route {
   view: View;
@@ -15,7 +17,8 @@ export interface Route {
 
 export function readRoute(): Route {
   const params = new URLSearchParams(window.location.search);
-  const view: View = params.get("view") === "explorer" ? "explorer" : "overview";
+  const requested = params.get("view") as View | null;
+  const view: View = requested && views.includes(requested) ? requested : "overview";
   return {
     view,
     id: params.get("id"),
@@ -30,10 +33,16 @@ export function routeUrl(route: Route): string {
     params.set("view", "explorer");
     for (const [key, value] of filtersToParams(route.filters)) params.append(key, value);
     if (route.page > 0) params.set("page", String(route.page));
+  } else if (route.view !== "overview") {
+    params.set("view", route.view);
   }
   if (route.id) params.set("id", route.id);
   const query = params.toString();
   return query ? `?${query}` : window.location.pathname;
+}
+
+export function viewUrl(view: View): string {
+  return routeUrl({ view, id: null, filters: emptyFilters, page: 0 });
 }
 
 export function explorerUrl(filters: Partial<Filters> = {}): string {

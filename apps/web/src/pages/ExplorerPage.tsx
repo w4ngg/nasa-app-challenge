@@ -60,13 +60,13 @@ export function ExplorerPage({ route, navigate, summary, facets, onOpen }: {
 
   return (
     <>
-      <section className="intro" aria-labelledby="page-title">
-        <h1 id="page-title">Explore the investigations</h1>
+      <header className="page-header">
+        <h1>Experiment library</h1>
         <p>
           Filter NASA PSI Combustion Science investigations by fuel, oxygen level, test environment and hardware.
           Fuel and oxygen come from each investigation’s own experiment tables, with the source column shown.
         </p>
-      </section>
+      </header>
 
       <div className="explorer">
         <aside className="sidebar" aria-label="Filters">

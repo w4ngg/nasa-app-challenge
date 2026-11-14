@@ -12,6 +12,8 @@ Flame Atlas lets engineers and researchers find NASA Physical Sciences Informati
 - **Honest gaps.** Chamber oxygen is kept apart from oxygen fed through a burner (inverse flames reach 85%). Investigations without an oxygen column say "not recorded" instead of guessing.
 - **Investigation pages** with the test conditions, the full experiment table (with the columns used highlighted), the PSI description, related investigations and linked publications.
 
+The left rail lists seven modules. Overview and the Experiment library are built; 3D flame chamber, Material comparison, Research assistant, Habitat check and Test run lab have pages that say "Not built yet" and what each will do.
+
 Planned next: SI summaries, scenario-based ranking ("which experiments matter for a PMMA fire in an ISS cabin at 21% O₂?") and evidence-gap interpretation.
 
 ## NASA data used

@@ -5,14 +5,19 @@ import { getAllInvestigations } from "../lib/data";
 import { emptyFilters } from "../lib/filters";
 import { percentRange } from "../lib/labels";
 import { missions } from "../lib/missions";
-import { explorerUrl, routeUrl } from "../lib/route";
+import { explorerUrl, routeUrl, viewUrl } from "../lib/route";
 import type { FuelCategory, Investigation, Summary } from "../types";
 
 const detailUrl = (id: string) => routeUrl({ view: "overview", id, filters: emptyFilters, page: 0 });
 const name = (r: Investigation) => r.acronym || r.id;
+const FUELS_SHOWN = 8;
 
 function spans(r: Investigation, level: number, basis: "ambient" | "oxidizer_stream") {
   return r.conditions.o2.some((o) => o.basis === basis && o.min_percent <= level && level <= o.max_percent);
+}
+
+function PanelHead({ num, id, title }: { num: number; id: string; title: string }) {
+  return <div className="panel-head"><span className="panel-num" aria-hidden="true">{num}</span><h2 id={id}>{title}</h2></div>;
 }
 
 export function OverviewPage({ summary, onLink }: {
@@ -87,102 +92,98 @@ export function OverviewPage({ summary, onLink }: {
   ));
 
   return (
-    <div className="overview">
-      <section className="intro" aria-labelledby="page-title">
-        <h1 id="page-title">What NASA has tested, and where the evidence stops</h1>
+    <div className="page">
+      <header className="page-header">
+        <h1>What NASA has tested, and where the evidence stops</h1>
         <p>
           {records.length} Combustion Science investigations from NASA PSI, {stats.rows.toLocaleString("en-US")} experiment-table
-          rows and {summary?.publications ?? "their"} linked publications. Pick a cabin atmosphere to see which experiments cover it.
+          rows and {summary?.publications ?? "their"} linked publications.
+          {summary?.retrieved_at && ` Retrieved ${new Date(summary.retrieved_at).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric", timeZone: "UTC" })}.`}
         </p>
-        {summary?.retrieved_at && (
-          <p className="intro-meta">Retrieved from PSI on {new Date(summary.retrieved_at).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric", timeZone: "UTC" })}.</p>
-        )}
-      </section>
+      </header>
 
-      <section className="panel panel-focus" aria-labelledby="coverage-title">
-        <div className="panel-head"><span className="panel-num" aria-hidden="true">1</span><h2 id="coverage-title">Which oxygen levels have been tested?</h2></div>
-        <p className="panel-lede">Choose a mission atmosphere or set any oxygen level. Each row is an investigation that records oxygen in its experiment tables; the bar spans the lowest to highest level it reports.</p>
-
-        <div className="missions" role="group" aria-label="Mission atmospheres">
-          {missions.map((m) => (
-            <button key={m.id} type="button" className="mission" aria-pressed={level === m.o2} onClick={() => setLevel(m.o2)}>
-              <span className="mission-name">{m.name}</span>
-              <span className="mission-atm"><strong>{m.o2}% O₂</strong> at {m.pressure}</span>
-              <span className="mission-note">{m.note}</span>
-            </button>
-          ))}
-        </div>
-
-        <div className="level-control">
-          <label htmlFor="o2-level">Oxygen level</label>
-          <input id="o2-level" type="range" min={0} max={100} step={1} value={level}
-            aria-valuetext={`${level}% oxygen${mission ? `, ${mission.name}` : ""}`}
-            onChange={(e) => setLevel(Number(e.target.value))} />
-          <output className="level-value" htmlFor="o2-level">{level}%</output>
-        </div>
-
-        <div className="readout" aria-live="polite">
-          <p>
-            <strong>At {level}% O₂{mission ? ` (${mission.name})` : ""}: </strong>
-            {ambient.length > 0
-              ? <>chamber-atmosphere tests span this level in {ambient.length} {ambient.length === 1 ? "investigation" : "investigations"}: {list(ambient)}.</>
-              : <span className="readout-gap">no investigation tested chamber oxygen at this level.</span>}
-            {burner.length > 0 && <> Oxygen fed through a burner spans it in {list(burner)}.</>}
+      <div className="dash-grid">
+        <section className="panel" aria-labelledby="missions-title">
+          <PanelHead num={1} id="missions-title" title="Mission atmospheres" />
+          <p className="panel-lede">Pick a cabin atmosphere or set any oxygen level. The coverage map in panel 3 follows your choice.</p>
+          <div className="missions" role="group" aria-label="Mission atmospheres">
+            {missions.map((m) => (
+              <button key={m.id} type="button" className="mission" aria-pressed={level === m.o2} onClick={() => setLevel(m.o2)}>
+                <span className="mission-name">{m.name}</span>
+                <span className="mission-atm"><strong>{m.o2}% O₂</strong> at {m.pressure}</span>
+                <span className="mission-note">{m.note}</span>
+              </button>
+            ))}
+          </div>
+          <div className="level-control">
+            <label htmlFor="o2-level">Oxygen level</label>
+            <input id="o2-level" type="range" min={0} max={100} step={1} value={level}
+              aria-valuetext={`${level}% oxygen${mission ? `, ${mission.name}` : ""}`}
+              onChange={(e) => setLevel(Number(e.target.value))} />
+            <output className="level-value" htmlFor="o2-level">{level}%</output>
+          </div>
+          <div className="readout" aria-live="polite">
+            <p>
+              <strong>At {level}% O₂: </strong>
+              {ambient.length > 0
+                ? <>the tested chamber-oxygen range of {ambient.length} {ambient.length === 1 ? "investigation" : "investigations"} includes this level: {list(ambient)}.</>
+                : <span className="readout-gap">no investigation's tested chamber-oxygen range includes this level.</span>}
+              {burner.length > 0 && <> Burner-fed oxygen ranges include it in {list(burner)}.</>}
+            </p>
+            <p>
+              <strong>Solid materials: </strong>
+              {solids.length > 0
+                ? <>{list(solids)}.</>
+                : <span className="readout-gap">no data at this level.{stats.topSolid && <> The highest chamber oxygen for a burned solid is {percentRange(stats.topSolid.max, stats.topSolid.max)} ({name(stats.topSolid.r)}).</>}</span>}
+            </p>
+          </div>
+          <p className="sources">
+            Sources: {missions.map((m, i) => <span key={m.id}>{i > 0 && "; "}<a href={m.source.url} target="_blank" rel="noreferrer">{m.name}: {m.source.label}</a></span>)}.
           </p>
-          <p>
-            <strong>Solid materials (cabin fabrics, plastics, wiring insulation): </strong>
-            {solids.length > 0
-              ? <>{list(solids)}.</>
-              : <span className="readout-gap">no data at this level.{stats.topSolid && <> The highest chamber oxygen for a burned solid is {percentRange(stats.topSolid.max, stats.topSolid.max)} ({name(stats.topSolid.r)}).</>}</span>}
-          </p>
-        </div>
+        </section>
 
-        <OxygenCoverage records={records} references={references} hrefFor={detailUrl} onClick={onLink} />
-
-        <p className="sources">
-          Ranges are the lowest and highest oxygen recorded per table, not every level in between. Oxygen percentage alone does not set
-          flammability, and the presets also differ in pressure. Preset sources:{" "}
-          {missions.map((m, i) => <span key={m.id}>{i > 0 && "; "}<a href={m.source.url} target="_blank" rel="noreferrer">{m.name}: {m.source.label}</a></span>)}.
-        </p>
-        {stats.noO2.length > 0 && (
-          <p className="muted-list">Not shown, no oxygen in their tables: {list(stats.noO2)}.</p>
-        )}
-      </section>
-
-      <div className="panel-row">
         <section className="panel" aria-labelledby="fuels-title">
-          <div className="panel-head"><span className="panel-num" aria-hidden="true">2</span><h2 id="fuels-title">Which fuels and materials were burned most?</h2></div>
-          <p className="panel-lede">Rows in the PSI experiment tables that name each fuel. One row is usually one test run; FLEX-2 lists one row per fuel. Select a fuel to open it in the explorer.</p>
-          <FuelRuns totals={stats.fuels} limit={showAllFuels ? stats.fuels.length : 10}
+          <PanelHead num={2} id="fuels-title" title="Fuels and materials by test runs" />
+          <p className="panel-lede">Rows in the PSI experiment tables that name each fuel. One row is usually one run; FLEX-2 lists one row per fuel. Select a fuel to open it in the experiment library.</p>
+          <FuelRuns totals={stats.fuels} limit={showAllFuels ? stats.fuels.length : FUELS_SHOWN}
             hrefFor={(fuel) => explorerUrl({ fuel: [fuel] })} onClick={onLink} />
-          {stats.fuels.length > 10 && (
+          {stats.fuels.length > FUELS_SHOWN && (
             <p className="panel-foot">
               <button type="button" onClick={() => setShowAllFuels((v) => !v)} aria-expanded={showAllFuels}>
-                {showAllFuels ? "Show the top 10" : `Show all ${stats.fuels.length} fuels and materials`}
+                {showAllFuels ? `Show the top ${FUELS_SHOWN}` : `Show all ${stats.fuels.length} fuels and materials`}
               </button>
             </p>
           )}
         </section>
 
+        <section className="panel" aria-labelledby="coverage-title">
+          <PanelHead num={3} id="coverage-title" title="Oxygen coverage map" />
+          <p className="panel-lede">Each row is an investigation that records oxygen in its experiment tables; the bar runs from the lowest to the highest level it reports, not every level in between.</p>
+          <OxygenCoverage records={records} references={references} hrefFor={detailUrl} onClick={onLink} />
+          {stats.noO2.length > 0 && (
+            <p className="muted-list">Not shown, no oxygen in their tables: {list(stats.noO2)}.</p>
+          )}
+          <p className="sources">Oxygen percentage alone does not set flammability; the mission presets also differ in pressure.</p>
+        </section>
+
         <section className="panel" aria-labelledby="gaps-title">
-          <div className="panel-head"><span className="panel-num" aria-hidden="true">3</span><h2 id="gaps-title">Where does the evidence stop?</h2></div>
-          <p className="panel-lede">Computed from the catalog, so they update with the data.</p>
+          <PanelHead num={4} id="gaps-title" title="Evidence gaps and research assistant" />
           <ul className="gaps">
             <li>
               <strong>No partial gravity</strong>
-              {stats.platforms.iss} investigations flew on the ISS, {stats.platforms.cygnus} inside a Cygnus vehicle and {stats.platforms.ground} are ground
-              studies. None burned anything at lunar (0.17 g) or Martian (0.38 g) gravity.
+              {stats.platforms.iss} investigations flew on the ISS, {stats.platforms.cygnus} inside a Cygnus vehicle and {stats.platforms.ground} are
+              ground studies. None burned anything at lunar (0.17 g) or Martian (0.38 g) gravity.
             </li>
             {stats.topSolid && (
               <li>
                 <strong>Solids stop at {percentRange(stats.topSolid.max, stats.topSolid.max)} oxygen</strong>
-                The highest chamber oxygen for any burned solid material is in{" "}
+                The highest chamber oxygen for any burned solid is in{" "}
                 <a href={detailUrl(stats.topSolid.r.id)} onClick={onLink}>{name(stats.topSolid.r)}</a>. The proposed exploration atmosphere is 34%.
               </li>
             )}
             <li>
               <strong>{stats.noO2.length} of {records.length} record no oxygen</strong>
-              Their experiment tables, where they exist, do not list the oxygen level, so they cannot be placed on the oxygen axis.
+              Their experiment tables, where they exist, do not list it, so they cannot be placed on the coverage map.
             </li>
             {stats.noTable.length > 0 && (
               <li>
@@ -191,14 +192,18 @@ export function OverviewPage({ summary, onLink }: {
               </li>
             )}
           </ul>
+          {/* TODO: connect apps/assistant here. */}
+          <div className="slot-empty">
+            <p className="slot-title">Research assistant</p>
+            <p>Not built yet. <a href={viewUrl("assistant")} onClick={onLink}>What it will do</a>.</p>
+          </div>
         </section>
       </div>
 
       <section className="panel" aria-labelledby="timeline-title">
-        <div className="panel-head"><span className="panel-num" aria-hidden="true">4</span><h2 id="timeline-title">When did the investigations run?</h2></div>
+        <PanelHead num={5} id="timeline-title" title="When did the investigations run?" />
         <p className="panel-lede">Start and end dates as listed on PSI. Program-level records such as ACME span several flight campaigns.</p>
         <Timeline records={records} hrefFor={detailUrl} onClick={onLink} />
-        <p className="panel-foot"><a href={explorerUrl()} onClick={onLink}>Open the explorer to filter all {records.length} investigations</a></p>
       </section>
     </div>
   );

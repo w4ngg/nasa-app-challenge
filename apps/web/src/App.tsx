@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 import type { MouseEvent } from "react";
 import { InvestigationDetail } from "./components/InvestigationDetail";
+import { SideNav } from "./components/SideNav";
 import { getFacets, getSummary } from "./lib/data";
-import { emptyFilters } from "./lib/filters";
-import { explorerUrl, isPlainClick, linkHandler, readRoute, routeUrl } from "./lib/route";
+import { isPlainClick, linkHandler, readRoute, routeUrl } from "./lib/route";
 import type { Route } from "./lib/route";
 import { ExplorerPage } from "./pages/ExplorerPage";
 import { OverviewPage } from "./pages/OverviewPage";
+import { PlaceholderPage } from "./pages/PlaceholderPage";
 import type { Facets, Summary } from "./types";
 
 export default function App() {
@@ -45,40 +46,34 @@ export default function App() {
     navigate({ ...route, id: null }, true);
   };
 
-  const overviewHref = routeUrl({ view: "overview", id: null, filters: emptyFilters, page: 0 });
-  const current = route.id ? null : route.view;
+  let page;
+  if (route.id) {
+    page = (
+      <InvestigationDetail id={route.id} backHref={routeUrl({ ...route, id: null })}
+        backLabel={route.view === "explorer" ? "Back to the experiment library" : "Back to the overview"}
+        onBack={backToList} onOpen={openInvestigation} />
+    );
+  } else if (route.view === "overview") {
+    page = <OverviewPage summary={summary} onLink={onLink} />;
+  } else if (route.view === "explorer") {
+    page = <ExplorerPage route={route} navigate={navigate} summary={summary} facets={facets} onOpen={openInvestigation} />;
+  } else {
+    page = <PlaceholderPage view={route.view} onLink={onLink} />;
+  }
 
   return (
-    <div className="app-shell">
-      <header className="site-header">
-        <a className="brand" href={overviewHref} onClick={onLink} aria-label="Flame Atlas, overview">
-          <span className="brand-mark" aria-hidden="true">FA</span>
-          <span>Flame Atlas<small>Microgravity combustion evidence</small></span>
-        </a>
-        <nav className="main-nav" aria-label="Main">
-          <a href={overviewHref} onClick={onLink} aria-current={current === "overview" ? "page" : undefined}>Overview</a>
-          <a href={explorerUrl()} onClick={onLink} aria-current={current === "explorer" ? "page" : undefined}>Explorer</a>
-        </nav>
-        <a className="source-link" href="https://psi.nasa.gov/physci/repo/search?q=combustion&data_source=psi&data_type=investigation" target="_blank" rel="noreferrer">Source: NASA PSI</a>
-      </header>
-
-      <main>
-        {route.id ? (
-          <InvestigationDetail id={route.id} backHref={routeUrl({ ...route, id: null })} backLabel={route.view === "explorer" ? "Back to the explorer" : "Back to the overview"}
-            onBack={backToList} onOpen={openInvestigation} />
-        ) : route.view === "explorer" ? (
-          <ExplorerPage route={route} navigate={navigate} summary={summary} facets={facets} onOpen={openInvestigation} />
-        ) : (
-          <OverviewPage summary={summary} onLink={onLink} />
-        )}
-      </main>
-      <footer>
-        <span>Flame Atlas, a NASA Space Apps Challenge 2026 project for “Flame in Freefall”</span>
-        <span>
-          Data: NASA Physical Sciences Informatics, licensed per record. Built with AI-assisted coding;{" "}
-          <a href="https://github.com/w4ngg/nasa-app-challenge#use-of-super-intelligence-si" target="_blank" rel="noreferrer">how SI was used</a>.
-        </span>
-      </footer>
+    <div className="layout">
+      <SideNav current={route.id ? null : route.view} onLink={onLink} />
+      <div className="content">
+        <main>{page}</main>
+        <footer>
+          <span>Flame Atlas, a NASA Space Apps Challenge 2026 project for “Flame in Freefall”</span>
+          <span>
+            Data: NASA Physical Sciences Informatics, licensed per record. Built with AI-assisted coding;{" "}
+            <a href="https://github.com/w4ngg/nasa-app-challenge#use-of-super-intelligence-si" target="_blank" rel="noreferrer">how SI was used</a>.
+          </span>
+        </footer>
+      </div>
     </div>
   );
 }
