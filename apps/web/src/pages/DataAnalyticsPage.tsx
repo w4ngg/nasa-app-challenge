@@ -19,8 +19,12 @@ import "./data-analytics.css";
 type Link = (event: MouseEvent<HTMLAnchorElement>) => void;
 const pageSize = 25;
 
-export function DataAnalyticsPage({ onLink }: { onLink: Link }) {
-  const [datasetKey, setDatasetKey] = useState(analyticsDatasets[0].key);
+export function DataAnalyticsPage({ onLink, initialDataset }: { onLink: Link; initialDataset?: string }) {
+  // ?view=lab&dataset=flex opens that table (used by links from the research assistant)
+  const [datasetKey, setDatasetKey] = useState(() => analyticsDatasets.find((d) => d.key === initialDataset)?.key ?? analyticsDatasets[0].key);
+  useEffect(() => {
+    if (initialDataset && analyticsDatasets.some((d) => d.key === initialDataset)) setDatasetKey(initialDataset);
+  }, [initialDataset]);
   const [loaded, setLoaded] = useState<{ key: string; detail: InvestigationDetail } | null>(null);
   const [error, setError] = useState("");
   const [attempt, setAttempt] = useState(0);

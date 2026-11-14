@@ -71,7 +71,7 @@ export default function App() {
   } else if (route.view === "explorer") {
     page = <ExplorerPage route={route} navigate={navigate} summary={summary} facets={facets} onOpen={openInvestigation} />;
   } else if (route.view === "lab") {
-    page = <Suspense fallback={<p className="state" role="status">Loading data analytics…</p>}><DataAnalyticsPage onLink={onLink} /></Suspense>;
+    page = <Suspense fallback={<p className="state" role="status">Loading data analytics…</p>}><DataAnalyticsPage onLink={onLink} initialDataset={route.dataset ?? undefined} /></Suspense>;
   } else {
     page = <PlaceholderPage view={route.view} onLink={onLink} />;
   }

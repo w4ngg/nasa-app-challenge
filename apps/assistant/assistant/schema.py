@@ -63,6 +63,8 @@ class Answer:
     latency_ms: int = 0
     conversation_summary: str = ""      # tóm tắt các lượt cũ đã dùng (nếu có)
     verification: dict = field(default_factory=dict)  # kiểm tra trích dẫn từng câu (assistant/verify.py)
+    charts: list[dict] = field(default_factory=list)       # biểu đồ do tool chart_data dựng (số liệu từ bảng NASA)
+    navigation: list[dict] = field(default_factory=list)   # gợi ý mở phần tương ứng trên web (view, params, label)
     suggested_sources: list[Citation] = field(default_factory=list)  # nguồn đã truy xuất nhưng chưa trích,
                                                                       # được gợi ý cho câu gắn nhầm tag
 

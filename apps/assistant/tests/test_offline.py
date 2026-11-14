@@ -484,6 +484,21 @@ def test_gold_facts_are_grounded_in_their_source_chunks():
     for line in qfile.read_text(encoding="utf-8").splitlines():
         q = json.loads(line)
         for f in q.get("reference_facts", []):
+            if f["source"].startswith("MODEL:"):  # model estimate: checked by the eval run, not a document
+                continue
+            if f["source"].startswith("TABLE:"):  # numbers computed from the NASA experiment tables
+                from assistant import charts
+                if charts.web_data_dir() is None:
+                    continue
+                psi = f["source"].split(":", 1)[1]
+                specs = [charts.build(k) for k in ("oxygen_ranges", "run_counts", "flex_burn_time")]
+                text = " ".join(" ".join(charts.evidence_lines(s).get(psi, [])) + " " +
+                                (" ".join(s.get("notes", [])) if s.get("investigation") == psi else "")
+                                for s in specs).lower()
+                text += " " + " ".join(f"{r['id']} {r.get('acronym') or ''}".lower()
+                                       for r in charts.catalog().values() if r["id"] == psi)
+                assert all(re.search(k, text) for k in f["keywords"]), (q["id"], f["fact"])
+                continue
             if f["source"].startswith("SCENARIO:"):  # scenario conditions quoted from the challenge statement
                 text = ranking.SCENARIOS[f["source"].split(":", 1)[1]]["conditions"].lower()
             else:

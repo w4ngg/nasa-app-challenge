@@ -83,6 +83,8 @@ MOCK_INVESTIGATIONS_FILE = DATA_DIR / "mock" / "investigations.json"
 PSI_METADATA_FILE = Path(os.getenv("PSI_METADATA_FILE", str(DATA_DIR / "raw" / "psi_combustion.json")))
 # Catalog của web (fuel, vật liệu, khoảng O₂ trích từ bảng thí nghiệm PSI) – bổ sung các cột còn trống.
 CATALOG_JSON = Path(os.getenv("CATALOG_JSON", str(ROOT.parent / "web" / "public" / "data" / "index.json")))
+# Thư mục mô hình Module 5 (ml_modelling/); trống = tự tìm ../../ml_modelling (repo) hoặc ../nasa-app-challenge/ml_modelling
+MODEL_DIR = os.getenv("MODEL_DIR", "")
 # Hàm predict() của Module 5, dạng "package.module:function". Để trống -> dùng mock.
 PREDICT_IMPORT = os.getenv("PREDICT_IMPORT", "")
 # Hàm rank() của Module 4 (Hân), dạng "package.module:function". Để trống -> công thức minh bạch tạm thời.
