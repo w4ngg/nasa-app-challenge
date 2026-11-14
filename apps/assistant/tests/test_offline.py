@@ -354,6 +354,22 @@ def test_compare_tool_builds_table(monkeypatch):
     assert [c.kind for c in a.citations] == ["investigation"] * 3
 
 
+def test_compare_table_edited_by_model_is_restored(monkeypatch):
+    monkeypatch.setattr(integrations, "psi_records", lambda: _FAKE_RECS)
+    edited = ("| Attribute | PSI-26 BASS [I1] | PSI-98 SAFFIRE-I [I2] |\n|---|---|---|\n"
+              "| Title | Burning of Solids | Spacecraft Fire Experiment-I |\n| Hardware | MSG | Cygnus |\n"
+              "BASS used the glovebox [I1].")
+    llm = UsageLLM([
+        NS(content="", tool_calls=[_tool_call("compare_investigations", {"investigations": ["BASS", "SAFFIRE-I"]})]),
+        NS(content=edited, tool_calls=None),
+    ])
+    a = Assistant(llm=llm).ask("Compare BASS and SAFFIRE-I")
+    assert "| Title | Burning and Suppression of Solids | Spacecraft Fire Experiment-I |" in a.answer
+    assert "Burning of Solids |" not in a.answer
+    assert any("Restored" in w for w in a.warnings)
+    assert any(e["kind"] == "table_restored" for e in get_trace(a.trace_id)["events"])
+
+
 def test_compare_offline_mode(monkeypatch):
     monkeypatch.setattr(integrations, "psi_records", lambda: _FAKE_RECS)
     a = Assistant(offline=True).ask("Compare BASS and Saffire")
@@ -397,3 +413,76 @@ if __name__ == "__main__":
         if name.startswith("test_"):
             fn()
             print("ok", name)
+
+
+# ---------- three RAG criteria: faithfulness / citation correctness / answer correctness ----------
+from assistant.evaluate import pin_saved_citations, score_facts  # noqa: E402
+
+EV2 = "Saffire-I burned a Sibal fabric sample, 75% cotton and 25% fiberglass, inside the Cygnus vehicle."
+
+
+def test_faithful_but_miscited_sentence_gets_suggested_tag():
+    ans = "Saffire-I burned Sibal fabric of 75% cotton and 25% fiberglass in Cygnus [S1]."
+    v = verify_answer(ans, {"S1": EV, "S2": EV2})
+    x = v["sentences"][0]
+    assert x["status"] != "supported" and x["context_status"] == "supported"
+    assert x["miscited"] and x["suggested_refs"] == ["S2"]
+    assert v["miscited"] == 1 and v["faithfulness"]["score"] == 1.0
+
+
+def test_hallucinated_sentence_is_unfaithful():
+    v = verify_answer("Saturn rings contain frozen methane lakes and volcanic glaciers [S1].", {"S1": EV, "S2": EV2})
+    assert v["sentences"][0]["context_status"] == "unsupported" and v["faithfulness"]["unsupported"] == 1
+
+
+def test_inference_words_and_interpretation_lines_are_flagged():
+    ans = ("FLEX tested CO2, He and SF6 suppressants on droplets, implying all suppressants fail in space [S1].\n"
+           "Interpretation: FLEX suppressant results matter for ISS design [S1].")
+    v = verify_answer(ans, {"S1": EV})
+    assert v["inference"] == 2
+    assert "implying" in v["sentences"][0]["inference"] and "interpretation" in v["sentences"][1]["inference"]
+
+
+def test_disclaimer_and_term_variants_not_flagged():
+    ev = "FLEX burned heptane droplets in oxygen and nitrogen mixtures; O₂ fraction was varied."
+    v = verify_answer("FLEX-1 burned heptane droplets while the O2 fraction was varied [S1].\n"
+                      "Verify all figures against the original NASA sources before design use.", {"S1": ev})
+    assert v["claims"] == 1 and v["supported"] == 1 and v["inference"] == 0
+
+
+def test_answer_correctness_gold_facts():
+    facts = [{"fact": "FLEX suppressants", "keywords": ["co2|carbon dioxide", "helium|\\bhe\\b"], "source": "x"},
+             {"fact": "SF6", "keywords": ["sf6"], "source": "x"}]
+    r = score_facts("FLEX tested carbon dioxide and helium.", facts)
+    assert r["covered"] == 1 and r["score"] == 0.5 and r["facts"][1]["missing"] == ["sf6"]
+
+
+def test_pin_saved_citations_maps_snippet_to_full_chunk():
+    bot = Assistant(offline=True)
+    reg = __import__("assistant.agent", fromlist=["EvidenceRegistry"]).EvidenceRegistry()
+    ch = bot.retriever.chunks[0]
+    reg.texts["S1"] = "something else"
+    n = pin_saved_citations(bot, reg, [{"ref": "S1", "kind": "document", "snippet": ch.text[:300]}])
+    assert n == 1 and reg.texts["S1"].endswith(ch.text) and reg.texts["_replay_S1"] == "something else"
+
+
+def test_agent_answer_carries_full_evidence_and_criteria():
+    llm = UsageLLM([NS(content="Ventilation shutdown is advised [S1].", tool_calls=None)])
+    a = Assistant(llm=llm).ask("Should ventilation be turned off during a cabin fire?")
+    assert a.citations and a.citations[0].evidence and len(a.citations[0].evidence) >= len(a.citations[0].snippet)
+    assert "faithfulness" in a.verification and "citation_correctness" in a.verification
+
+
+def test_gold_facts_are_grounded_in_their_source_chunks():
+    real = Path(__file__).resolve().parent.parent / "data" / "processed" / "chunks.jsonl"
+    if not real.exists():
+        return  # gold facts reference the real corpus; skipped when only mock data is present
+    import re
+    chunks = {json.loads(l)["id"]: json.loads(l) for l in real.read_text(encoding="utf-8").split("\n") if l.strip()}
+    qfile = Path(__file__).resolve().parent.parent / "eval" / "questions.jsonl"
+    for line in qfile.read_text(encoding="utf-8").splitlines():
+        q = json.loads(line)
+        for f in q.get("reference_facts", []):
+            c = chunks[f["source"]]
+            text = (c["title"] + " " + c["text"]).lower()
+            assert all(re.search(k, text) for k in f["keywords"]), (q["id"], f["fact"])

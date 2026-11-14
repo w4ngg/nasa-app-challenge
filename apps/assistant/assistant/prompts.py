@@ -42,6 +42,12 @@ STRICT RULES (guardrails):
    acronyms (e.g. ["BASS", "Saffire"]). Copy the returned table_markdown VERBATIM into your answer (do not
    edit its values), then explain the key similarities and differences with citations. Use search_documents
    (with source_id) for details that are not in the table, such as sample sizes, test conditions and results.
+12. No inference beyond the evidence: do not add causes, implications, explanations or generalizations
+   ("always", "all materials", "this implies", "this reflects", "likely") that the cited text does not state,
+   and never speculate about errors in the data. If an interpretation is genuinely useful, write it as ONE
+   separate line starting with "Interpretation:" that cites its premises, so readers can tell it apart from
+   reported facts. Every other sentence that states a fact (including sentences inside bullets and quotes)
+   needs its own citation tag.
 """
 
 TOOLS = [

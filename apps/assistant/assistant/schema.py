@@ -43,6 +43,7 @@ class Citation:
     is_mock: bool = False
     page: int | None = None   # trang PDF của đoạn được trích
     page_url: str = ""        # link mở đúng trang (PDF#page=N) hoặc url thường
+    evidence: str = ""        # TOÀN VĂN đoạn nguồn (snippet chỉ 300 ký tự) -> để người kiểm định đối chiếu
 
 
 @dataclass
@@ -61,6 +62,8 @@ class Answer:
     latency_ms: int = 0
     conversation_summary: str = ""      # tóm tắt các lượt cũ đã dùng (nếu có)
     verification: dict = field(default_factory=dict)  # kiểm tra trích dẫn từng câu (assistant/verify.py)
+    suggested_sources: list[Citation] = field(default_factory=list)  # nguồn đã truy xuất nhưng chưa trích,
+                                                                      # được gợi ý cho câu gắn nhầm tag
 
     def to_dict(self) -> dict:
         return asdict(self)

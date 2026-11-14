@@ -7,21 +7,44 @@ và bot từ chối khi không tìm thấy bằng chứng. LLM dùng **DeepSeek*
 
 ## Chạy nhanh
 
+Yêu cầu Python 3.10 trở lên. Dữ liệu đã có sẵn trong repo (`data/processed/chunks.jsonl`: 1.371 chunk từ 61 nguồn NASA, cùng `data/investigations.csv` và `data/raw/psi_combustion.json`), nên **pull về là chạy được ngay**, cho kết quả giống nhau trên mọi máy.
+
 ```bash
+git checkout feat/ai-assistant && git pull
 cd apps/assistant
+python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
-cp .env.example .env          # điền DEEPSEEK_API_KEY (không có key -> tự chạy offline)
-python scripts/fetch_sources.py   # PSI + Researcher's Guide + các trang NASA (khoảng 1 phút)
-python scripts/fetch_ntrs.py      # 25 PDF báo cáo từ NTRS (khoảng 10 phút, có thể bỏ qua)
-python -m assistant.ingest        # tạo data/processed/chunks.jsonl
-python -m pytest tests -q     # test offline, không cần key
-python -m assistant.cli --debug   # chat thử trên terminal (không có key -> tự chạy offline)
-python -m assistant.cli --offline # ép chế độ offline
+python -m pytest tests -q          # phải ra "43 passed" – không cần key, không tốn tiền
+python -m assistant.demo_server    # giao diện demo: http://127.0.0.1:8765 (chế độ offline miễn phí)
+python -m assistant.cli --offline  # chat trên terminal, không gọi LLM
+```
+
+Muốn dùng DeepSeek thì mỗi người dùng key của mình:
+
+```bash
+cp .env.example .env               # Windows: copy .env.example .env
+# mở .env, điền DEEPSEEK_API_KEY=sk-...  (file .env đã bị gitignore, KHÔNG commit)
+python -m assistant.cli --debug    # có key -> gọi DeepSeek (TỐN QUOTA, khoảng $0.003–0.01 mỗi câu)
+```
+
+Các lệnh khác:
+
+```bash
 uvicorn assistant.api:app --port 8003   # HTTP API cho Module 6
-python -m assistant.demo_server   # giao diện demo cho dev: http://127.0.0.1:8765
-python eval/run_eval.py --estimate  # ước lượng chi phí eval (miễn phí)
-python eval/run_eval.py --offline   # eval chỉ dùng BM25 (miễn phí)
-python eval/run_eval.py       # eval với DeepSeek (TỐN QUOTA, khoảng $0.04 cho 17 câu)
+python eval/run_eval.py --estimate      # ước lượng chi phí eval (miễn phí)
+python eval/run_eval.py --offline       # eval chỉ dùng BM25 (miễn phí) -> eval/results_offline.jsonl
+python eval/run_eval.py --rescore eval/results_v3_deepseek.jsonl   # chấm 3 tiêu chí cho kết quả DeepSeek đã lưu (miễn phí)
+python eval/run_eval.py                 # eval với DeepSeek (TỐN QUOTA, khoảng $0.07 cho 17 câu)
+```
+
+`eval/results_v3_deepseek.jsonl` là kết quả DeepSeek tham chiếu: 17/17 đạt, faithfulness 0.97, citation correctness 0.97, answer correctness 0.96.
+
+**Tạo lại dữ liệu từ đầu** (không bắt buộc; chỉ cần khi muốn cập nhật nguồn, mất khoảng 11 phút và cần mạng):
+
+```bash
+python scripts/fetch_sources.py   # PSI + Researcher's Guide + các trang NASA
+python scripts/fetch_ntrs.py      # 25 PDF báo cáo từ NTRS (~32 MB, không commit)
+python -m assistant.ingest        # ghi đè data/processed/chunks.jsonl
 ```
 
 ## Ngôn ngữ
@@ -45,6 +68,35 @@ Hiệu chỉnh trên 130 câu trong 17 câu trả lời DeepSeek thật:
 | Cố ý gắn câu với đoạn sai nguồn | Bắt được 130/130 |
 
 Đây là heuristic: câu diễn đạt lại quá xa nguồn có thể bị đánh `weak` dù đúng. Vì vậy bước này chỉ cảnh báo, không tự xóa câu.
+
+**Kiểm định theo 3 tiêu chí độc lập** (`assistant/verify.py`, `assistant/evaluate.py`). Không gọi LLM nên miễn phí.
+
+| Tiêu chí | Câu hỏi | Cách đo |
+|---|---|---|
+| Faithfulness | Câu có suy ra được từ context đã truy xuất không? | So mỗi câu với **toàn bộ** evidence trong lượt (kể cả nguồn không được trích) → `context_status` |
+| Citation correctness | Nguồn gắn tag có thật sự chứng minh câu đó không? | So với nguồn được gắn tag → `status`. Nếu câu có trong context nhưng nằm ở nguồn khác → `miscited` + `suggested_refs` |
+| Answer correctness | Câu trả lời có đúng với tài liệu NASA gốc không? | `reference_facts` trong `eval/questions.jsonl`: 28 gold fact cho q01–q13, mỗi fact gắn với chunk nguồn (test kiểm fact có trong nguồn). Chấm theo tỉ lệ fact được nhắc tới. |
+
+Ngoài ra còn hai bổ sung:
+- **Cờ suy luận và khái quát hóa:** các từ như therefore, implies, reflects, likely, always, all, cùng dòng `Interpretation:`. Prompt rule 12 cấm suy luận vượt bằng chứng; nếu cần diễn giải thì phải viết thành một dòng `Interpretation:` riêng có trích tiền đề.
+- **Toàn văn evidence:** `Citation.evidence` chứa toàn văn đoạn nguồn, còn `snippet` chỉ có 300 ký tự. `Answer.suggested_sources` là các nguồn được gợi ý cho câu gắn nhầm tag. Giao diện demo có nút **Export review report (.md)**, xuất câu trả lời, bảng kiểm từng câu và toàn văn evidence để người ngoài kiểm định.
+
+```bash
+python eval/run_eval.py --rescore eval/results.jsonl   # chấm lại câu trả lời DeepSeek đã lưu, miễn phí
+python eval/run_eval.py --offline                      # ghi ra eval/results_offline.jsonl, không ghi đè kết quả DeepSeek
+```
+
+Kết quả chấm lại 17 câu DeepSeek (13 câu trả lời, 4 câu bẫy đều từ chối đúng):
+
+| Tiêu chí | Điểm |
+|---|---|
+| Faithfulness | 0.97 |
+| Citation correctness | 0.97 |
+| Answer correctness | 0.96 |
+
+Có 1 câu không có trong context (q05, model tự suy đoán tên PI bị lỗi OCR), 1 câu gắn nhầm tag và 4 câu chứa từ suy luận.
+
+Đây là heuristic dựa trên từ ngữ, con số và thuật ngữ, **không kiểm logic**. Mọi câu bị gắn cờ và mọi câu suy luận vẫn cần người đọc kiểm tra. Answer correctness chỉ đo độ phủ gold fact, không phát hiện được câu sai nằm ngoài bộ gold.
 
 **Link mở đúng trang PDF.** Đoạn lấy từ PDF (Researcher's Guide, NTRS) có `page` và `page_url` dạng `…pdf#page=N`. Trong giao diện có nút "Open PDF p.N".
 

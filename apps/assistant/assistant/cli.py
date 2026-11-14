@@ -41,9 +41,17 @@ def main() -> None:
         for c in a.citations:
             print(f"  [{c.ref}] {c.source_id} — {c.title}{' (MOCK)' if c.is_mock else ''} {c.page_url or c.url}")
         v = a.verification
-        if v.get("checked"):
-            print(f"  ✔ citation check: {v['supported']}/{v['checked']} supported, {v['weak']} weak, "
-                  f"{v['unsupported']} unsupported")
+        if v.get("claims"):
+            pct = lambda x: "-" if x is None else f"{x:.0%}"  # noqa: E731
+            print(f"  ✔ faithfulness {pct(v['faithfulness']['score'])} | citation correctness "
+                  f"{pct(v['citation_correctness'])} | claims {v['claims']} | mis-cited {v['miscited']} | "
+                  f"uncited {v['uncited']} | inference {v['inference']}")
+            for x in v["sentences"]:
+                if x["suggested_refs"] or x["inference"] or x["context_status"] == "unsupported":
+                    tip = f"→ {' '.join(x['suggested_refs'])} " if x["suggested_refs"] else ""
+                    tip += f"inference: {', '.join(x['inference'])} " if x["inference"] else ""
+                    tip += "NOT IN CONTEXT " if x["context_status"] == "unsupported" else ""
+                    print(f"    · {tip}| {x['text'][:110]}")
         for w in a.warnings:
             print(f"  ⚠️  {w}")
         if debug:

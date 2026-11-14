@@ -10,6 +10,7 @@ import json
 import math
 import re
 import time
+from dataclasses import replace
 from typing import Any
 
 from . import config, integrations
@@ -45,6 +46,7 @@ class EvidenceRegistry:
         self._keys: dict[tuple, str] = {}
         self._counters = {"S": 0, "I": 0, "P": 0}
         self.texts: dict[str, str] = {}  # nhãn -> toàn văn bằng chứng (để kiểm tra trích dẫn)
+        self.tables: list[str] = []      # bảng so sánh do tool tạo (để khôi phục nếu LLM sửa)
         self.sent_chunks: set[str] = set()
         self.sent_chars = 0
         self.deduped = 0
@@ -183,6 +185,7 @@ class Assistant:
                 continue
             lines.append(f"| {label} | " + " | ".join(cell(v) for v in vals) + " |")
             (same if len(set(vals)) == 1 else diff).append(label)
+        reg.tables.append("\n".join(lines))
         return {
             "table_markdown": "\n".join(lines),
             "same_attributes": same, "different_attributes": diff, "unresolved": unresolved,
@@ -407,6 +410,32 @@ class Assistant:
         self._finalize(ans, (msg.content if msg else "") or "", reg, trace)
         return ans
 
+    @staticmethod
+    def _restore_tables(text: str, tables: list[str]) -> tuple[str, int]:
+        """Thay mọi bảng trong câu trả lời có cùng hàng tiêu đề với một bảng của tool bằng đúng bảng gốc.
+        LLM đôi khi 'sửa' ô bảng dù được dặn chép nguyên văn -> code đảm bảo giá trị luôn khớp metadata."""
+        if not tables:
+            return text, 0
+        by_head = {t.splitlines()[0].strip(): t for t in tables}
+        lines, out, changed, i = text.splitlines(), [], 0, 0
+        while i < len(lines):
+            if lines[i].strip().startswith("|"):
+                block = []
+                while i < len(lines) and lines[i].strip().startswith("|"):
+                    block.append(lines[i].strip())
+                    i += 1
+                orig = by_head.get(block[0])
+                if orig:
+                    o = orig.splitlines()
+                    changed += sum(1 for a, b in zip(block, o) if a != b) + abs(len(block) - len(o))
+                    out += o
+                else:
+                    out += block
+                continue
+            out.append(lines[i])
+            i += 1
+        return "\n".join(out), changed
+
     # ---------- guardrail hậu kiểm ----------
     def _finalize(self, ans: Answer, text: str, reg: EvidenceRegistry, trace: Trace) -> None:
         text = text.strip()
@@ -414,6 +443,11 @@ class Assistant:
         model_refused = refused
         if refused:
             text = text[len(REFUSAL_MARKER):].strip()
+
+        text, restored = self._restore_tables(text, reg.tables)
+        if restored:
+            ans.warnings.append(f"Restored {restored} comparison-table row(s) edited by the model to the source values.")
+            trace.event("table_restored", rows=restored)
 
         cited: list[str] = []
         invalid: list[str] = []
@@ -446,16 +480,30 @@ class Assistant:
                     removed_invalid_tags=sorted(set(invalid)), cited=list(dict.fromkeys(cited)),
                     evidence_available=len(reg.items))
 
-        # Kiểm tra từng câu có được nguồn trích ủng hộ không (heuristic, miễn phí)
+        # Kiểm định từng câu: citation correctness + faithfulness với toàn bộ context (heuristic, miễn phí)
+        for c in ans.citations:
+            c.evidence = reg.texts.get(c.ref, "")
         v = verify_answer(text, reg.texts)
         ans.verification = v
-        if v["unsupported"]:
-            ans.warnings.append(f"{v['unsupported']} sentence(s) look unsupported by their cited sources; "
-                                "review them in the verification details.")
+        suggested = dict.fromkeys(r for x in v["sentences"] for r in x["suggested_refs"] if r not in cited)
+        ans.suggested_sources = [replace(reg.items[r], evidence=reg.texts.get(r, "")) for r in suggested]
+        unfaithful = v["faithfulness"]["unsupported"]
+        if unfaithful:
+            ans.warnings.append(f"{unfaithful} sentence(s) are unsupported by any retrieved context "
+                                "(possible hallucination or outside knowledge); review them in the verification details.")
+        if v["miscited"]:
+            ans.warnings.append(f"{v['miscited']} sentence(s) cite the wrong source although the retrieved context "
+                                "supports them; see suggested tags.")
+        if v["unsupported"] > unfaithful:
+            ans.warnings.append(f"{v['unsupported']} sentence(s) look unsupported by their cited sources.")
         trace.event("verification", checked=v["checked"], supported=v["supported"], weak=v["weak"],
-                    unsupported=v["unsupported"], uncited=v["uncited"],
-                    flagged=[{k: x[k] for k in ("text", "refs", "overlap", "status", "missing_numbers", "missing_terms")}
-                             for x in v["sentences"] if x["status"] != "supported"])
+                    unsupported=v["unsupported"], uncited=v["uncited"], claims=v["claims"],
+                    faithfulness=v["faithfulness"], citation_correctness=v["citation_correctness"],
+                    miscited=v["miscited"], inference=v["inference"],
+                    flagged=[{k: x[k] for k in ("text", "refs", "overlap", "status", "context_status",
+                                                "suggested_refs", "inference", "missing_numbers", "missing_terms")}
+                             for x in v["sentences"]
+                             if x["status"] != "supported" or x["context_status"] != "supported" or x["inference"]])
 
 
 _default: Assistant | None = None
