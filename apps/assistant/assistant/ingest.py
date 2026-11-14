@@ -129,6 +129,8 @@ def main() -> int:
                         "title": meta.get("title") or path.stem, "url": meta.get("url", ""),
                         "section": section, "text": text.strip(), "is_mock": False,
                         "page": int(m.group(1)) if m else None, "pdf_url": pdf_url,
+                        **({"license": meta["license"] or "none",
+                            "redistributable": meta.get("redistributable") == "1"} if "license" in meta else {}),
                     }, ensure_ascii=False) + "\n")
             n += i
             if i == 0 and path.suffix.lower() == ".pdf":

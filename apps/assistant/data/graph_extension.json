@@ -1,0 +1,516 @@
+{
+ "schema_version": 1,
+ "extends": "apps/web/public/data/graph.json",
+ "built_from": "apps/assistant/data/processed/chunks.jsonl (NASA PSI pages, NTRS papers, NASA history pages)",
+ "nodes": [
+  {
+   "id": "incident:apollo-1",
+   "type": "incident",
+   "label": "Apollo 1 cabin fire (1967)",
+   "year": 1967,
+   "url": "https://sma.nasa.gov/sma-disciplines/accllp/apollo-1",
+   "group": "history"
+  },
+  {
+   "id": "incident:apollo-13",
+   "type": "incident",
+   "label": "Apollo 13 oxygen tank explosion (1970)",
+   "year": 1970,
+   "url": "https://sma.nasa.gov/sma-disciplines/accllp/apollo-13",
+   "group": "history"
+  },
+  {
+   "id": "incident:mir-1997",
+   "type": "incident",
+   "label": "Mir oxygen-generator fire (1997)",
+   "year": 1997,
+   "url": "https://www.nasa.gov/history/25-years-ago-fire-aboard-space-station-mir/",
+   "group": "history"
+  },
+  {
+   "id": "hardware:cir",
+   "type": "hardware",
+   "label": "Combustion Integrated Rack (CIR)",
+   "group": "hardware"
+  },
+  {
+   "id": "hardware:drop-tower",
+   "type": "hardware",
+   "label": "Drop tower",
+   "group": "hardware"
+  },
+  {
+   "id": "hardware:cygnus",
+   "type": "hardware",
+   "label": "Cygnus cargo vehicle",
+   "group": "hardware"
+  },
+  {
+   "id": "hardware:smoke-detector",
+   "type": "hardware",
+   "label": "Smoke detector",
+   "group": "hardware"
+  },
+  {
+   "id": "hardware:msg",
+   "type": "hardware",
+   "label": "Microgravity Science Glovebox (MSG)",
+   "group": "hardware"
+  },
+  {
+   "id": "hardware:csa-cp",
+   "type": "hardware",
+   "label": "Compound Specific Analyzer-Combustion Products (CSA-CP)",
+   "group": "hardware"
+  },
+  {
+   "id": "hardware:mdca",
+   "type": "hardware",
+   "label": "Multi-user Droplet Combustion Apparatus (MDCA)",
+   "group": "hardware"
+  },
+  {
+   "id": "hardware:p-trak",
+   "type": "hardware",
+   "label": "TSI P-Trak particle counter",
+   "group": "hardware"
+  },
+  {
+   "id": "material:wire-insulation",
+   "type": "material",
+   "label": "Electrical wiring / wire insulation",
+   "group": "material"
+  },
+  {
+   "id": "hardware:oxygen-tank",
+   "type": "hardware",
+   "label": "Oxygen tank",
+   "group": "hardware"
+  },
+  {
+   "id": "hardware:oxygen-candle",
+   "type": "hardware",
+   "label": "Solid-fuel oxygen generator (oxygen candle)",
+   "group": "hardware"
+  },
+  {
+   "id": "hardware:pfe",
+   "type": "hardware",
+   "label": "Portable fire extinguisher (PFE)",
+   "group": "hardware"
+  },
+  {
+   "id": "hardware:elektron",
+   "type": "hardware",
+   "label": "Elektron oxygen generator",
+   "group": "hardware"
+  },
+  {
+   "id": "material:lithium-perchlorate",
+   "type": "material",
+   "label": "Lithium perchlorate (oxygen candle)",
+   "group": "material"
+  }
+ ],
+ "edges": [
+  {
+   "id": "PSI-10|uses_hardware|hardware:cir",
+   "source": "PSI-10",
+   "target": "hardware:cir",
+   "type": "uses_hardware",
+   "evidence": "PSI-10 ACME/Flame Design – Advanced Combustion via Microgravity Experiments / Flame Design: “- Hardware: Advanced Combustion via Microgravity Experiments (ACME) Combustion Integrated Rack (CIR) Reconfiguration of Combustion Integrated Rack (CIR)”",
+   "url": "https://psi.nasa.gov/physci/repo/data/investigations/PSI-10",
+   "chunk": "PSI-10#1"
+  },
+  {
+   "id": "PSI-10|relates_to_hardware|hardware:drop-tower",
+   "source": "PSI-10",
+   "target": "hardware:drop-tower",
+   "type": "relates_to_hardware",
+   "evidence": "PSI-10 ACME/Flame Design – Advanced Combustion via Microgravity Experiments / Flame Design: “Perform spherical diffusion flame tests in drop towers and aboard the International Space Station.”",
+   "url": "https://psi.nasa.gov/physci/repo/data/investigations/PSI-10",
+   "chunk": "PSI-10#4"
+  },
+  {
+   "id": "PSI-100|uses_hardware|hardware:cygnus",
+   "source": "PSI-100",
+   "target": "hardware:cygnus",
+   "type": "uses_hardware",
+   "evidence": "PSI-100 SAFFIRE-III – Spacecraft Fire Experiment-III: “- Hardware: Saffire III enclosure in Cygnus”",
+   "url": "https://psi.nasa.gov/physci/repo/data/investigations/PSI-100",
+   "chunk": "PSI-100#1"
+  },
+  {
+   "id": "PSI-101|relates_to_hardware|hardware:smoke-detector",
+   "source": "PSI-101",
+   "target": "hardware:smoke-detector",
+   "type": "relates_to_hardware",
+   "evidence": "PSI-101 SAME-R – Smoke Aerosol Measurement Experiment-Reflight: “The change in the size distribution and number density will, in turn, affect the response of the smoke detectors and possibly result in some detectors”",
+   "url": "https://psi.nasa.gov/physci/repo/data/investigations/PSI-101",
+   "chunk": "PSI-101#3"
+  },
+  {
+   "id": "PSI-102|relates_to_hardware|hardware:smoke-detector",
+   "source": "PSI-102",
+   "target": "hardware:smoke-detector",
+   "type": "relates_to_hardware",
+   "evidence": "PSI-102 SAME – Smoke and Aerosol Measurement Experiment: “The operator then ran the self diagnostic procedures on the two smoke detectors and activated the video cameras, turned on the igniter for a predefined period of time (15 to 60 seconds), and initiated the thermophoretic soot samplers to sample the smoke.”",
+   "url": "https://psi.nasa.gov/physci/repo/data/investigations/PSI-102",
+   "chunk": "PSI-102#4"
+  },
+  {
+   "id": "PSI-102|relates_to_hardware|hardware:msg",
+   "source": "PSI-102",
+   "target": "hardware:msg",
+   "type": "relates_to_hardware",
+   "evidence": "PSI-102 SAME – Smoke and Aerosol Measurement Experiment: “- The Microgravity Science Glovebox (MSG), a Resource for Gravity-Dependent Phenomena Research on the International Space Station (ISS)”",
+   "url": "https://psi.nasa.gov/physci/repo/data/investigations/PSI-102",
+   "chunk": "PSI-102#8"
+  },
+  {
+   "id": "PSI-107|uses_hardware|hardware:msg",
+   "source": "PSI-107",
+   "target": "hardware:msg",
+   "type": "uses_hardware",
+   "evidence": "PSI-107 SPICE – Smoke Point In Co-flow Experiment: “- Hardware: Microgravity Science Glovebox (MSG)”",
+   "url": "https://psi.nasa.gov/physci/repo/data/investigations/PSI-107",
+   "chunk": "PSI-107#1"
+  },
+  {
+   "id": "PSI-159|uses_hardware|hardware:cir",
+   "source": "PSI-159",
+   "target": "hardware:cir",
+   "type": "uses_hardware",
+   "evidence": "PSI-159 ACME CFI-G – Advanced Combustion via Microgravity Experiments / Cool Flames Invest: “- Hardware: ACME Combustion Integrated Rack (CIR)”",
+   "url": "https://psi.nasa.gov/physci/repo/data/investigations/PSI-159",
+   "chunk": "PSI-159#1"
+  },
+  {
+   "id": "PSI-20|uses_hardware|hardware:cir",
+   "source": "PSI-20",
+   "target": "hardware:cir",
+   "type": "uses_hardware",
+   "evidence": "PSI-20 ACME BRE – Advanced Combustion via Microgravity Experiments - Burning Rate Emulator: “- Hardware: Combustion Integrated Rack (CIR) ACME”",
+   "url": "https://psi.nasa.gov/physci/repo/data/investigations/PSI-20",
+   "chunk": "PSI-20#1"
+  },
+  {
+   "id": "PSI-21|uses_hardware|hardware:cir",
+   "source": "PSI-21",
+   "target": "hardware:cir",
+   "type": "uses_hardware",
+   "evidence": "PSI-21 ACME CLD Flame – Advanced Combustion via Microgravity Experiments / Coflow Laminar : “- Hardware: Combustion Integrated Rack (CIR) ACME”",
+   "url": "https://psi.nasa.gov/physci/repo/data/investigations/PSI-21",
+   "chunk": "PSI-21#1"
+  },
+  {
+   "id": "PSI-22|uses_hardware|hardware:cir",
+   "source": "PSI-22",
+   "target": "hardware:cir",
+   "type": "uses_hardware",
+   "evidence": "PSI-22 ACME E-FIELD Flames – Advanced Combustion via Microgravity Experiments Electric-Fie: “- Hardware: Combustion Integrated Rack (CIR) ACME”",
+   "url": "https://psi.nasa.gov/physci/repo/data/investigations/PSI-22",
+   "chunk": "PSI-22#1"
+  },
+  {
+   "id": "PSI-23|uses_hardware|hardware:cir",
+   "source": "PSI-23",
+   "target": "hardware:cir",
+   "type": "uses_hardware",
+   "evidence": "PSI-23 ACME s-Flame – Advanced Combustion via Microgravity Experiments-Structure and Respo: “- Hardware: Combustion Integrated Rack (CIR) ACME”",
+   "url": "https://psi.nasa.gov/physci/repo/data/investigations/PSI-23",
+   "chunk": "PSI-23#1"
+  },
+  {
+   "id": "PSI-25|uses_hardware|hardware:msg",
+   "source": "PSI-25",
+   "target": "hardware:msg",
+   "type": "uses_hardware",
+   "evidence": "PSI-25 BASS-II – Burning and Suppression of Solids - II: “- Hardware: Microgravity Science Glovebox (MSG)”",
+   "url": "https://psi.nasa.gov/physci/repo/data/investigations/PSI-25",
+   "chunk": "PSI-25#1"
+  },
+  {
+   "id": "PSI-25|relates_to_hardware|hardware:csa-cp",
+   "source": "PSI-25",
+   "target": "hardware:csa-cp",
+   "type": "relates_to_hardware",
+   "evidence": "PSI-25 BASS-II – Burning and Suppression of Solids - II: “- Results from on-board CSA-CP and CDM Sensor Readings during the Burning and Suppression of Solids - II (BASS-II) Experiment in the Microgravity Science Glovebox (MSG)”",
+   "url": "https://psi.nasa.gov/physci/repo/data/investigations/PSI-25",
+   "chunk": "PSI-25#6"
+  },
+  {
+   "id": "PSI-26|uses_hardware|hardware:msg",
+   "source": "PSI-26",
+   "target": "hardware:msg",
+   "type": "uses_hardware",
+   "evidence": "PSI-26 BASS – Burning and Suppression of Solids: “- Hardware: Microgravity Science Glovebox”",
+   "url": "https://psi.nasa.gov/physci/repo/data/investigations/PSI-26",
+   "chunk": "PSI-26#1"
+  },
+  {
+   "id": "PSI-26|relates_to_hardware|hardware:drop-tower",
+   "source": "PSI-26",
+   "target": "hardware:drop-tower",
+   "type": "relates_to_hardware",
+   "evidence": "PSI-26 BASS – Burning and Suppression of Solids: “BASS experiments were based on the hypothesis that materials in microgravity, with adequate ventilation, burn as well if not better than the same material in normal gravity with other conditions being identical (pressure, oxygen concentration, temperature, et…”",
+   "url": "https://psi.nasa.gov/physci/repo/data/investigations/PSI-26",
+   "chunk": "PSI-26#3"
+  },
+  {
+   "id": "PSI-39|uses_hardware|hardware:cir",
+   "source": "PSI-39",
+   "target": "hardware:cir",
+   "type": "uses_hardware",
+   "evidence": "PSI-39 CFI – Cool Flames Investigation: “- Hardware: Multi-User Droplet Combustion Apparatus (MDCA) Combustion Integrated Rack (CIR)”",
+   "url": "https://psi.nasa.gov/physci/repo/data/investigations/PSI-39",
+   "chunk": "PSI-39#1"
+  },
+  {
+   "id": "PSI-39|uses_hardware|hardware:mdca",
+   "source": "PSI-39",
+   "target": "hardware:mdca",
+   "type": "uses_hardware",
+   "evidence": "PSI-39 CFI – Cool Flames Investigation: “- Hardware: Multi-User Droplet Combustion Apparatus (MDCA) Combustion Integrated Rack (CIR)”",
+   "url": "https://psi.nasa.gov/physci/repo/data/investigations/PSI-39",
+   "chunk": "PSI-39#1"
+  },
+  {
+   "id": "PSI-47|relates_to_hardware|hardware:p-trak",
+   "source": "PSI-47",
+   "target": "hardware:p-trak",
+   "type": "relates_to_hardware",
+   "evidence": "PSI-47 DAFT / DAFT-2 – Dust and Aerosol Measurement Feasibility Test / Dust and Aerosol Me: “- Keywords: DAFT, Condensate Nuclei Counter, Laser scattering aerosol device, Fire safety, Space hardware testing, P-Trak particulate counter, Capillary Fluid Motion, Combustion, Smoke, Fire prevention”",
+   "url": "https://psi.nasa.gov/physci/repo/data/investigations/PSI-47",
+   "chunk": "PSI-47#1"
+  },
+  {
+   "id": "PSI-68|uses_hardware|hardware:cir",
+   "source": "PSI-68",
+   "target": "hardware:cir",
+   "type": "uses_hardware",
+   "evidence": "PSI-68 FLEX-2 – Flame Extinguishment Experiment - 2: “- Hardware: Combustion Integrated Rack (CIR) Multi-user Droplet Combustion Appartatus (MDCA)”",
+   "url": "https://psi.nasa.gov/physci/repo/data/investigations/PSI-68",
+   "chunk": "PSI-68#1"
+  },
+  {
+   "id": "PSI-68|uses_hardware|hardware:mdca",
+   "source": "PSI-68",
+   "target": "hardware:mdca",
+   "type": "uses_hardware",
+   "evidence": "PSI-68 FLEX-2 – Flame Extinguishment Experiment - 2: “- Hardware: Combustion Integrated Rack (CIR) Multi-user Droplet Combustion Appartatus (MDCA)”",
+   "url": "https://psi.nasa.gov/physci/repo/data/investigations/PSI-68",
+   "chunk": "PSI-68#1"
+  },
+  {
+   "id": "PSI-69|uses_hardware|hardware:cir",
+   "source": "PSI-69",
+   "target": "hardware:cir",
+   "type": "uses_hardware",
+   "evidence": "PSI-69 FLEX – Flame Extinguishment Experiment: “- Hardware: Combustion Integrated Rack (CIR)-Fluids and Combustion Facility (FCF) Multi-user Droplet Combustion Appartatus (MDCA)”",
+   "url": "https://psi.nasa.gov/physci/repo/data/investigations/PSI-69",
+   "chunk": "PSI-69#1"
+  },
+  {
+   "id": "PSI-69|uses_hardware|hardware:mdca",
+   "source": "PSI-69",
+   "target": "hardware:mdca",
+   "type": "uses_hardware",
+   "evidence": "PSI-69 FLEX – Flame Extinguishment Experiment: “- Hardware: Combustion Integrated Rack (CIR)-Fluids and Combustion Facility (FCF) Multi-user Droplet Combustion Appartatus (MDCA)”",
+   "url": "https://psi.nasa.gov/physci/repo/data/investigations/PSI-69",
+   "chunk": "PSI-69#1"
+  },
+  {
+   "id": "PSI-98|uses_hardware|hardware:cygnus",
+   "source": "PSI-98",
+   "target": "hardware:cygnus",
+   "type": "uses_hardware",
+   "evidence": "PSI-98 SAFFIRE-I – Spacecraft Fire Safety Experiment-I: “- Hardware: Saffire 1 enclosure in Cygnus”",
+   "url": "https://psi.nasa.gov/physci/repo/data/investigations/PSI-98",
+   "chunk": "PSI-98#1"
+  },
+  {
+   "id": "PSI-99|uses_hardware|hardware:cygnus",
+   "source": "PSI-99",
+   "target": "hardware:cygnus",
+   "type": "uses_hardware",
+   "evidence": "PSI-99 SAFFIRE-II – Spacecraft Fire Experiment-II: “- Hardware: Cygnus Pressurized Cargo Module SAFFIRE”",
+   "url": "https://psi.nasa.gov/physci/repo/data/investigations/PSI-99",
+   "chunk": "PSI-99#1"
+  },
+  {
+   "id": "hardware:cygnus|co_studied|fuel:nomex",
+   "source": "hardware:cygnus",
+   "target": "fuel:nomex",
+   "type": "co_studied",
+   "evidence": "PSI-99 SAFFIRE-II – Spacecraft Fire Experiment-II: “- Keywords: fire, Cygnus, SAFFIRE, Smoldering, fire safety, Nomex, SHS, Smoke Distribution”",
+   "url": "https://psi.nasa.gov/physci/repo/data/investigations/PSI-99",
+   "chunk": "PSI-99#1"
+  },
+  {
+   "id": "incident:apollo-1|involved|concept:oxygen",
+   "source": "incident:apollo-1",
+   "target": "concept:oxygen",
+   "type": "involved",
+   "evidence": "Apollo 1 – fire, investigation and lessons learned: “Because of the pure oxygen atmosphere, the fire spread quickly, causing a rapid rise in temperature and pressure that led to the rupture of the Command Module pressure vessel.”",
+   "url": "https://sma.nasa.gov/sma-disciplines/accllp/apollo-1",
+   "chunk": "NASA-APOLLO-1#14"
+  },
+  {
+   "id": "incident:apollo-1|involved|concept:smoke",
+   "source": "incident:apollo-1",
+   "target": "concept:smoke",
+   "type": "involved",
+   "evidence": "Apollo 1 – fire, investigation and lessons learned: “Within seconds, rising temperatures and pressure caused the CM pressure vessel to crack, releasing flames and smoke onto the launch pad’s service structure.”",
+   "url": "https://sma.nasa.gov/sma-disciplines/accllp/apollo-1",
+   "chunk": "NASA-APOLLO-1#13"
+  },
+  {
+   "id": "incident:apollo-1|involved|material:wire-insulation",
+   "source": "incident:apollo-1",
+   "target": "material:wire-insulation",
+   "type": "involved",
+   "evidence": "Apollo 1 – fire, investigation and lessons learned: “Although they couldn’t determine a specific source of ignition, investigators found evidence of arcing in several wires in the spacecraft near the environment control system.”",
+   "url": "https://sma.nasa.gov/sma-disciplines/accllp/apollo-1",
+   "chunk": "NASA-APOLLO-1#14"
+  },
+  {
+   "id": "incident:apollo-1|involved|concept:ignition",
+   "source": "incident:apollo-1",
+   "target": "concept:ignition",
+   "type": "involved",
+   "evidence": "Apollo 1 – fire, investigation and lessons learned: “Although they couldn’t determine a specific source of ignition, investigators found evidence of arcing in several wires in the spacecraft near the environment control system.”",
+   "url": "https://sma.nasa.gov/sma-disciplines/accllp/apollo-1",
+   "chunk": "NASA-APOLLO-1#14"
+  },
+  {
+   "id": "incident:apollo-13|involved|hardware:oxygen-tank",
+   "source": "incident:apollo-13",
+   "target": "hardware:oxygen-tank",
+   "type": "involved",
+   "evidence": "Apollo 13 – oxygen tank explosion and lessons learned: “Misfortune plagued the mission early on, with ground tests before launch indicating the possibility of a poorly insulated helium tank in the Lunar Module and the previously damaged oxygen tank number two.”",
+   "url": "https://sma.nasa.gov/sma-disciplines/accllp/apollo-13",
+   "chunk": "NASA-APOLLO-13#14"
+  },
+  {
+   "id": "incident:apollo-13|involved|concept:ignition",
+   "source": "incident:apollo-13",
+   "target": "concept:ignition",
+   "type": "involved",
+   "evidence": "Apollo 13 – oxygen tank explosion and lessons learned: “A primary concern was whether cold condensation on the instrumentation would cause it to short circuit when power returned to the CM.”",
+   "url": "https://sma.nasa.gov/sma-disciplines/accllp/apollo-13",
+   "chunk": "NASA-APOLLO-13#8"
+  },
+  {
+   "id": "incident:apollo-13|involved|fuel:teflon",
+   "source": "incident:apollo-13",
+   "target": "fuel:teflon",
+   "type": "involved",
+   "evidence": "Apollo 13 – oxygen tank explosion and lessons learned: “During the final test on the launch pad, the heaters were left on for an extended period and reached temperatures around 1000 degrees Fahrenheit, degrading the Teflon insulation.”",
+   "url": "https://sma.nasa.gov/sma-disciplines/accllp/apollo-13",
+   "chunk": "NASA-APOLLO-13#10"
+  },
+  {
+   "id": "incident:apollo-13|involved|material:wire-insulation",
+   "source": "incident:apollo-13",
+   "target": "material:wire-insulation",
+   "type": "involved",
+   "evidence": "Apollo 13 – oxygen tank explosion and lessons learned: “For Apollo 14 and future missions, engineers at NASA and North American Rockwell redesigned the oxygen tank system by adding a third tank in a different bay, upgrading thermostats, removing stirring fans and sheathing all electrical wiring in stainless steel.”",
+   "url": "https://sma.nasa.gov/sma-disciplines/accllp/apollo-13",
+   "chunk": "NASA-APOLLO-13#18"
+  },
+  {
+   "id": "incident:mir-1997|involved|hardware:oxygen-candle",
+   "source": "incident:mir-1997",
+   "target": "hardware:oxygen-candle",
+   "type": "involved",
+   "evidence": "25 Years Ago: Fire Aboard Space Station Mir: “24, 1997, the six crew members aboard the Russian space station Mir faced significant danger when a fire ignited in an oxygen generating system.”",
+   "url": "https://www.nasa.gov/history/25-years-ago-fire-aboard-space-station-mir/",
+   "chunk": "NASA-MIR-1997#1"
+  },
+  {
+   "id": "incident:mir-1997|involved|concept:ignition",
+   "source": "incident:mir-1997",
+   "target": "concept:ignition",
+   "type": "involved",
+   "evidence": "25 Years Ago: Fire Aboard Space Station Mir: “24, 1997, the six crew members aboard the Russian space station Mir faced significant danger when a fire ignited in an oxygen generating system.”",
+   "url": "https://www.nasa.gov/history/25-years-ago-fire-aboard-space-station-mir/",
+   "chunk": "NASA-MIR-1997#1"
+  },
+  {
+   "id": "incident:mir-1997|involved|concept:smoke",
+   "source": "incident:mir-1997",
+   "target": "concept:smoke",
+   "type": "involved",
+   "evidence": "25 Years Ago: Fire Aboard Space Station Mir: “24, as Lazutkin activated a solid-fuel oxygen generator in Mir’s Kvant-1 module, the canister ignited, shooting a three-foot flame with sparks and bits of molten metal across the module and generating a large quantity of dense smoke.”",
+   "url": "https://www.nasa.gov/history/25-years-ago-fire-aboard-space-station-mir/",
+   "chunk": "NASA-MIR-1997#2"
+  },
+  {
+   "id": "incident:mir-1997|involved|concept:suppression",
+   "source": "incident:mir-1997",
+   "target": "concept:suppression",
+   "type": "involved",
+   "evidence": "25 Years Ago: Fire Aboard Space Station Mir: “Although the narrow confines where the fire occurred made fighting it difficult, through teamwork and composure the crew prevailed and extinguished the flames, with no damage to the station’s structure.”",
+   "url": "https://www.nasa.gov/history/25-years-ago-fire-aboard-space-station-mir/",
+   "chunk": "NASA-MIR-1997#1"
+  },
+  {
+   "id": "incident:mir-1997|involved|hardware:pfe",
+   "source": "incident:mir-1997",
+   "target": "hardware:pfe",
+   "type": "involved",
+   "evidence": "25 Years Ago: Fire Aboard Space Station Mir: “The crew quickly donned oxygen masks, and Korzun began dousing the flame with foam from a fire extinguisher, as Linenger held him in place and the other crew members handed him two more extinguishers.”",
+   "url": "https://www.nasa.gov/history/25-years-ago-fire-aboard-space-station-mir/",
+   "chunk": "NASA-MIR-1997#4"
+  },
+  {
+   "id": "incident:mir-1997|involved|hardware:elektron",
+   "source": "incident:mir-1997",
+   "target": "hardware:elektron",
+   "type": "involved",
+   "evidence": "25 Years Ago: Fire Aboard Space Station Mir: “During normal Mir operations, the three resident crew members’ oxygen needs were met by two Elektron oxygen generating units.”",
+   "url": "https://www.nasa.gov/history/25-years-ago-fire-aboard-space-station-mir/",
+   "chunk": "NASA-MIR-1997#5"
+  },
+  {
+   "id": "incident:mir-1997|involved|material:lithium-perchlorate",
+   "source": "incident:mir-1997",
+   "target": "material:lithium-perchlorate",
+   "type": "involved",
+   "evidence": "25 Years Ago: Fire Aboard Space Station Mir: “Utilized for decades aboard Soviet and Russian submarines, and for years aboard their space stations, SFOGs burned canisters of solid lithium perchlorate that chemically generated oxygen.”",
+   "url": "https://www.nasa.gov/history/25-years-ago-fire-aboard-space-station-mir/",
+   "chunk": "NASA-MIR-1997#5"
+  },
+  {
+   "id": "incident:mir-1997|discussed_in|PSI-101",
+   "source": "incident:mir-1997",
+   "target": "PSI-101",
+   "type": "discussed_in",
+   "evidence": "Particle Morphology and Size Results from the Smoke Aerosol Measurement Experiment-2: “The experience on Mir in 1997 has shown that failure of oxygen generation systems can have significant consequences.”",
+   "url": "https://ntrs.nasa.gov/api/citations/20130000422/downloads/20130000422.pdf#page=2",
+   "chunk": "NTRS-20130000422#8"
+  },
+  {
+   "id": "incident:mir-1997|discussed_in|PSI-102",
+   "source": "incident:mir-1997",
+   "target": "PSI-102",
+   "type": "discussed_in",
+   "evidence": "Properties of Smoke from Overheated Materials in Low- Gravity: “The experience on Mir in 1997 has shown that failure of oxygen generation systems can have significant consequences.”",
+   "url": "https://ntrs.nasa.gov/api/citations/20120012884/downloads/20120012884.pdf#page=2",
+   "chunk": "OA-S20b9f294b6050#7"
+  }
+ ],
+ "node_types": {
+  "hardware": "flight or ground hardware",
+  "incident": "historical spacecraft fire / oxygen incident",
+  "material": "cabin material not already a fuel node in graph.json"
+ },
+ "edge_types": {
+  "uses_hardware": "investigation -> hardware (PSI 'Hardware' / 'Flight platform' line)",
+  "relates_to_hardware": "investigation -> hardware (other PSI record sentence, e.g. studies smoke detector response)",
+  "involved": "incident -> material / hardware / concept (NASA incident article sentence)",
+  "discussed_in": "incident -> investigation (sentence in the investigation's PSI page or related paper)",
+  "co_studied": "hardware -> material (same PSI sentence)"
+ }
+}

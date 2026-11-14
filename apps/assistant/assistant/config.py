@@ -58,6 +58,9 @@ DENSE_FLOOR = float(os.getenv("DENSE_FLOOR", "0.45"))
 HYBRID_FUSION = os.getenv("HYBRID_FUSION", "weighted").lower()
 HYBRID_ALPHA = float(os.getenv("HYBRID_ALPHA", "0.6"))  # trọng số BM25 trong weighted fusion
 RRF_K = int(os.getenv("RRF_K", "60"))
+# Knowledge graph: graph của nhóm (apps/web/public/data/graph.json, tự tìm) + phần mở rộng của Module 3
+GRAPH_BASE_FILE = Path(os.environ["GRAPH_BASE_FILE"]) if os.getenv("GRAPH_BASE_FILE") else None
+GRAPH_EXTENSION_FILE = Path(os.getenv("GRAPH_EXTENSION_FILE", str(DATA_DIR / "graph_extension.json")))
 HYBRID_CANDIDATES = int(os.getenv("HYBRID_CANDIDATES", "30"))  # số ứng viên lấy từ mỗi bên trước khi gộp
 
 # --- Trace (log từng request để gỡ lỗi) ---

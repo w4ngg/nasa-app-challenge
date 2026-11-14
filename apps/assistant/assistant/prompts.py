@@ -59,6 +59,10 @@ STRICT RULES (guardrails):
    Do not re-order or re-score the table.
 14. Be concise: start with the direct answer. Use short bullets, no repeated content, no generic closing
    remarks. Aim for under ~250 words unless the user asks for a comparison or ranking.
+15. Relationships: for questions about how investigations, materials, hardware and historical incidents
+   (Apollo 1, Apollo 13, Mir 1997) connect – e.g. "which experiments used the CIR", "what was involved in the
+   Mir fire", "which studies tested Nomex" – call explore_graph with the entity. Report each link with its tag.
+   A link only means a NASA sentence mentions both; never present it as a cause unless the cited text says so.
 """
 
 def active_tools() -> list[dict]:
@@ -71,6 +75,26 @@ def active_tools() -> list[dict]:
 
 
 TOOLS = [
+    {
+        "type": "function",
+        "function": {
+            "name": "explore_graph",
+            "description": "Knowledge graph lookup: links of an investigation, material, hardware item, historical "
+                           "incident or concept (uses_hardware, uses_fuel, studies, involved, discussed_in, "
+                           "related_to...), each with a quoted NASA evidence sentence and a citation tag.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "entity": {"type": "string", "description": "e.g. 'FLEX', 'PSI-26', 'Nomex', 'CIR', 'Apollo 13', "
+                                                                "'Mir 1997', 'smoke'"},
+                    "relation": {"type": "string", "description": "optional edge type filter, e.g. uses_hardware, "
+                                                                  "uses_fuel, studies, involved, lists_publication"},
+                    "limit": {"type": "integer", "description": "max links (default 12, max 25)"},
+                },
+                "required": ["entity"],
+            },
+        },
+    },
     {
         "type": "function",
         "function": {
