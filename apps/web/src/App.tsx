@@ -11,6 +11,7 @@ import { ExplorerPage } from "./pages/ExplorerPage";
 const KnowledgeMapPage = lazy(() => import("./pages/KnowledgeMapPage").then((m) => ({ default: m.KnowledgeMapPage })));
 import { OverviewPage } from "./pages/OverviewPage";
 import { PlaceholderPage } from "./pages/PlaceholderPage";
+const DataAnalyticsPage = lazy(() => import("./pages/DataAnalyticsPage").then((m) => ({ default: m.DataAnalyticsPage })));
 import type { Facets, Summary } from "./types";
 
 export default function App() {
@@ -53,7 +54,7 @@ export default function App() {
   if (route.id) {
     page = (
       <InvestigationDetail id={route.id} backHref={routeUrl({ ...route, id: null })}
-        backLabel={route.view === "explorer" ? "Back to the experiment library" : route.view === "assistant" ? "Back to the research assistant" : route.view === "map" ? "Back to the knowledge map" : "Back to the overview"}
+        backLabel={route.view === "explorer" ? "Back to the experiment library" : route.view === "assistant" ? "Back to the research assistant" : route.view === "map" ? "Back to the knowledge map" : route.view === "lab" ? "Back to data analytics" : "Back to the overview"}
         onBack={backToList} onOpen={openInvestigation} />
     );
   } else if (route.view === "overview") {
@@ -64,6 +65,8 @@ export default function App() {
     page = <AssistantPage onLink={onLink} />;
   } else if (route.view === "explorer") {
     page = <ExplorerPage route={route} navigate={navigate} summary={summary} facets={facets} onOpen={openInvestigation} />;
+  } else if (route.view === "lab") {
+    page = <Suspense fallback={<p className="state" role="status">Loading data analytics…</p>}><DataAnalyticsPage onLink={onLink} /></Suspense>;
   } else {
     page = <PlaceholderPage view={route.view} onLink={onLink} />;
   }

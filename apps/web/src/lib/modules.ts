@@ -30,7 +30,6 @@ export const modules: Module[] = [
     planned: "Enter a habitat atmosphere and cabin materials, and see which of them fall inside or outside the tested ranges.",
   },
   {
-    view: "lab", label: "Test run lab", built: false,
-    planned: "Every experiment run across investigations in one table, filterable by measured quantity.",
+    view: "lab", label: "Data analytics", built: true,
   },
 ];

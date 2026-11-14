@@ -15,7 +15,9 @@ Flame Atlas lets engineers and researchers find NASA Physical Sciences Informati
 - **Knowledge map.** A graph of 409 nodes (programs, investigations, publications, datasets, scientific concepts, fuels) and about 1,070 typed edges (`includes`, `lists_publication`, `has_dataset`, `studies`, `uses_fuel`, `related_to`), each with the sentence or record that supports it. Search brings matching branches forward, dims the rest and moves the camera to the matches; selecting a node shows its evidence path back to NASA PSI; up to three nodes of the same kind can be compared, with compatibility warnings instead of naive number comparisons. Concepts come from a curated dictionary (`apps/api/src/flame_api/graph.py`); Finding nodes are not built yet. Verify it with `flame-verify-graph`: it reconciles investigations, publication entries, datasets and related pairs with the raw PSI records, checks that every edge has evidence and every quote is in its PSI text, and writes 40 random concept links to `docs/graph-audit.csv` for hand review (a first review of a sample marked about 80% correct; the main error, procedural mentions of "ignited", was then removed).
 - **Research assistant.** Questions answered only from NASA PSI records, NTRS reports and the challenge resources (apps/assistant: BM25 retrieval, DeepSeek, citation guardrails). Every sentence carries a source tag that opens the source, PDFs at the cited page. It runs on your machine: `cd apps/assistant && uvicorn assistant.api:app --port 8003`, with `DEEPSEEK_API_KEY` in `apps/assistant/.env` (without a key it shows source passages only). The static site shows saved answers from `apps/assistant/scripts/export_samples.py` when no local assistant is running.
 
-The left rail lists seven modules. Overview, the Experiment library and the Research assistant are built; 3D flame chamber, Material comparison, Habitat check and Test run lab have pages that say "Not built yet" and what each will do.
+- **Data analytics MVP** (`?view=lab`). Five reviewed tables across four investigations: FLEX (274 source rows), BASS-II (129), CFI-G normal flames (179), CFI-G inverse flames (154), and SAFFIRE-II (9 samples, kept separate from 2 flow references and 4 source notes). Numeric tables support material, oxygen, pressure and available test-end/hot-ignition filters, measured X/Y quantities, point groups, original-cell inspection, up to three selected rows and CSV exports with units, quality flags, filters and provenance. CFI-G oxygen bases remain separate; zero burn times are retained and pressure is labelled approximate. SAFFIRE-II offers source-text sample comparisons with geometry and unit warnings, without inventing missing material names or coercing qualitative outcomes into numbers. No predictive model is included.
+
+The left rail lists eight modules. Overview, Knowledge map, Experiment library, Research assistant and Data analytics are built; 3D flame chamber, Material comparison and Habitat check have pages that say "Not built yet" and what each will do.
 
 Planned next: SI summaries, scenario-based ranking ("which experiments matter for a PMMA fire in an ISS cabin at 21% O₂?") and evidence-gap interpretation.
 
@@ -64,11 +66,21 @@ The exported JSON is committed in `apps/web/public/data`, so this step is only n
 ```sh
 npm run dev:web        # http://127.0.0.1:5173
 npm run build          # static site in apps/web/dist
+npm run test:web       # analytics normalization, filtering and export checks
 ```
 
 Optional API: `.venv/bin/python -m uvicorn flame_api.main:app --port 8000` (docs at `/docs`).
 
+- [Phạm vi sản phẩm và roadmap](docs/product.md)
+- [Kiến trúc](docs/architecture.md)
+- [Mô hình dữ liệu và quy tắc đối chiếu](docs/data-model.md)
+- [Kho tri thức và SI](knowledge/README.md)
+- [Phát triển local và đóng góp](docs/development.md)
+- [Khảo sát Data files and documents của đủ 26 hồ sơ PSI](docs/research/psi-data-files-2026-11-14.md)
+
 Tests: `.venv/bin/python -m pytest apps/api/tests` and `npm run build`.
+
+To try analytics, open `http://127.0.0.1:5173/?view=lab`. In FLEX, choose “Try a focused subset” to see 11 methanol/extinction rows at 21 mol % O₂ and 740–780 mmHg. Change an axis, inspect a point, select two table rows for comparison, then export the filtered CSV. Switch to BASS-II for initial/final gas readings. In CFI-G, switch between normal/inverse tables and filter Hot ignition; the normal table has 47 rows with Hot ignition = No, including 43 numeric oxygen/burn-time pairs. In SAFFIRE-II, compare samples 2-5 and 2-6, inspect the blank material and ambiguous `037 mm` thickness, and export samples with the source notes. This module reads the committed static JSON exports and needs no API or AI credentials.
 
 ## Deployment
 
