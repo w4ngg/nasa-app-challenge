@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import type { FormEvent } from "react";
+import { ResizableSplit } from "../components/Resizable";
 
 type Source = "PSI-159" | "PSI-69";
 
@@ -130,52 +131,65 @@ export function ForecastPage() {
         </div>
       </section>
 
-      <div className="forecast-grid">
-        <form className="panel forecast-form" onSubmit={submit} noValidate>
-          <div className="panel-head"><span className="panel-num" aria-hidden="true">2</span><h2>Enter pre-test conditions</h2></div>
-          <p className="panel-lede">All fields are required by the serialized {source} model. Post-test measurements are intentionally excluded.</p>
-          <div className="forecast-fields">
-            {config.fields.map((field) => (
-              <label key={field.name} className="forecast-field" htmlFor={`forecast-${field.name}`}>
-                <span>{field.label}</span>
-                <input id={`forecast-${field.name}`} type={field.type} required step={field.step}
-                  value={inputs[field.name] ?? ""} onChange={(event) => setInputs((current) => ({ ...current, [field.name]: event.target.value }))} />
-                {field.hint && <small>{field.hint}</small>}
-              </label>
-            ))}
-          </div>
-          {fractionError && <p className="field-error" role="alert">{fractionError}</p>}
-          {error && <p className="field-error" role="alert">{error}</p>}
-          <div className="forecast-actions">
-            <button className="primary" type="submit" disabled={pending || Boolean(fractionError)}>{pending ? "Running model…" : "Forecast burn time"}</button>
-            <button type="button" onClick={() => { setInputs(config.defaults); setResult(null); setError(null); }}>Reset values</button>
-          </div>
-        </form>
-
-        <section className="panel forecast-result" aria-labelledby="forecast-result-title" aria-live="polite">
-          <div className="panel-head"><span className="panel-num" aria-hidden="true">3</span><h2 id="forecast-result-title">Forecast result</h2></div>
-          {!result && !pending && <p className="forecast-empty">Enter the experimental conditions and run the local model. The API loads the exported <code>.joblib</code> artifact; no forecast is calculated in the browser.</p>}
-          {pending && <p className="forecast-empty" role="status">Loading the serialized model and calculating the forecast…</p>}
-          {result && (
-            <>
-              <p className="forecast-label">Predicted burn time</p>
-              <p className="forecast-value">{seconds.format(result.predicted_burn_time_s)} <span>seconds</span></p>
-              <div className="interval-card">
-                <div className="interval-header"><strong>{Math.round(result.interval.coverage * 100)}% prediction interval</strong><span>{seconds.format(result.interval.lower_s)}–{seconds.format(result.interval.upper_s)} s</span></div>
-                <div className="interval-track" aria-label={`${Math.round(result.interval.coverage * 100)}% prediction interval from ${result.interval.lower_s} to ${result.interval.upper_s} seconds`}>
-                  <span className="interval-marker" style={{ left: `${Math.min(Math.max(intervalPosition, 0), 100)}%` }} aria-hidden="true" />
+      <ResizableSplit
+        className="forecast-grid"
+        ariaLabel="Resize pre-test conditions form and forecast result panels"
+        mode="ratio"
+        defaultSize={0.54}
+        leftMin={300}
+        rightMin={280}
+        resizableHeight
+        minHeight={360}
+        maxHeight={1200}
+        storageKey="fa-resize-forecast"
+        left={
+          <form className="panel forecast-form" onSubmit={submit} noValidate>
+            <div className="panel-head"><span className="panel-num" aria-hidden="true">2</span><h2>Enter pre-test conditions</h2></div>
+            <p className="panel-lede">All fields are required by the serialized {source} model. Post-test measurements are intentionally excluded.</p>
+            <div className="forecast-fields">
+              {config.fields.map((field) => (
+                <label key={field.name} className="forecast-field" htmlFor={`forecast-${field.name}`}>
+                  <span>{field.label}</span>
+                  <input id={`forecast-${field.name}`} type={field.type} required step={field.step}
+                    value={inputs[field.name] ?? ""} onChange={(event) => setInputs((current) => ({ ...current, [field.name]: event.target.value }))} />
+                  {field.hint && <small>{field.hint}</small>}
+                </label>
+              ))}
+            </div>
+            {fractionError && <p className="field-error" role="alert">{fractionError}</p>}
+            {error && <p className="field-error" role="alert">{error}</p>}
+            <div className="forecast-actions">
+              <button className="primary" type="submit" disabled={pending || Boolean(fractionError)}>{pending ? "Running model…" : "Forecast burn time"}</button>
+              <button type="button" onClick={() => { setInputs(config.defaults); setResult(null); setError(null); }}>Reset values</button>
+            </div>
+          </form>
+        }
+        right={
+          <section className="panel forecast-result" aria-labelledby="forecast-result-title" aria-live="polite">
+            <div className="panel-head"><span className="panel-num" aria-hidden="true">3</span><h2 id="forecast-result-title">Forecast result</h2></div>
+            {!result && !pending && <p className="forecast-empty">Enter the experimental conditions and run the local model. The API loads the exported <code>.joblib</code> artifact; no forecast is calculated in the browser.</p>}
+            {pending && <p className="forecast-empty" role="status">Loading the serialized model and calculating the forecast…</p>}
+            {result && (
+              <>
+                <p className="forecast-label">Predicted burn time</p>
+                <p className="forecast-value">{seconds.format(result.predicted_burn_time_s)} <span>seconds</span></p>
+                <div className="interval-card">
+                  <div className="interval-header"><strong>{Math.round(result.interval.coverage * 100)}% prediction interval</strong><span>{seconds.format(result.interval.lower_s)}–{seconds.format(result.interval.upper_s)} s</span></div>
+                  <div className="interval-track" aria-label={`${Math.round(result.interval.coverage * 100)}% prediction interval from ${result.interval.lower_s} to ${result.interval.upper_s} seconds`}>
+                    <span className="interval-marker" style={{ left: `${Math.min(Math.max(intervalPosition, 0), 100)}%` }} aria-hidden="true" />
+                  </div>
+                  <p>This is a marginal interval calibrated from grouped out-of-fold residuals, not a safety threshold.</p>
                 </div>
-                <p>This is a marginal interval calibrated from grouped out-of-fold residuals, not a safety threshold.</p>
-              </div>
-              <dl className="forecast-meta">
-                <div><dt>Model</dt><dd>{result.model.replace(/_/g, " ")}</dd></div>
-                <div><dt>Prediction means</dt><dd>{result.prediction_meaning}</dd></div>
-              </dl>
-              <FuelSafetyNote source={source} />
-            </>
-          )}
-        </section>
-      </div>
+                <dl className="forecast-meta">
+                  <div><dt>Model</dt><dd>{result.model.replace(/_/g, " ")}</dd></div>
+                  <div><dt>Prediction means</dt><dd>{result.prediction_meaning}</dd></div>
+                </dl>
+                <FuelSafetyNote source={source} />
+              </>
+            )}
+          </section>
+        }
+      />
 
       <section className="panel forecast-evidence" aria-labelledby="forecast-evidence-title">
         <div className="panel-head"><span className="panel-num" aria-hidden="true">4</span><h2 id="forecast-evidence-title">Validation context</h2></div>

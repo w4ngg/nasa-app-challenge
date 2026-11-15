@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { MouseEvent } from "react";
 import { FilterPanel } from "../components/FilterPanel";
 import { InvestigationCard } from "../components/InvestigationCard";
+import { ResizableSplit } from "../components/Resizable";
 import { listInvestigations } from "../lib/data";
 import { activeCount, emptyFilters, filtersFromUrl, filtersToParams, o2Active, o2RangeError } from "../lib/filters";
 import type { Filters } from "../lib/filters";
@@ -71,21 +72,30 @@ export function ExplorerPage({ route, navigate, summary, facets, onOpen }: {
         </p>
       </header>
 
-      <div className="explorer">
-        <aside className="sidebar" aria-label="Filters">
-          <button type="button" className="filters-toggle" aria-expanded={filtersOpen} aria-controls="filter-panel"
-            onClick={() => setFiltersOpen((v) => !v)}>
-            {filtersOpen ? "Hide filters" : "Show filters"}{panelCount > 0 && <span className="badge-count">{panelCount}</span>}
-          </button>
-          <div id="filter-panel" className={filtersOpen ? "filter-panel open" : "filter-panel"}>
-            {facets ? (
-              <FilterPanel facets={facets} filters={route.filters} onChange={changeFilters}
-                totalInvestigations={summary?.investigations ?? 0} />
-            ) : <p className="state" role="status">Loading filters…</p>}
-          </div>
-        </aside>
-
-        <section className="results-panel" aria-labelledby="results-title">
+      <ResizableSplit
+        className="explorer"
+        ariaLabel="Resize filters sidebar and experiment results"
+        mode="left-px"
+        defaultSize={280}
+        leftMin={220}
+        rightMin={320}
+        storageKey="fa-resize-explorer"
+        left={
+          <aside className="sidebar" aria-label="Filters">
+            <button type="button" className="filters-toggle" aria-expanded={filtersOpen} aria-controls="filter-panel"
+              onClick={() => setFiltersOpen((v) => !v)}>
+              {filtersOpen ? "Hide filters" : "Show filters"}{panelCount > 0 && <span className="badge-count">{panelCount}</span>}
+            </button>
+            <div id="filter-panel" className={filtersOpen ? "filter-panel open" : "filter-panel"}>
+              {facets ? (
+                <FilterPanel facets={facets} filters={route.filters} onChange={changeFilters}
+                  totalInvestigations={summary?.investigations ?? 0} />
+              ) : <p className="state" role="status">Loading filters…</p>}
+            </div>
+          </aside>
+        }
+        right={
+          <section className="results-panel" aria-labelledby="results-title">
           <div className="library-search" role="search">
             <label className="field-label" htmlFor="library-search">Search experiments and publications</label>
             <input
@@ -152,7 +162,8 @@ export function ExplorerPage({ route, navigate, summary, facets, onOpen }: {
             </nav>
           )}
         </section>
-      </div>
+        }
+      />
     </>
   );
 }

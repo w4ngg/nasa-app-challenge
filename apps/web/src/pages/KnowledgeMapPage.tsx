@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { MouseEvent } from "react";
 import { ObsidianKnowledgeGraph } from "../components/ObsidianKnowledgeGraph";
+import { ResizableBox, ResizableSplit } from "../components/Resizable";
 import { GRAPH_CLUSTER_COLORS } from "../design/tokens";
 import { emptyFilters } from "../lib/filters";
 import { compare, edgeLabels, GraphIndex, loadGraph, typeLabels } from "../lib/graph";
@@ -39,6 +40,7 @@ export function KnowledgeMapPage({ onLink }: { onLink: (event: MouseEvent<HTMLAn
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [selected, setSelected] = useState<string | null>(null);
   const [comparing, setComparing] = useState<string[]>([]);
+  const [fitTrigger, setFitTrigger] = useState(0);
 
   useEffect(() => {
     loadGraph()
@@ -95,6 +97,7 @@ export function KnowledgeMapPage({ onLink }: { onLink: (event: MouseEvent<HTMLAn
     setQuery("");
     setSelected(null);
     setExpanded(new Set());
+    setFitTrigger((n) => n + 1);
   }
   function toggleLayer(key: Toggle) {
     setShown((s) => {
@@ -103,6 +106,7 @@ export function KnowledgeMapPage({ onLink }: { onLink: (event: MouseEvent<HTMLAn
       else next.add(key);
       return next;
     });
+    setFitTrigger((n) => n + 1);
   }
 
   if (failed) {
@@ -123,7 +127,7 @@ export function KnowledgeMapPage({ onLink }: { onLink: (event: MouseEvent<HTMLAn
   const listed = (matches.length ? matches : index.data.nodes.filter((n) => n.type === "investigation").map((n) => n.id)).slice(0, 60);
 
   return (
-    <div className="page">
+    <div className="page map-page">
       <header className="page-header">
         <h1>Obsidian Knowledge Graph</h1>
         <p>
@@ -160,19 +164,33 @@ export function KnowledgeMapPage({ onLink }: { onLink: (event: MouseEvent<HTMLAn
             : "Drag nodes, pan/zoom the canvas, double-click an investigation to expand datasets/publications, or Shift-click to compare."}
         </p>
 
-        <div className="map-body">
-          <ObsidianKnowledgeGraph
-            nodes={index.data.nodes}
-            edges={index.data.edges}
-            visibleIds={visible}
-            highlightIds={highlight}
-            selectedId={selected}
-            comparingIds={comparing}
-            onSelect={setSelected}
-            onToggleCompare={toggleCompare}
-            onDoubleSelect={toggleExpand}
-          />
-          <aside className="map-side" aria-label="Selected node">
+        <ResizableSplit
+          className="map-body"
+          ariaLabel="Resize knowledge graph and inspector panels"
+          mode="right-px"
+          defaultSize={330}
+          leftMin={320}
+          rightMin={240}
+          resizableHeight
+          minHeight={320}
+          maxHeight={1400}
+          storageKey="fa-resize-map"
+          left={
+            <ObsidianKnowledgeGraph
+              nodes={index.data.nodes}
+              edges={index.data.edges}
+              visibleIds={visible}
+              highlightIds={highlight}
+              selectedId={selected}
+              comparingIds={comparing}
+              fitTrigger={fitTrigger}
+              onSelect={setSelected}
+              onToggleCompare={toggleCompare}
+              onDoubleSelect={toggleExpand}
+            />
+          }
+          right={
+            <aside className="map-side" aria-label="Selected node">
             {!node && (
               <div className="map-empty">
                 <p className="slot-title">Select a node on the Force Canvas</p>
@@ -246,7 +264,8 @@ export function KnowledgeMapPage({ onLink }: { onLink: (event: MouseEvent<HTMLAn
               </div>
             )}
           </aside>
-        </div>
+          }
+        />
       </section>
 
       <section className="panel" aria-labelledby="compare-title">
@@ -271,12 +290,14 @@ export function KnowledgeMapPage({ onLink }: { onLink: (event: MouseEvent<HTMLAn
               </ul>
             )}
             {result.ok && (
-              <div className="table-scroll" tabIndex={0} role="region" aria-label="Comparison table">
+              <ResizableBox axes="y" minHeight={140} maxHeight={1000} storageKey="fa-resize-map-compare">
+                <div className="table-scroll" tabIndex={0} role="region" aria-label="Comparison table">
                 <table>
                   <thead><tr><th scope="col">Attribute</th>{comparing.map((id) => <th key={id} scope="col">{label(id)}</th>)}</tr></thead>
                   <tbody>{result.rows.map((r) => <tr key={r.label}><th scope="row">{r.label}</th>{r.values.map((v, i) => <td key={i}>{v}</td>)}</tr>)}</tbody>
                 </table>
-              </div>
+                </div>
+              </ResizableBox>
             )}
           </>
         )}

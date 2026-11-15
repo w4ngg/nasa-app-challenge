@@ -136,6 +136,15 @@ function ModuleIcon({ view }: { view: View }) {
           <circle cx="16.2" cy="5.6" r="1.6" fill="#10B981" />
         </svg>
       );
+    case "forecast":
+      return (
+        <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+          <circle cx="10" cy="11" r="6.2" stroke="currentColor" strokeWidth="1.4" />
+          <path d="M10 11L13.2 8.2" stroke="#8FE3FF" strokeWidth="1.6" strokeLinecap="round" />
+          <circle cx="10" cy="11" r="1.4" fill="#FF7A1A" />
+          <path d="M7.5 2.6H12.5" stroke="#A78BFA" strokeWidth="1.4" strokeLinecap="round" />
+        </svg>
+      );
   }
 }
 
@@ -201,7 +210,7 @@ export function SideNav({
       <nav id="side-menu" className={open ? "side-menu open" : "side-menu"} aria-label="Main">
         <p className="side-group">{collapsed ? "✦" : "Modules"}</p>
         <ul>
-          {modules.map((m) => (
+          {modules.filter((m) => !m.hidden).map((m) => (
             <li key={m.view}>
               <a
                 href={viewUrl(m.view)}
