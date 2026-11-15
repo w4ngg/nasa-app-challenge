@@ -5,6 +5,7 @@ import { basisLabels, categoryLabels, percentRange, platformLabels, topicLabels 
 import type { ExperimentalTable, FuelCategory, InvestigationDetail as Detail } from "../types";
 import { O2Bar } from "./O2Bar";
 import { PublicationCard } from "./PublicationCard";
+import { ResizableBox } from "./Resizable";
 
 const PREVIEW_ROWS = 25;
 const fuelCategoryOrder: FuelCategory[] = ["gas", "liquid", "solid", "aerosol"];
@@ -21,18 +22,20 @@ function TableView({ table }: { table: ExperimentalTable }) {
   return (
     <div>
       {table.note && <p className="field-help table-note">{table.note}</p>}
-      <div className="table-scroll" tabIndex={0} role="region" aria-label={`Table ${table.file_name}, scroll sideways for more columns`}>
-        <table>
-          <thead>
-            <tr>{table.columns.map((c, i) => <th key={i} scope="col" className={highlighted.has(c) ? "col-key" : undefined}>{c}</th>)}</tr>
-          </thead>
-          <tbody>
-            {rows.map((row, r) => (
-              <tr key={r}>{row.map((cell, c) => <td key={c} className={highlighted.has(table.columns[c]) ? "col-key" : undefined}>{cell}</td>)}</tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <ResizableBox axes="both" minWidth={280} minHeight={180} maxHeight={1200} storageKey="fa-resize-detail-table">
+        <div className="table-scroll" tabIndex={0} role="region" aria-label={`Table ${table.file_name}, scroll sideways for more columns`}>
+          <table>
+            <thead>
+              <tr>{table.columns.map((c, i) => <th key={i} scope="col" className={highlighted.has(c) ? "col-key" : undefined}>{c}</th>)}</tr>
+            </thead>
+            <tbody>
+              {rows.map((row, r) => (
+                <tr key={r}>{row.map((cell, c) => <td key={c} className={highlighted.has(table.columns[c]) ? "col-key" : undefined}>{cell}</td>)}</tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </ResizableBox>
       <div className="table-footer">
         <span>{rows.length} of {table.rows.length} rows. Highlighted columns are the ones read for fuel and oxygen.</span>
         {table.rows.length > PREVIEW_ROWS && (

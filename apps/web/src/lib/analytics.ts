@@ -1,4 +1,5 @@
 import type { ExperimentalTable } from "../types";
+import { additionalAnalyticsDatasets } from "./analytics-datasets.ts";
 
 export interface Metric {
   key: string;
@@ -10,6 +11,8 @@ export interface Metric {
   max?: number;
   exclusiveMin?: boolean;
   approximate?: boolean;
+  unitSuffix?: string;
+  negativeNeedsReview?: boolean;
 }
 
 export interface DatasetSpec {
@@ -21,8 +24,13 @@ export interface DatasetSpec {
   limits: string;
   idColumn: string;
   materialColumn: string;
-  categories: { key: string; label: string; column: string; labels?: Record<string, string> }[];
-  mode?: "sample_comparison";
+  fixedMaterial?: string;
+  categories: { key: string; label: string; column: string; labels?: Record<string, string>; groupable?: boolean }[];
+  mode?: "sample_comparison" | "source_records";
+  recordKind?: "samples" | "coverage" | "daily" | "inventory" | "publications";
+  recordColumns?: string[];
+  displayColumns?: string[];
+  countColumn?: string;
   metrics: Metric[];
   defaultX: string;
   defaultY: string;
@@ -52,7 +60,7 @@ export const analyticsDatasets: DatasetSpec[] = [
     key: "bass-ii", id: "PSI-25", name: "BASS-II · solid samples",
     file: "PSI-25_Experimental table_BASS-II.csv",
     description: "Per-test calibrated gas readings before and after burning solid samples. Material descriptions are kept exactly as recorded.",
-    limits: "Gas readings do not measure flame spread or establish a flammability limit. Fan and air displays are uncalibrated source settings, not airflow in cm/s. Unusual readings are preserved for source review; missing material descriptions are not inferred from nearby rows.",
+    limits: "These catalog gas readings do not measure flame spread or establish a flammability limit. Air display is documented in cm/s with a slow response; source sequences are not single constant velocities. Fan/pot settings require the relevant calibration before conversion to airflow. Open a test summary for any separately reviewed report outcomes. Missing material descriptions are not inferred from nearby rows.",
     idColumn: "Test #", materialColumn: "Fuel Sample Material",
     categories: [{ key: "pi", label: "Investigator", column: "PI" }],
     metrics: [
@@ -114,20 +122,24 @@ export const analyticsDatasets: DatasetSpec[] = [
     categories: [{ key: "direction", label: "Flow direction", column: "Flow Direction" }],
     metrics: [], defaultX: "", defaultY: "", defaultGroup: "",
   },
+  ...additionalAnalyticsDatasets,
 ];
 
-export type CellIssue = "Missing" | "Qualified or non-numeric" | "Outside physical bounds";
+export type CellIssue = "Missing" | "Qualified or non-numeric" | "Outside physical bounds" | "Signed value needs source review";
 export interface NumericCell { value: number | null; issue: CellIssue | null }
 const scalarNumber = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?$/i;
 
 /** Never parse a range, an approximate value, a list, or a display sequence as an exact measurement. */
 export function numericCell(raw: string, metric: Metric): NumericCell {
-  const text = raw.trim();
+  let text = raw.trim();
+  if (metric.unitSuffix && text.endsWith(metric.unitSuffix)) text = text.slice(0, -metric.unitSuffix.length).trim();
+  else if (metric.unitSuffix) return { value: null, issue: text ? "Qualified or non-numeric" : "Missing" };
   if (!text || /^(?:n\/?a|none|null|[-–—])$/i.test(text)) return { value: null, issue: "Missing" };
   if (!scalarNumber.test(text)) {
     return { value: null, issue: "Qualified or non-numeric" };
   }
   const value = Number(text) * (metric.factor ?? 1);
+  if (metric.negativeNeedsReview && value < 0) return { value: null, issue: "Signed value needs source review" };
   if (!Number.isFinite(value) || value < metric.min || (metric.exclusiveMin && value === metric.min)
       || (metric.max !== undefined && value > metric.max)) {
     return { value: null, issue: "Outside physical bounds" };
@@ -142,26 +154,41 @@ export interface AnalyticsRow {
   categories: Record<string, string>;
   cells: Record<string, NumericCell>;
   raw: string[];
+  warnings: string[];
+}
+
+export function validateAnalyticsTable(table: ExperimentalTable, spec: DatasetSpec): void {
+  if (table.investigation_id !== spec.id || table.file_name !== spec.file) throw new Error("Unexpected source table.");
+  const required = [spec.idColumn, ...(spec.fixedMaterial ? [] : [spec.materialColumn]), ...spec.metrics.map((m) => m.column), ...spec.categories.map((c) => c.column), ...(spec.recordColumns ?? [])];
+  const missing = required.filter((column) => !table.columns.includes(column));
+  if (missing.length) throw new Error(`The source schema changed. Missing columns: ${missing.join(", ")}`);
+  if (table.rows.some((row) => row.length !== table.columns.length)) throw new Error("The source contains a row with an unexpected number of cells.");
 }
 
 export function normalizeTable(table: ExperimentalTable, spec: DatasetSpec): AnalyticsRow[] {
-  if (table.investigation_id !== spec.id || table.file_name !== spec.file) throw new Error("Unexpected source table.");
-  const required = [spec.idColumn, spec.materialColumn, ...spec.metrics.map((m) => m.column), ...spec.categories.map((c) => c.column)];
-  const missing = required.filter((column) => !table.columns.includes(column));
-  if (missing.length) throw new Error(`The source schema changed. Missing columns: ${missing.join(", ")}`);
+  validateAnalyticsTable(table, spec);
   const indexes = new Map(table.columns.map((c, i) => [c, i]));
+  const occurrences = new Map<string, number>();
+  table.rows.forEach((raw) => { const signature = JSON.stringify(raw); occurrences.set(signature, (occurrences.get(signature) ?? 0) + 1); });
+  const ids = new Map<string, number>();
+  table.rows.forEach((raw) => { const id = raw[indexes.get(spec.idColumn)!]?.trim(); if (id) ids.set(id, (ids.get(id) ?? 0) + 1); });
   return table.rows.map((raw, index) => {
     const get = (column: string) => raw[indexes.get(column)!]?.trim() ?? "";
     return {
       key: index + 1, // 1-based data-row ordinal in the exported table, not a CSV physical line number.
       testId: get(spec.idColumn) || `Unlabelled row ${index + 1}`,
-      material: get(spec.materialColumn) || "Not recorded",
+      material: spec.fixedMaterial ?? (get(spec.materialColumn) || "Not recorded"),
       categories: Object.fromEntries(spec.categories.map((c) => {
         const value = get(c.column);
         return [c.key, c.labels?.[value.toLowerCase()] ?? (value || "Not recorded")];
       })),
       cells: Object.fromEntries(spec.metrics.map((m) => [m.key, numericCell(get(m.column), m)])),
       raw,
+      warnings: [
+        ...((occurrences.get(JSON.stringify(raw)) ?? 0) > 1 ? ["Identical source row occurs more than once; retained without deduplication."] : []),
+        ...((ids.get(get(spec.idColumn)) ?? 0) > 1 ? ["Source identifier is repeated; use the data-row ordinal to identify this record."] : []),
+        ...(spec.key === "spice" && get("Air Rate (cm/s)").startsWith("-") ? ["Negative airflow is preserved in the source. Its sign or calibration needs verification before plotting."] : []),
+      ],
     };
   });
 }
@@ -181,7 +208,7 @@ export const emptyAnalyticsFilters: AnalyticsFilters = {
 };
 
 export function filterError(filters: AnalyticsFilters, spec: DatasetSpec): string | null {
-  const ranges = [{ label: "O₂", low: filters.o2Min, high: filters.o2Max, min: 0, max: 100 }];
+  const ranges = spec.metrics.some((m) => m.key === "o2") ? [{ label: "O₂", low: filters.o2Min, high: filters.o2Max, min: 0, max: 100 }] : [];
   if (spec.metrics.some((m) => m.key === "pressure")) {
     ranges.push({ label: "Pressure", low: filters.pressureMin, high: filters.pressureMax, min: 0, max: Infinity });
   }
@@ -204,9 +231,9 @@ export function filterRows(rows: AnalyticsRow[], filters: AnalyticsFilters, spec
     return value != null && (low === "" || value >= Number(low)) && (high === "" || value <= Number(high));
   };
   return rows.filter((row) => (!filters.material || row.material === filters.material)
-    && (!filters.category || row.categories[spec.categories[0].key] === filters.category)
+    && (!filters.category || row.categories[spec.categories[0]?.key] === filters.category)
     && (!filters.ignition || row.categories.ignition === filters.ignition)
-    && inRange(row, "o2", filters.o2Min, filters.o2Max)
+    && (!spec.metrics.some((m) => m.key === "o2") || inRange(row, "o2", filters.o2Min, filters.o2Max))
     && (!spec.metrics.some((m) => m.key === "pressure") || inRange(row, "pressure", filters.pressureMin, filters.pressureMax)));
 }
 
@@ -231,7 +258,8 @@ export function comparisonNotes(rows: AnalyticsRow[], spec: DatasetSpec): string
   }
   notes.push(spec.id === "PSI-69" ? "Other ambient gas fractions may differ; review the complete source rows."
     : spec.id === "PSI-159" ? "Fuel composition and gas-flow settings may differ. Pressure is approximate; review the complete source rows."
-      : "Sample geometry, fan and air display settings may differ; review the complete source rows.");
+      : spec.id === "PSI-25" ? "Sample geometry, fan and air display settings may differ; review the complete source rows."
+        : spec.limits);
   return notes;
 }
 
@@ -246,12 +274,13 @@ export function analyticsCsv({ rows, table, spec, sourceUrl, filters, x, y, grou
   filters: AnalyticsFilters; x: string; y: string; group: string;
 }): string {
   const header = ["investigation_id", "source_file", "source_url", "data_row_ordinal", "test_id", "material",
-    "selected_x", "selected_y", "group_by", "filters_json", "plotted", "axis_exclusion_reason",
+    "selected_x", "selected_y", "group_by", "filters_json", "plotted", "axis_exclusion_reason", "review_flags", "material_basis", "interpretation_limits",
     ...spec.metrics.flatMap((m) => [metricLabel(m), `${m.key}_quality`]), ...table.columns.map((c) => `raw: ${c}`)];
   const data = rows.map((row) => [spec.id, table.file_name, sourceUrl, String(row.key), row.testId, row.material,
     metricLabel(spec.metrics.find((m) => m.key === x)!), metricLabel(spec.metrics.find((m) => m.key === y)!), group || "none", JSON.stringify(filters),
     String(row.cells[x].value !== null && row.cells[y].value !== null),
     [x, y].filter((k, i, all) => all.indexOf(k) === i && row.cells[k].issue).map((k) => `${k}: ${row.cells[k].issue}`).join("; "),
+    row.warnings.join("\n"), spec.fixedMaterial ? "Fixed adapter label from XC2H4 source columns" : `Source column: ${spec.materialColumn}`, spec.limits,
     ...spec.metrics.flatMap((m) => [row.cells[m.key].value === null ? "" : String(row.cells[m.key].value), row.cells[m.key].issue ?? (m.approximate ? "Numeric value from approximate source column" : "Exact numeric cell")]),
     ...table.columns.map((_, i) => row.raw[i] ?? "")]);
   return "\uFEFF" + [header, ...data].map((row) => row.map(csvCell).join(",")).join("\r\n") + "\r\n";

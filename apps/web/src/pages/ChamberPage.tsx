@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { MouseEvent } from "react";
 import { EmberMascot } from "../components/EmberMascot";
 import { Flame3D } from "../components/Flame3D";
+import { ResizableBox, ResizableSplit } from "../components/Resizable";
 import { ChamberSvg, MarsBaseSvg, MoonBaseSvg, RocketSvg, SatelliteSvg, ShieldSvg } from "../components/SpaceObjects";
 import { Zone3PhaseMap } from "../components/Zone3PhaseMap";
 import { describeFlameRegime, SOLID_MAX_AMBIENT_O2 } from "../lib/physics";
@@ -46,15 +47,28 @@ export function ChamberPage({ onLink }: { onLink: (event: MouseEvent<HTMLAnchorE
         </p>
       </header>
 
-      <div className="chamber-grid">
-        <div style={{ display: "grid", gap: 18 }}>
-          <Flame3D gravity={gravity} o2={o2} fuelName={selectedFuel.formula} />
-          <section className="panel" aria-label="Zone 3 Phase Map">
-            <Zone3PhaseMap o2={o2} gravity={gravity} onSelectO2={setO2} onSelectGravity={setGravity} />
-          </section>
-        </div>
-
-        <div style={{ display: "grid", gap: 18 }}>
+      <ResizableSplit
+        className="chamber-grid"
+        ariaLabel="Resize 3D flame chamber and telemetry console"
+        mode="ratio"
+        defaultSize={0.6}
+        leftMin={280}
+        rightMin={280}
+        storageKey="fa-resize-chamber-split"
+        left={
+          <div style={{ display: "grid", gap: 18 }}>
+            <ResizableBox axes="y" minHeight={260} maxHeight={1100} storageKey="fa-resize-chamber-flame">
+              <Flame3D gravity={gravity} o2={o2} fuelName={selectedFuel.formula} />
+            </ResizableBox>
+            <ResizableBox axes="y" minHeight={220} maxHeight={900} storageKey="fa-resize-chamber-phase">
+              <section className="panel" aria-label="Zone 3 Phase Map">
+                <Zone3PhaseMap o2={o2} gravity={gravity} onSelectO2={setO2} onSelectGravity={setGravity} />
+              </section>
+            </ResizableBox>
+          </div>
+        }
+        right={
+          <div style={{ display: "grid", gap: 18 }}>
           <section className="panel" aria-labelledby="chamber-controls-title">
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
               <h2 id="chamber-controls-title" style={{ margin: 0 }}>Chamber Controls</h2>
@@ -134,7 +148,8 @@ export function ChamberPage({ onLink }: { onLink: (event: MouseEvent<HTMLAnchorE
 
           <EmberMascot gravity={gravity} o2={o2} narrationText={narration} />
         </div>
-      </div>
+        }
+      />
     </div>
   );
 }

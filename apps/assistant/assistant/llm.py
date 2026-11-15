@@ -63,10 +63,14 @@ class DeepSeekClient:
         self.tracker = tracker or UsageTracker()
         self.last_usage: dict = {}  # token của lượt gọi gần nhất (agent đọc để ghi trace)
 
-    def chat(self, messages: list[dict], tools: list[dict] | None = None) -> tuple[Any, float]:
+    def chat(self, messages: list[dict], tools: list[dict] | None = None, *, max_tokens: int | None = None) -> tuple[Any, float]:
         """Trả về (message, cost_usd) của lượt gọi."""
         self.tracker.check_budget()
         kwargs: dict = {"model": self.model, "messages": messages, "temperature": config.TEMPERATURE}
+        if max_tokens is not None:
+            if max_tokens < 1:
+                raise ValueError("max_tokens must be positive")
+            kwargs["max_tokens"] = max_tokens
         if tools:
             kwargs["tools"] = tools
         resp = self.client.chat.completions.create(**kwargs)

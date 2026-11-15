@@ -1,0 +1,52 @@
+[
+  {
+    "id": "samer_kapton_conditions",
+    "status": "provisional_descriptive",
+    "title": "Khác biệt AMD đi kèm nhiều điều kiện thử",
+    "statement": "Nhóm Kapton được chọn có khác biệt AMD, đồng thời khác airflow, aging, duration và nhiệt độ workbook.",
+    "source_sheet": "SAME R Results",
+    "source_excel_rows": [
+      25,
+      51,
+      99,
+      101,
+      114
+    ],
+    "limitations": [
+      "Bộ lọc khám phá, không phải thiết kế đối chứng.",
+      "Chưa tách tác động riêng của airflow.",
+      "Nhiệt độ workbook chưa được xác minh phương pháp."
+    ]
+  },
+  {
+    "id": "samer_sts_exploration",
+    "status": "provisional_descriptive",
+    "title": "Diễn giải STS cần thêm bối cảnh nồng độ và điều kiện",
+    "statement": "Hiển thị AMD và offset trừ tín hiệu STS của các bản ghi được chọn.",
+    "source_sheet": "SAME R Results",
+    "source_excel_rows": [
+      36,
+      37,
+      38,
+      39,
+      40,
+      41,
+      73,
+      74,
+      75,
+      79,
+      80,
+      117,
+      118,
+      120,
+      121
+    ],
+    "limitations": [
+      "Chưa chuẩn hóa theo nồng độ khói.",
+      "Chưa xác minh đầy đủ hiệu chuẩn hoặc ngưỡng báo động.",
+      "Teflon–111 tạm loại khỏi biểu đồ để kiểm tra nguồn.",
+      "Kapton–114 thiếu AMD.",
+      "Không xác định xác suất phát hiện hoặc vật liệu an toàn."
+    ]
+  }
+]

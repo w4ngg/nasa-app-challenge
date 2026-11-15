@@ -1,0 +1,40 @@
+{
+  "status": "provisional_research_dashboard_package",
+  "created_at_utc": "2026-11-14T09:52:38.752073+00:00",
+  "investigation_id": "PSI-25",
+  "investigation_name": "BASS-II",
+  "record_count": 129,
+  "record_count_is_independent_experiment_count": false,
+  "air_status_counts": {
+    "sequence_or_note": 99,
+    "single_display_value": 25,
+    "missing": 4,
+    "bound": 1
+  },
+  "delta_o2_status_counts": {
+    "available_descriptive": 124,
+    "withheld_pending_review": 3,
+    "missing_input": 2
+  },
+  "visually_checked_report_observations": 7,
+  "sources": {
+    "test_matrix": {
+      "filename": "BASS-II Test Matrix by PI Final.xlsx",
+      "sha256": "1a3b283dd0adec861793bbc4a454aab64d398cd32d6f37d7a1ad0f642879e686"
+    },
+    "fan_calibration": {
+      "filename": "Fan calibration data.xlsx",
+      "sha256": "bc0dca3efdef44a7774d8dd37aebc0cedae8d67d7bae8c9cbde9590014a3c983"
+    },
+    "summary_report": {
+      "filename": "BASS-II Summary Report.pdf",
+      "sha256": "5ffa911fd9b6356f204646003fb9342e341810dcdfdf5cb15756e7f01ec5f770"
+    },
+    "experimental_csv": {
+      "filename": "PSI-25_Experimental table_BASS-II.csv",
+      "sha256": "71e792bf6b5fb5ea620c5dd70fbbac05515992e12aefcf5dff47312caa48c042"
+    }
+  },
+  "original_sources_modified": false,
+  "fan_calibration_applied": false
+}

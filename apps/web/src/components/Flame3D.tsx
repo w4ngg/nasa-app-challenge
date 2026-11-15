@@ -271,7 +271,7 @@ export function Flame3D({ gravity, o2, fuelName = "Ethylene (C₂H₄)", force2D
 
       {show2D ? (
         <div style={{ display: "grid", placeItems: "center", width: "100%", height: "100%", padding: 24 }}>
-          <svg viewBox="0 0 200 200" width="240" height="240" aria-label="2D Fallback Microgravity Flame">
+          <svg viewBox="0 0 200 200" style={{ width: "min(72%, 340px)", height: "100%", maxHeight: "76%" }} aria-label="2D Fallback Microgravity Flame">
             <defs>
               <radialGradient id="chamber2d-grad" cx="50%" cy="55%" r="50%">
                 <stop offset="0%" stopColor={stops.inner} />

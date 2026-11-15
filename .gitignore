@@ -32,6 +32,8 @@ data/documents/*
 data/indexes/*
 !data/indexes/.gitkeep
 outputs/
+# Local finding extraction text, provider responses and review outputs
+/work/fire-risk/
 
 # OS and editors
 .DS_Store

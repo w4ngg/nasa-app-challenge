@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { FormEvent, MouseEvent } from "react";
 import { AnswerCard, AnswerSidePanel, Markdown } from "../components/AnswerView";
 import type { SideTab } from "../components/AnswerView";
+import { ResizableSplit } from "../components/Resizable";
 import { askAssistantStream, assistantUrl, checkHealth, loadSamples, previewContext } from "../lib/assistant";
 import type { AskMode, AssistantAnswer, ContextPreview, Health, SampleFile } from "../lib/assistant";
 import { emptyFilters } from "../lib/filters";
@@ -146,8 +147,19 @@ export function AssistantPage({ onLink }: { onLink: (event: MouseEvent<HTMLAncho
         </p>
       </header>
 
-      <div className="assistant-split">
-        <section className="assistant-chat panel" aria-labelledby="ask-title">
+      <ResizableSplit
+        className="assistant-split"
+        ariaLabel="Resize Ask and Sources panels"
+        mode="ratio"
+        defaultSize={0.535}
+        leftMin={300}
+        rightMin={280}
+        resizableHeight
+        minHeight={360}
+        maxHeight={1400}
+        storageKey="fa-resize-assistant"
+        left={
+          <section className="assistant-chat panel" aria-labelledby="ask-title">
           <div className="assistant-chat-head">
             <h2 id="ask-title">Ask</h2>
             <div className="segmented" role="group" aria-label="Answer mode">
@@ -211,11 +223,13 @@ export function AssistantPage({ onLink }: { onLink: (event: MouseEvent<HTMLAncho
             </div>
             {error && <p className="field-error" role="alert">{error}</p>}
           </form>
-        </section>
-
-        <AnswerSidePanel answer={current} tab={tab} setTab={setTab} focusRef={focusRef} onCite={(r) => current && cite(selected, r)}
-          recordHref={recordHref} onLink={onLink} live={apiUp} preview={preview} />
-      </div>
+          </section>
+        }
+        right={
+          <AnswerSidePanel answer={current} tab={tab} setTab={setTab} focusRef={focusRef} onCite={(r) => current && cite(selected, r)}
+            recordHref={recordHref} onLink={onLink} live={apiUp} preview={preview} />
+        }
+      />
     </div>
   );
 }

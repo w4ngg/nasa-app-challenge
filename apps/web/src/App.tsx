@@ -1,6 +1,7 @@
-import { lazy, Suspense, useCallback, useEffect, useState } from "react";
-import type { MouseEvent } from "react";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
+import type { CSSProperties, MouseEvent } from "react";
 import { InvestigationDetail } from "./components/InvestigationDetail";
+import { clamp, readStored, startPointerDrag, writeStored } from "./components/Resizable";
 import { SideNav } from "./components/SideNav";
 import { ThemeSwitcher } from "./design";
 import { getFacets, getSummary } from "./lib/data";
@@ -17,11 +18,48 @@ import { PlaceholderPage } from "./pages/PlaceholderPage";
 const DataAnalyticsPage = lazy(() => import("./pages/DataAnalyticsPage").then((m) => ({ default: m.DataAnalyticsPage })));
 import type { Facets, Summary } from "./types";
 
+const isFiniteNumber = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
+
 export default function App() {
   const [route, setRoute] = useState<Route>(readRoute);
   const [summary, setSummary] = useState<Summary | null>(null);
   const [facets, setFacets] = useState<Facets | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sideWidth, setSideWidth] = useState<number | null>(() => readStored("fa-resize-layout-side", isFiniteNumber));
+  const [resizingSide, setResizingSide] = useState(false);
+  const layoutRef = useRef<HTMLDivElement | null>(null);
+  const dragCleanupRef = useRef<(() => void) | null>(null);
+
+  useEffect(() => () => dragCleanupRef.current?.(), []);
+  useEffect(() => {
+    writeStored("fa-resize-layout-side", sideWidth);
+  }, [sideWidth]);
+
+  const handleSidePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (sidebarCollapsed || !layoutRef.current) return;
+    const nav = layoutRef.current.querySelector(".side-nav");
+    const startW = nav?.getBoundingClientRect().width ?? sideWidth ?? 224;
+    const maxW = Math.min(440, Math.max(240, Math.round(window.innerWidth * 0.42)));
+    setResizingSide(true);
+    dragCleanupRef.current = startPointerDrag(event, {
+      cursor: "col-resize",
+      onMove: (dx) => setSideWidth(Math.round(clamp(startW + dx, 170, maxW))),
+      onEnd: () => setResizingSide(false),
+    });
+  };
+
+  const handleSideKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === "Home") {
+      event.preventDefault();
+      setSideWidth(null);
+      return;
+    }
+    const delta = event.key === "ArrowLeft" ? -20 : event.key === "ArrowRight" ? 20 : 0;
+    if (!delta) return;
+    event.preventDefault();
+    const maxW = Math.min(440, Math.max(240, Math.round(window.innerWidth * 0.42)));
+    setSideWidth((prev) => Math.round(clamp((prev ?? 224) + delta, 170, maxW)));
+  };
 
   useEffect(() => {
     const onPop = () => setRoute(readRoute());
@@ -79,8 +117,17 @@ export default function App() {
     page = <PlaceholderPage view={route.view} onLink={onLink} />;
   }
 
+  const layoutClass = [
+    "layout",
+    sidebarCollapsed ? "is-collapsed" : "",
+    resizingSide ? "is-resizing-side" : "",
+  ].filter(Boolean).join(" ");
+  const layoutStyle = !sidebarCollapsed && sideWidth != null
+    ? ({ "--side-w": `${sideWidth}px` } as CSSProperties)
+    : undefined;
+
   return (
-    <div className={sidebarCollapsed ? "layout is-collapsed" : "layout"}>
+    <div ref={layoutRef} className={layoutClass} style={layoutStyle}>
       <SideNav
         current={route.id ? null : route.view}
         onLink={onLink}
@@ -88,6 +135,17 @@ export default function App() {
         onToggleCollapse={() => setSidebarCollapsed((v) => !v)}
       />
       <div className="content">
+        <div
+          className="layout-side-edge"
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Drag border to resize navigation sidebar"
+          tabIndex={sidebarCollapsed ? -1 : 0}
+          title="Drag border to resize sidebar · Double-click to reset"
+          onPointerDown={handleSidePointerDown}
+          onKeyDown={handleSideKeyDown}
+          onDoubleClick={() => setSideWidth(null)}
+        />
         <ThemeSwitcher />
         <main>{page}</main>
         <footer>

@@ -1,0 +1,51 @@
+[
+  {
+    "insight_id": "bass2_flow_context",
+    "status": "provisional_descriptive",
+    "title": "Diễn giải kết thúc cháy cần giữ lịch sử dòng khí",
+    "statement": "Các quan sát đã xem ghi nhận kết thúc cháy trong những thao tác dòng khí khác nhau. Cần đọc riêng bối cảnh từng test; không quy thành một ngưỡng chung.",
+    "test_ids": [
+      "B1",
+      "B9",
+      "B18"
+    ],
+    "source": {
+      "report_id": "NASA/TM-20210011385",
+      "table": "A.1",
+      "pdf_pages": [
+        111,
+        112
+      ]
+    },
+    "limitations": [
+      "Các mẫu và điều kiện không hoàn toàn tương đương.",
+      "Pot setting không phải vận tốc cm/s.",
+      "Không suy ra ngưỡng vận hành an toàn."
+    ]
+  },
+  {
+    "insight_id": "bass2_ignition_context",
+    "status": "provisional_descriptive",
+    "title": "Cần giữ bối cảnh đánh lửa và lịch sử mẫu",
+    "statement": "Các test được chọn có mô tả về vị trí igniter, bắt cháy, lan lửa hoặc lóe lên rồi tắt. Giữ nguyên các khác biệt khi trình bày bằng chứng.",
+    "test_ids": [
+      "T23",
+      "T24",
+      "T28a",
+      "T28b"
+    ],
+    "source": {
+      "report_id": "NASA/TM-20210011385",
+      "table": "A.6",
+      "pdf_pages": [
+        120,
+        121
+      ]
+    },
+    "limitations": [
+      "Không chứng minh tác động riêng của vị trí igniter.",
+      "Nhận xét là diễn giải tiếng Việt, không phải trích nguyên văn.",
+      "Không dùng trực tiếp làm nhãn huấn luyện."
+    ]
+  }
+]

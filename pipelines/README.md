@@ -70,3 +70,19 @@ python3 pipelines/summarize_flex.py --prepare-inventory outputs/psi-file-audit-2
 - The adapter publishes 274 summaries: 269 with time histories, three with notes only, and two catalog-only records. Nineteen records expose conflicting source labels or conditions; original values remain intact.
 - Summaries are deterministic descriptions of recorded measurements plus attributed NASA test-note excerpts. Publications are labelled as investigation-level context. The reviewed 10–30 s fit belongs only to FLEX-035 and is not copied to other tests.
 - Histories keep missing values as gaps, retain source sampling and use separate camera channels. The FLEX-035 display crop is documented, and the full series can be opened. All sources retain file IDs, versions and SHA-256 hashes.
+
+## PSI-25 BASS-II experiment summaries
+
+`summarize_bass.py` builds `apps/web/public/data/bass-ii/summaries.json` offline from the committed normalized CSV export and `data/reference/psi25-reviewed-results.json`. It needs only Python's standard library. No image, video, figure digitization, reconstructed time series or LLM is an input.
+
+```sh
+python3 pipelines/summarize_bass.py
+python3 -m unittest discover -s pipelines/tests -p 'test_bass_summary.py' -v
+```
+
+- The reviewed reference records the original catalog/report file IDs, versions and SHA-256 hashes. All 129 catalog rows have summaries; 20 Miller tests link to NASA/TM-20210011385 **Table 5.1, printed p.57 / PDF p.65**. Eighteen have spread-rate results; M6/M12 remain “Not tracked”. M8's notes are transcribed from **Table A.4, printed p.109 / PDF p.117**. Other test notes are explicitly not yet reviewed, not claimed absent.
+- Table 5.1 airflow/rate pairs describe settings within one test. They are not independent replicates, a timed sequence, or a controlled estimate of airflow's effect. Before/after gas readings are not interpolated into a concentration profile.
+- Decimal arithmetic computes final-minus-initial gas concentration differences, minute-to-second conversion and M8's explicitly labelled relative-rate comparison. Missing, qualified/censored and negative gas readings remain raw and do not produce numeric deltas. Percentage points remain separate from relative percent.
+- M8 retains the 1 cm catalog/appendix width and 1.2 cm Table 5.1 width as separate source values, along with differing flow descriptions. The potentiometer setting `pot 0.4` is not an extinction airflow. No pressure, extinction velocity, heat-release rate or confidence score is inferred.
+- The raw catalog and normalized export were reconciled: source header whitespace is normalized and four trailing-space cells are trimmed by the existing ingestion; all other values match. The build pins the exported catalog SHA-256 and refuses a changed snapshot until the source mapping is reviewed. Browser matching additionally checks the entire column schema and original source row, so stale summaries do not attach just because a test number matches.
+- Refresh by reviewing the new catalog/report snapshot, updating the transcription, hashes and any affected mappings, then rebuilding. The script does not silently re-extract report tables. Public assets carry the reviewed-reference SHA-256 and serve without NASA access, backend services or an API key.
