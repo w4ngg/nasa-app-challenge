@@ -6,6 +6,7 @@ export interface Module {
   view: View;
   label: string;
   built: boolean;
+  hidden?: boolean;
   planned?: string;
   note?: string;
 }
@@ -13,23 +14,24 @@ export interface Module {
 export const modules: Module[] = [
   { view: "overview", label: "Overview", built: true },
   { view: "map", label: "Knowledge map", built: true },
-  {
-    view: "chamber", label: "3D flame chamber", built: true,
-    planned: "A view of flame shape and spread in microgravity, driven by the conditions recorded in a selected experiment run.",
-  },
   { view: "explorer", label: "Experiment library", built: true },
+  { view: "forecast", label: "Burn time forecaster", built: true },
   {
-    view: "compare", label: "Material comparison", built: false,
+    view: "compare", label: "Material comparison", built: false, hidden: true,
     planned: "Two or three investigations or materials side by side: fuels, oxygen ranges, run counts, hardware and publications.",
   },
   {
     view: "assistant", label: "Research assistant", built: true,
   },
   {
-    view: "habitat", label: "Habitat check", built: false,
+    view: "habitat", label: "Habitat check", built: false, hidden: true,
     planned: "Enter a habitat atmosphere and cabin materials, and see which of them fall inside or outside the tested ranges.",
   },
   {
     view: "lab", label: "Data analytics", built: true,
+  },
+  {
+    view: "chamber", label: "3D flame chamber", built: true,
+    planned: "A view of flame shape and spread in microgravity, driven by the conditions recorded in a selected experiment run.",
   },
 ];

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { MouseEvent } from "react";
 import { AnalyticsScatter } from "../components/AnalyticsScatter";
+import { ResizableBox } from "../components/Resizable";
 import { SaffireSamples } from "../components/SaffireSamples";
 import { ExperimentRecords } from "../components/ExperimentRecords";
 import { FlexSummaryPanel } from "../components/FlexSummaryPanel";
@@ -232,8 +233,12 @@ function AnalyticsWorkspace({ detail, spec }: { detail: InvestigationDetail; spe
         {spec.id === "PSI-159" && <p className="analytics-quality">Zero recorded burn times are retained. Use Hot ignition and Test end to distinguish outcomes. Pressure is approximate; peak burner temperature is not flame temperature.</p>}
         {excluded.length > 0 && <p className="analytics-quality">{excluded.length} matching rows are excluded from this plot: {qualityReasons.join("; ").toLowerCase()}. <a href="#analytics-measurements" onClick={() => { setTableMode("excluded"); setPage(0); }}>Review excluded rows</a>.</p>}
         {x === y && <p className="analytics-quality">Both axes show the same quantity. Choose different quantities to explore their relationship.</p>}
-        {filtered.length > 0 && <AnalyticsScatter key={`${spec.id}-${x}-${y}-${group}`} rows={plotted} x={xMetric} y={yMetric} group={group} selected={selectedKey} onSelect={selectPlotRow}
-          selectionHint={hasSummary ? "Select a point to read its experiment summary and source evidence." : undefined} />}
+        {filtered.length > 0 && (
+          <ResizableBox axes="both" minWidth={300} minHeight={240} maxHeight={1100} storageKey="fa-resize-analytics-plot">
+            <AnalyticsScatter key={`${spec.id}-${x}-${y}-${group}`} rows={plotted} x={xMetric} y={yMetric} group={group} selected={selectedKey} onSelect={selectPlotRow}
+              selectionHint={hasSummary ? "Select a point to read its experiment summary and source evidence." : undefined} />
+          </ResizableBox>
+        )}
         {filtered.length === 0 && <div className="state analytics-empty"><h3>{error ? "Correct the filter bounds" : "No rows match these conditions"}</h3><p>Adjust or reset the filters to see recorded measurements.</p><button onClick={() => changes({ ...emptyAnalyticsFilters })}>Reset filters</button></div>}
         <p className="field-help">Each point is one source-table row. Axes fit the visible values. Overlapping points can be inspected individually in the table. A pattern here does not establish cause, a safe operating limit or a prediction.</p>
         {selected && <p className="analytics-notice">Test {selected.testId} is selected. {hasSummary && <><button className="link-button" onClick={() => setSummaryOpen(true)}>Read experiment summary</button> · </>}<a href="#analytics-source">Inspect its complete source row</a>.</p>}
@@ -244,30 +249,34 @@ function AnalyticsWorkspace({ detail, spec }: { detail: InvestigationDetail; spe
         <p className="panel-lede">{hasSummary ? "Open a test to read its experiment summary and source evidence." : "Open a test to see every source field."} Select up to three rows for a descriptive comparison.</p>
         <div className="segmented" aria-label="Rows shown in the table"><button aria-pressed={tableMode === "all"} onClick={() => { setTableMode("all"); setPage(0); }}>All matching ({filtered.length})</button><button aria-pressed={tableMode === "excluded"} onClick={() => { setTableMode("excluded"); setPage(0); }}>Excluded from plot ({excluded.length})</button></div>
         {notice && <p className="analytics-notice" role="status">{notice}</p>}
-        <div className="table-scroll" tabIndex={0} role="region" aria-label="Filtered measurements">
-          <table className="analytics-table"><caption className="sr-only">Filtered source rows. X and Y values use the units in the column headings.</caption>
-            <thead><tr><th scope="col">Compare</th><th scope="col">Test / data row</th><th scope="col">{materialLabel}</th><th scope="col">{category.label}</th>{ignition && <th scope="col">{ignition.label}</th>}<th scope="col">{metricLabel(xMetric)}</th><th scope="col">{metricLabel(yMetric)}</th><th scope="col">Plot status</th></tr></thead>
-            <tbody>{shown.map((row) => <tr key={row.key} className={selectedKey === row.key ? "analytics-row-selected" : undefined}>
-              <td><input type="checkbox" aria-label={`Compare test ${row.testId}, data row ${row.key}`} checked={comparedKeys.includes(row.key)} disabled={comparedKeys.length >= 3 && !comparedKeys.includes(row.key)} onChange={() => toggleCompare(row.key)} /></td>
-              <th scope="row"><button className="link-button" aria-label={`Inspect test ${row.testId}, data row ${row.key}`} aria-pressed={selectedKey === row.key} onClick={() => selectPlotRow(row)}>Test {row.testId}</button><small>Data row {row.key}</small>{flexIndex && summaryForRow(flexIndex, row, table)?.source_test_id !== row.testId && <small>{summaryForRow(flexIndex, row, table)?.name}</small>}</th>
-              <td title={row.material}>{row.material}</td><td>{row.categories[category.key]}</td>{ignition && <td>{row.categories.ignition}</td>}
-              <td>{displayNumber(row.cells[x].value)}{row.cells[x].issue && <small>{row.cells[x].issue}</small>}</td>
-              <td>{displayNumber(row.cells[y].value)}{row.cells[y].issue && <small>{row.cells[y].issue}</small>}</td>
-              <td>{plottedKeys.has(row.key) ? "Plotted" : "Excluded: X or Y unavailable"}{row.warnings.length > 0 && <small>{row.warnings.length} source review flags · inspect row</small>}</td>
-            </tr>)}{!shown.length && <tr><td colSpan={7 + (ignition ? 1 : 0)}>No rows in this view.</td></tr>}</tbody>
-          </table>
-        </div>
+        <ResizableBox axes="both" minWidth={280} minHeight={180} maxHeight={1200} storageKey="fa-resize-analytics-table">
+          <div className="table-scroll" tabIndex={0} role="region" aria-label="Filtered measurements">
+            <table className="analytics-table"><caption className="sr-only">Filtered source rows. X and Y values use the units in the column headings.</caption>
+              <thead><tr><th scope="col">Compare</th><th scope="col">Test / data row</th><th scope="col">{materialLabel}</th><th scope="col">{category.label}</th>{ignition && <th scope="col">{ignition.label}</th>}<th scope="col">{metricLabel(xMetric)}</th><th scope="col">{metricLabel(yMetric)}</th><th scope="col">Plot status</th></tr></thead>
+              <tbody>{shown.map((row) => <tr key={row.key} className={selectedKey === row.key ? "analytics-row-selected" : undefined}>
+                <td><input type="checkbox" aria-label={`Compare test ${row.testId}, data row ${row.key}`} checked={comparedKeys.includes(row.key)} disabled={comparedKeys.length >= 3 && !comparedKeys.includes(row.key)} onChange={() => toggleCompare(row.key)} /></td>
+                <th scope="row"><button className="link-button" aria-label={`Inspect test ${row.testId}, data row ${row.key}`} aria-pressed={selectedKey === row.key} onClick={() => selectPlotRow(row)}>Test {row.testId}</button><small>Data row {row.key}</small>{flexIndex && summaryForRow(flexIndex, row, table)?.source_test_id !== row.testId && <small>{summaryForRow(flexIndex, row, table)?.name}</small>}</th>
+                <td title={row.material}>{row.material}</td><td>{row.categories[category.key]}</td>{ignition && <td>{row.categories.ignition}</td>}
+                <td>{displayNumber(row.cells[x].value)}{row.cells[x].issue && <small>{row.cells[x].issue}</small>}</td>
+                <td>{displayNumber(row.cells[y].value)}{row.cells[y].issue && <small>{row.cells[y].issue}</small>}</td>
+                <td>{plottedKeys.has(row.key) ? "Plotted" : "Excluded: X or Y unavailable"}{row.warnings.length > 0 && <small>{row.warnings.length} source review flags · inspect row</small>}</td>
+              </tr>)}{!shown.length && <tr><td colSpan={7 + (ignition ? 1 : 0)}>No rows in this view.</td></tr>}</tbody>
+            </table>
+          </div>
+        </ResizableBox>
         <div className="pagination"><span>{tableRows.length ? `${safePage * pageSize + 1}–${Math.min((safePage + 1) * pageSize, tableRows.length)} of ${tableRows.length}` : "0 rows"}</span><div><button disabled={safePage === 0} onClick={() => setPage(safePage - 1)}>Previous</button><span>Page {safePage + 1} of {pageCount}</span><button disabled={safePage + 1 >= pageCount} onClick={() => setPage(safePage + 1)}>Next</button></div></div>
         {selected && <p className="analytics-notice">Test {selected.testId} · data row {selected.key}. <a href="#analytics-source">Inspect the complete source row</a>.</p>}
         {compared.length > 0 && <div className="analytics-comparison">
           <div className="analytics-section-head"><h3>Selected tests ({compared.length}/3)</h3><button className="link-button" onClick={() => setComparedKeys([])}>Clear comparison</button></div>
           {compared.length === 1 ? <p className="field-help">Select one more row to compare its recorded measurements.</p> : <>
             <ul className="analytics-comparison-notes">{comparisonNotes(compared, spec).map((note) => <li key={note}>{note}</li>)}</ul>
-            <div className="table-scroll" tabIndex={0} role="region" aria-label="Selected test comparison"><table><thead><tr><th scope="col">Recorded field</th>{compared.map((r) => <th scope="col" key={r.key}>Test {r.testId} · row {r.key}</th>)}</tr></thead>
-              <tbody><tr><th scope="row">Material / fuel</th>{compared.map((r) => <td key={r.key} title={r.material}>{r.material}</td>)}</tr>
-                {spec.categories.map((c) => <tr key={c.key}><th scope="row">{c.label}</th>{compared.map((r) => <td key={r.key}>{r.categories[c.key]}</td>)}</tr>)}
-                {spec.metrics.map((m) => <tr key={m.key}><th scope="row">{metricLabel(m)}</th>{compared.map((r) => <td key={r.key}>{displayNumber(r.cells[m.key].value)}{r.cells[m.key].issue && <small>{r.cells[m.key].issue}</small>}</td>)}</tr>)}
-              </tbody></table></div>
+            <ResizableBox axes="both" minWidth={280} minHeight={140} maxHeight={1000} storageKey="fa-resize-analytics-compare">
+              <div className="table-scroll" tabIndex={0} role="region" aria-label="Selected test comparison"><table><thead><tr><th scope="col">Recorded field</th>{compared.map((r) => <th scope="col" key={r.key}>Test {r.testId} · row {r.key}</th>)}</tr></thead>
+                <tbody><tr><th scope="row">Material / fuel</th>{compared.map((r) => <td key={r.key} title={r.material}>{r.material}</td>)}</tr>
+                  {spec.categories.map((c) => <tr key={c.key}><th scope="row">{c.label}</th>{compared.map((r) => <td key={r.key}>{r.categories[c.key]}</td>)}</tr>)}
+                  {spec.metrics.map((m) => <tr key={m.key}><th scope="row">{metricLabel(m)}</th>{compared.map((r) => <td key={r.key}>{displayNumber(r.cells[m.key].value)}{r.cells[m.key].issue && <small>{r.cells[m.key].issue}</small>}</td>)}</tr>)}
+                </tbody></table></div>
+            </ResizableBox>
           </>}
         </div>}
       </section>

@@ -3,6 +3,7 @@ import type { MouseEvent } from "react";
 import { FuelRuns, OxygenCoverage, Timeline } from "../components/charts";
 import { EmberMascot } from "../components/EmberMascot";
 import { Flame3D } from "../components/Flame3D";
+import { ResizableBox, ResizableSplit } from "../components/Resizable";
 import { ChamberSvg, RocketSvg, SatelliteSvg, ShieldSvg } from "../components/SpaceObjects";
 import { Zone3PhaseMap } from "../components/Zone3PhaseMap";
 import { getAllInvestigations } from "../lib/data";
@@ -117,9 +118,21 @@ export function OverviewPage({ summary, onLink }: {
         </p>
       </header>
 
-      <div className="chamber-grid">
-        <Flame3D gravity={gravity} o2={level} fuelName={mission ? `${mission.name} (${level}% O₂)` : `Custom (${level}% O₂)`} />
-        <div style={{ display: "grid", gap: 16 }}>
+      <ResizableSplit
+        className="chamber-grid"
+        ariaLabel="Resize 3D Flame Chamber and telemetry controls"
+        mode="ratio"
+        defaultSize={0.6}
+        leftMin={280}
+        rightMin={280}
+        storageKey="fa-resize-overview-chamber"
+        left={
+          <ResizableBox className="chamber-hero-box" axes="y" minHeight={280} maxHeight={1100} storageKey="fa-resize-overview-flame">
+            <Flame3D gravity={gravity} o2={level} fuelName={mission ? `${mission.name} (${level}% O₂)` : `Custom (${level}% O₂)`} />
+          </ResizableBox>
+        }
+        right={
+          <div style={{ display: "grid", gap: 16 }}>
           <section className="panel" aria-label="3D Gravity & Telemetry Controls">
             <div className="level-control" style={{ marginBottom: 8 }}>
               <label htmlFor="hero-g-level">Gravity (0g–1g)</label>
@@ -149,10 +162,21 @@ export function OverviewPage({ summary, onLink }: {
           </section>
           <EmberMascot gravity={gravity} o2={level} />
         </div>
-      </div>
+        }
+      />
 
-      <div className="dash-grid">
-        <section className="panel" aria-labelledby="missions-title">
+      <div className="dash-rows">
+        <ResizableSplit
+          className="dash-row"
+          ariaLabel="Resize Mission atmospheres and Fuels panels"
+          mode="ratio"
+          defaultSize={0.5}
+          leftMin={260}
+          rightMin={260}
+          storageKey="fa-resize-overview-row1"
+          left={
+            <ResizableBox axes="y" minHeight={260} maxHeight={1200} storageKey="fa-resize-overview-p1">
+              <section className="panel" aria-labelledby="missions-title">
           <PanelHead num={1} id="missions-title" title="Mission atmospheres" />
           <p className="panel-lede">Pick a cabin atmosphere or set any oxygen level. The 3D Flame Chamber and coverage map follow your choice.</p>
           <div className="missions" role="group" aria-label="Mission atmospheres">
@@ -194,8 +218,11 @@ export function OverviewPage({ summary, onLink }: {
             Sources: {missions.map((m, i) => <span key={m.id}>{i > 0 && "; "}<a href={m.source.url} target="_blank" rel="noreferrer">{m.name}: {m.source.label}</a></span>)}.
           </p>
         </section>
-
-        <section className="panel" aria-labelledby="fuels-title">
+            </ResizableBox>
+          }
+          right={
+            <ResizableBox axes="y" minHeight={260} maxHeight={1200} storageKey="fa-resize-overview-p2">
+              <section className="panel" aria-labelledby="fuels-title">
           <PanelHead num={2} id="fuels-title" title="Fuels and materials by test runs" />
           <p className="panel-lede">Rows in the PSI experiment tables that name each fuel. One row is usually one run; FLEX-2 lists one row per fuel. Select a fuel to open it in the experiment library.</p>
           <FuelRuns totals={stats.fuels} limit={showAllFuels ? stats.fuels.length : FUELS_SHOWN}
@@ -208,8 +235,21 @@ export function OverviewPage({ summary, onLink }: {
             </p>
           )}
         </section>
+            </ResizableBox>
+          }
+        />
 
-        <section className="panel" aria-labelledby="coverage-title">
+        <ResizableSplit
+          className="dash-row"
+          ariaLabel="Resize Oxygen coverage and Evidence gaps panels"
+          mode="ratio"
+          defaultSize={0.5}
+          leftMin={260}
+          rightMin={260}
+          storageKey="fa-resize-overview-row2"
+          left={
+            <ResizableBox axes="y" minHeight={260} maxHeight={1400} storageKey="fa-resize-overview-p3">
+              <section className="panel" aria-labelledby="coverage-title">
           <PanelHead num={3} id="coverage-title" title="Oxygen coverage map" />
           <p className="panel-lede">Each row is an investigation that records oxygen in its experiment tables; the bar runs from the lowest to the highest level it reports, not every level in between.</p>
           <OxygenCoverage records={records} references={references} hrefFor={detailUrl} onClick={onLink} />
@@ -218,8 +258,11 @@ export function OverviewPage({ summary, onLink }: {
           )}
           <p className="sources">Oxygen percentage alone does not set flammability; the mission presets also differ in pressure.</p>
         </section>
-
-        <section className="panel" aria-labelledby="gaps-title">
+            </ResizableBox>
+          }
+          right={
+            <ResizableBox axes="y" minHeight={260} maxHeight={1400} storageKey="fa-resize-overview-p4">
+              <section className="panel" aria-labelledby="gaps-title">
           <PanelHead num={4} id="gaps-title" title="Evidence gaps and research assistant" />
           <ul className="gaps">
             <li>
@@ -260,13 +303,18 @@ export function OverviewPage({ summary, onLink }: {
             </div>
           </div>
         </section>
+            </ResizableBox>
+          }
+        />
       </div>
 
-      <section className="panel" aria-labelledby="timeline-title">
-        <PanelHead num={5} id="timeline-title" title="When did the investigations run?" />
-        <p className="panel-lede">Start and end dates as listed on PSI. Program-level records such as ACME span several flight campaigns.</p>
-        <Timeline records={records} hrefFor={detailUrl} onClick={onLink} />
-      </section>
+      <ResizableBox axes="both" minWidth={320} minHeight={220} maxHeight={1200} storageKey="fa-resize-overview-timeline">
+        <section className="panel" aria-labelledby="timeline-title">
+          <PanelHead num={5} id="timeline-title" title="When did the investigations run?" />
+          <p className="panel-lede">Start and end dates as listed on PSI. Program-level records such as ACME span several flight campaigns.</p>
+          <Timeline records={records} hrefFor={detailUrl} onClick={onLink} />
+        </section>
+      </ResizableBox>
     </div>
   );
 }

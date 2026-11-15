@@ -73,13 +73,6 @@ npm run test:web       # analytics normalization, filtering and export checks
 
 Optional API: `.venv/bin/python -m uvicorn flame_api.main:app --port 8000` (docs at `/docs`).
 
-- [Phạm vi sản phẩm và roadmap](docs/product.md)
-- [Kiến trúc](docs/architecture.md)
-- [Mô hình dữ liệu và quy tắc đối chiếu](docs/data-model.md)
-- [Kho tri thức và SI](knowledge/README.md)
-- [Phát triển local và đóng góp](docs/development.md)
-- [Khảo sát Data files and documents của đủ 26 hồ sơ PSI](docs/research/psi-data-files-2026-11-14.md)
-
 Tests: `.venv/bin/python -m pytest apps/api/tests` and `npm run build`.
 
 To try analytics, open `http://127.0.0.1:5173/?view=lab`. In FLEX, choose “Try a focused subset” to see 11 methanol/extinction rows at 21 mol % O₂ and 740–780 mmHg. Change an axis, inspect a point, select two table rows for comparison, then export the filtered CSV. Switch to BASS-II for initial/final gas readings. In CFI-G, switch between normal/inverse tables and filter Hot ignition; the normal table has 47 rows with Hot ignition = No, including 43 numeric oxygen/burn-time pairs. In SAFFIRE-II, compare samples 2-5 and 2-6, inspect the blank material and ambiguous `037 mm` thickness, and export samples with the source notes. This module reads the committed static JSON exports and needs no API or AI credentials.

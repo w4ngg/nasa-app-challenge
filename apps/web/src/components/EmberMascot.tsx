@@ -102,7 +102,7 @@ export function EmberMascot({ gravity, o2, narrationText = DEFAULT_NARRATION }: 
 
   return (
     <div className="panel" style={{ display: "grid", gap: 12 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+      <div className="ember-head">
         <div>
           <span className="eyebrow" style={{ display: "block", marginBottom: 2 }}>
             Interactive Vector Mascot · Cubic Bezier 0g↔1g
@@ -114,7 +114,7 @@ export function EmberMascot({ gravity, o2, narrationText = DEFAULT_NARRATION }: 
         </button>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "140px minmax(0, 1fr)", gap: 16, alignItems: "center" }}>
+      <div className="ember-body">
         <svg
           ref={svgRef}
           viewBox="0 0 200 200"
