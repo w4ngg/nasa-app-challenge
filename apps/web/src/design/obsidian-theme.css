@@ -286,12 +286,30 @@ button.primary {
 
 /* Theme Mode Switcher */
 .obsidian-theme-bar {
-  position: relative; z-index: 5;
+  position: absolute; top: 14px; right: clamp(14px, 2vw, 28px); z-index: 12;
   display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end;
-  width: fit-content; max-width: 100%; margin: 12px 0 0 auto;
-  gap: 6px; padding: 6px; border-radius: 10px;
+  width: fit-content; max-width: calc(100% - 28px);
+  gap: 6px; padding: 5px; border-radius: 10px;
   background: var(--surface); backdrop-filter: blur(16px) saturate(160%);
   border: 1px solid var(--line-strong); box-shadow: 0 10px 28px rgba(0, 0, 0, 0.2); font-size: 12px;
+}
+.content:has(.map-page) .obsidian-theme-bar {
+  right: clamp(10px, 1.2vw, 18px);
+}
+@media (min-width: 761px) {
+  .content > main .page-header,
+  .content > main .detail-header {
+    padding-right: 260px;
+  }
+  .content > main .detail {
+    padding-top: 16px;
+  }
+}
+@media (max-width: 760px) {
+  .obsidian-theme-bar {
+    position: relative; top: auto; right: auto;
+    margin: 10px 0 0 auto;
+  }
 }
 .obsidian-theme-bar button[aria-pressed="true"] {
   border-color: var(--link);
