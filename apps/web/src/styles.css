@@ -521,3 +521,50 @@ footer { display: flex; justify-content: space-between; gap: 8px 20px; flex-wrap
 .viz-table summary { font-size: 13px; color: var(--link); }
 .viz-table .table-scroll { margin-top: 8px; max-height: 260px; }
 .viz-table table { font-size: 12px; }
+
+/* Burn-time forecaster */
+.forecast-page { gap: 20px; }
+.forecast-source { display: grid; grid-template-columns: minmax(230px, .7fr) minmax(0, 1.3fr); gap: 20px; align-items: start; }
+.forecast-source h2 { font-size: 18px; font-weight: 600; margin: 0 0 8px; }
+.forecast-source p { color: var(--ink-soft); font-size: 15px; line-height: 1.6; }
+.source-choices { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.source-choice { min-height: 92px; display: grid; gap: 6px; text-align: left; align-content: start; background: var(--surface); border-color: var(--line-strong); }
+.source-choice span { font-weight: 600; }
+.source-choice small { font-size: 13px; line-height: 1.45; color: var(--ink-soft); }
+.source-choice.selected { border: 2px solid var(--link); background: var(--o2-soft); padding: 8px 13px; }
+.forecast-grid { display: grid; grid-template-columns: minmax(0, 1.08fr) minmax(320px, .92fr); gap: 20px; align-items: stretch; }
+.forecast-form, .forecast-result { display: flex; flex-direction: column; }
+.forecast-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.forecast-field { display: grid; gap: 6px; min-width: 0; font-size: 14px; font-weight: 600; }
+.forecast-field input { width: 100%; min-width: 0; background: var(--surface); border: 1px solid var(--line-strong); border-radius: 7px; padding: 9px 10px; font-size: 15px; }
+.forecast-field small { color: var(--muted); font-size: 12px; font-weight: 400; }
+.forecast-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 20px; }
+.forecast-empty { color: var(--ink-soft); line-height: 1.65; margin: auto 0; }
+.forecast-empty code { font-size: .9em; }
+.forecast-label { color: var(--muted); font-weight: 600; font-size: 14px; margin-top: 18px; }
+.forecast-value { font-size: clamp(42px, 5vw, 64px); line-height: 1; font-weight: 600; letter-spacing: -.045em; margin: 8px 0 22px; font-variant-numeric: tabular-nums; }
+.forecast-value span { font-size: 18px; letter-spacing: 0; color: var(--ink-soft); }
+.interval-card { background: var(--raised); border: 1px solid var(--line); padding: 14px; border-radius: 8px; }
+.interval-header { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; align-items: baseline; }
+.interval-header span { font-variant-numeric: tabular-nums; color: var(--ink-soft); white-space: nowrap; }
+.interval-track { position: relative; height: 8px; background: var(--line-strong); border-radius: 4px; margin: 16px 3px 10px; }
+.interval-marker { position: absolute; top: 50%; width: 14px; height: 14px; border: 3px solid var(--surface); background: var(--link); border-radius: 50%; transform: translate(-50%, -50%); }
+.interval-card p { color: var(--ink-soft); font-size: 13px; line-height: 1.55; }
+.forecast-meta { display: grid; gap: 12px; margin: 18px 0; }
+.forecast-meta div { display: grid; gap: 3px; }
+.forecast-meta dt { color: var(--muted); font-size: 12px; font-weight: 600; }
+.forecast-meta dd { margin: 0; color: var(--ink-soft); font-size: 14px; line-height: 1.45; }
+.forecast-caveat { border-left: 3px solid var(--link); padding: 8px 0 8px 12px; margin-top: auto; font-size: 13px; color: var(--ink-soft); line-height: 1.55; }
+.forecast-evidence-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
+.forecast-evidence-grid p { display: grid; gap: 5px; margin: 0; }
+.forecast-evidence-grid strong { font-size: 14px; }
+.forecast-evidence-grid span { color: var(--ink-soft); line-height: 1.55; font-size: 14px; }
+
+@media (max-width: 880px) {
+  .forecast-source, .forecast-grid { grid-template-columns: 1fr; }
+  .forecast-evidence-grid { grid-template-columns: 1fr; gap: 14px; }
+}
+@media (max-width: 520px) {
+  .source-choices, .forecast-fields { grid-template-columns: 1fr; }
+  .interval-header { align-items: flex-start; flex-direction: column; gap: 3px; }
+}

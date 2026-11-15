@@ -9,6 +9,7 @@ import type { Route } from "./lib/route";
 import { AssistantPage } from "./pages/AssistantPage";
 import { ChamberPage } from "./pages/ChamberPage";
 import { ExplorerPage } from "./pages/ExplorerPage";
+import { ForecastPage } from "./pages/ForecastPage";
 // The graph library is large; load it only when the knowledge map is opened.
 const KnowledgeMapPage = lazy(() => import("./pages/KnowledgeMapPage").then((m) => ({ default: m.KnowledgeMapPage })));
 import { OverviewPage } from "./pages/OverviewPage";
@@ -70,6 +71,8 @@ export default function App() {
     page = <AssistantPage onLink={onLink} />;
   } else if (route.view === "explorer") {
     page = <ExplorerPage route={route} navigate={navigate} summary={summary} facets={facets} onOpen={openInvestigation} />;
+  } else if (route.view === "forecast") {
+    page = <ForecastPage />;
   } else if (route.view === "lab") {
     page = <Suspense fallback={<p className="state" role="status">Loading data analytics…</p>}><DataAnalyticsPage onLink={onLink} initialDataset={route.dataset ?? undefined} /></Suspense>;
   } else {
