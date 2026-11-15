@@ -1,0 +1,8 @@
+﻿test_id,pi,report_pdf_page,table,observation_vi,evidence_type,review_scope,translation_status,report_id,is_training_label,is_general_safety_threshold
+B1,Bhattacharjee,111,A.1,Ngắt dòng khí sau khi lửa lan khoảng nửa mẫu; báo cáo ghi ngọn lửa tắt rất nhanh.,report_observation,visually_checked_report_row,paraphrase_vi,NASA/TM-20210011385,False,False
+B9,Bhattacharjee,112,A.1,Báo cáo ghi cháy ổn định ở 2 cm/s và tắt tại cài đặt pot 0.35.,report_observation,visually_checked_report_row,paraphrase_vi,NASA/TM-20210011385,False,False
+B18,Bhattacharjee,112,A.1,Báo cáo ghi ngọn lửa bị thổi tắt tại fan pot 7.0.,report_observation,visually_checked_report_row,paraphrase_vi,NASA/TM-20210011385,False,False
+T23,T'ien,120,A.6,Báo cáo ghi không bắt cháy với igniter đã thay vị trí.,report_observation,visually_checked_report_row,paraphrase_vi,NASA/TM-20210011385,False,False
+T24,T'ien,120,A.6,Báo cáo ghi bắt cháy ở phía trên mẫu và lan ổn định của ngọn lửa một phía.,report_observation,visually_checked_report_row,paraphrase_vi,NASA/TM-20210011385,False,False
+T28a,T'ien,121,A.6,"Khi thử đánh lửa một phía, ngọn lửa chỉ lóe lên rồi tắt.",report_observation,visually_checked_report_row,paraphrase_vi,NASA/TM-20210011385,False,False
+T28b,T'ien,121,A.6,Lần thử tiếp tục ghi nhận ngọn lửa chỉ lóe lên rồi tắt.,report_observation,visually_checked_report_row,paraphrase_vi,NASA/TM-20210011385,False,False

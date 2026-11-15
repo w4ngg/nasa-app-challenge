@@ -1,0 +1,2 @@
+﻿csv_record,Sample Type,SAME Test #,Description,Date,Inlet velocity (cm/s),Rt/R0,Duration (sec),Primary aging time (sec),Primary mixing time (sec),Net aging time (sec),match_status,review_reason
+74,Teflon,57,High RT/R0 reburn sample,29-Jul,8.1,1.253,60,11,8,n/a,csv_only,No matching material + SAME # in XLSX

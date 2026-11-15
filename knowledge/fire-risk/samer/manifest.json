@@ -1,0 +1,15 @@
+{
+  "status": "provisional_research_dashboard_package",
+  "created_at_utc": "2026-11-14T08:34:19.830862+00:00",
+  "source_workbook_name": "Combined SAMER Results 06 02 14 (2).xlsx",
+  "source_workbook_sha256": "6d3a539ccf425b1fa8edc19cc75d828f57d650c7ce734d4e7aa686fea9593218",
+  "source_sheet": "SAME R Results",
+  "working_records": 109,
+  "csv_matched_records": 108,
+  "xlsx_only_records": 1,
+  "csv_only_records": 1,
+  "sts_records": 17,
+  "sts_chart_records": 15,
+  "kapton_subset_records": 5,
+  "original_sources_modified": false
+}

@@ -1,0 +1,93 @@
+[
+  {
+    "test_id":"B1",
+    "pi":"Bhattacharjee",
+    "report_pdf_page":111,
+    "table":"A.1",
+    "observation_vi":"Ngắt dòng khí sau khi lửa lan khoảng nửa mẫu; báo cáo ghi ngọn lửa tắt rất nhanh.",
+    "evidence_type":"report_observation",
+    "review_scope":"visually_checked_report_row",
+    "translation_status":"paraphrase_vi",
+    "report_id":"NASA\/TM-20210011385",
+    "is_training_label":false,
+    "is_general_safety_threshold":false
+  },
+  {
+    "test_id":"B9",
+    "pi":"Bhattacharjee",
+    "report_pdf_page":112,
+    "table":"A.1",
+    "observation_vi":"Báo cáo ghi cháy ổn định ở 2 cm\/s và tắt tại cài đặt pot 0.35.",
+    "evidence_type":"report_observation",
+    "review_scope":"visually_checked_report_row",
+    "translation_status":"paraphrase_vi",
+    "report_id":"NASA\/TM-20210011385",
+    "is_training_label":false,
+    "is_general_safety_threshold":false
+  },
+  {
+    "test_id":"B18",
+    "pi":"Bhattacharjee",
+    "report_pdf_page":112,
+    "table":"A.1",
+    "observation_vi":"Báo cáo ghi ngọn lửa bị thổi tắt tại fan pot 7.0.",
+    "evidence_type":"report_observation",
+    "review_scope":"visually_checked_report_row",
+    "translation_status":"paraphrase_vi",
+    "report_id":"NASA\/TM-20210011385",
+    "is_training_label":false,
+    "is_general_safety_threshold":false
+  },
+  {
+    "test_id":"T23",
+    "pi":"T'ien",
+    "report_pdf_page":120,
+    "table":"A.6",
+    "observation_vi":"Báo cáo ghi không bắt cháy với igniter đã thay vị trí.",
+    "evidence_type":"report_observation",
+    "review_scope":"visually_checked_report_row",
+    "translation_status":"paraphrase_vi",
+    "report_id":"NASA\/TM-20210011385",
+    "is_training_label":false,
+    "is_general_safety_threshold":false
+  },
+  {
+    "test_id":"T24",
+    "pi":"T'ien",
+    "report_pdf_page":120,
+    "table":"A.6",
+    "observation_vi":"Báo cáo ghi bắt cháy ở phía trên mẫu và lan ổn định của ngọn lửa một phía.",
+    "evidence_type":"report_observation",
+    "review_scope":"visually_checked_report_row",
+    "translation_status":"paraphrase_vi",
+    "report_id":"NASA\/TM-20210011385",
+    "is_training_label":false,
+    "is_general_safety_threshold":false
+  },
+  {
+    "test_id":"T28a",
+    "pi":"T'ien",
+    "report_pdf_page":121,
+    "table":"A.6",
+    "observation_vi":"Khi thử đánh lửa một phía, ngọn lửa chỉ lóe lên rồi tắt.",
+    "evidence_type":"report_observation",
+    "review_scope":"visually_checked_report_row",
+    "translation_status":"paraphrase_vi",
+    "report_id":"NASA\/TM-20210011385",
+    "is_training_label":false,
+    "is_general_safety_threshold":false
+  },
+  {
+    "test_id":"T28b",
+    "pi":"T'ien",
+    "report_pdf_page":121,
+    "table":"A.6",
+    "observation_vi":"Lần thử tiếp tục ghi nhận ngọn lửa chỉ lóe lên rồi tắt.",
+    "evidence_type":"report_observation",
+    "review_scope":"visually_checked_report_row",
+    "translation_status":"paraphrase_vi",
+    "report_id":"NASA\/TM-20210011385",
+    "is_training_label":false,
+    "is_general_safety_threshold":false
+  }
+]
