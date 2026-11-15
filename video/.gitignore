@@ -1,0 +1,5 @@
+node_modules/
+out/
+# Music and voiceover are not committed (licensing); add them locally to render.
+public/audio/*.mp3
+public/audio/*.wav

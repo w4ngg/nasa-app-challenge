@@ -1,0 +1,22 @@
+{
+  "name": "flame-atlas-demo-video",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "studio": "remotion studio src/index.ts",
+    "render": "remotion render src/index.ts FlameAtlasDemo out/flame-atlas-demo.mp4",
+    "render:nomusic": "remotion render src/index.ts FlameAtlasDemo out/flame-atlas-demo-nomusic.mp4 --props=nomusic.json --muted",
+    "render:60": "remotion render src/index.ts FlameAtlasDemo60 out/flame-atlas-demo-60s.mp4"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.484",
+    "@remotion/google-fonts": "4.0.484",
+    "react": "19.2.7",
+    "react-dom": "19.2.7",
+    "remotion": "4.0.484"
+  },
+  "devDependencies": {
+    "@types/react": "19.2.17",
+    "typescript": "6.0.3"
+  }
+}
