@@ -4,6 +4,17 @@ import { modules } from "../lib/modules";
 import { viewUrl } from "../lib/route";
 import type { View } from "../lib/route";
 
+const MODULE_SHORT: Record<View, string> = {
+  overview: "OV",
+  map: "KM",
+  chamber: "3D",
+  explorer: "EL",
+  forecast: "BT",
+  compare: "MC",
+  assistant: "AI",
+  habitat: "HC",
+  lab: "DA",
+};
 /** Custom aerospace vector emblem for Flame Atlas (Orbital Ring + Microgravity Flame Core). */
 function FlameAtlasLogo() {
   return (
