@@ -38,15 +38,20 @@ def test_forecast_metadata_and_real_artifact_inference(tmp_path):
         assert body["interval"]["upper_s"] >= body["predicted_burn_time_s"]
 
 
-def test_forecast_rejects_missing_or_unsupported_inputs(tmp_path):
+def test_forecast_imputes_missing_number_and_rejects_unsupported_inputs(tmp_path):
     inputs = psi159_input()
     inputs.pop("zst")
     inputs["peak_burner_temperature"] = 600
     with client(tmp_path) as api:
         response = api.post("/api/v1/forecast", json={"source": "PSI-159", "inputs": inputs})
     assert response.status_code == 422
-    assert "missing required inputs: zst" in response.json()["detail"]
     assert "unsupported inputs" in response.json()["detail"]
+
+    inputs.pop("peak_burner_temperature")
+    with client(tmp_path) as api:
+        response = api.post("/api/v1/forecast", json={"source": "PSI-159", "inputs": inputs})
+    assert response.status_code == 200, response.text
+    assert response.json()["imputed_inputs"]["zst"] == 0.266857037
 
 
 def test_forecast_rejects_physically_invalid_fraction(tmp_path):

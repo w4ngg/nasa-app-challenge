@@ -603,6 +603,7 @@ footer { display: flex; justify-content: space-between; gap: 8px 20px; flex-wrap
 .forecast-meta dt { color: var(--muted); font-size: 12px; font-weight: 600; }
 .forecast-meta dd { margin: 0; color: var(--ink-soft); font-size: 14px; line-height: 1.45; }
 .forecast-caveat { border-left: 3px solid var(--link); padding: 8px 0 8px 12px; margin-top: auto; font-size: 13px; color: var(--ink-soft); line-height: 1.55; }
+.forecast-imputed { border-left: 3px solid var(--line-strong); padding: 8px 0 8px 12px; margin: 14px 0 0; font-size: 13px !important; }
 .forecast-evidence-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
 .forecast-evidence-grid p { display: grid; gap: 5px; margin: 0; }
 .forecast-evidence-grid strong { font-size: 14px; }
