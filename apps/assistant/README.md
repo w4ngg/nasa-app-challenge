@@ -87,6 +87,20 @@ Ghi chú trung thực:
 - Embedding yếu ở câu nêu nhiều mã viết tắt (FLEX, SAME…), vì vậy vẫn giữ BM25 trong hybrid.
 - Khởi động thêm khoảng 6 giây (nạp model), mỗi truy vấn khoảng 10 ms.
 
+## Biểu đồ, mô hình Module 5 và điều hướng trên web
+
+- **Biểu đồ** (tool `chart_data`, `assistant/charts.py`): code tính số liệu từ bảng thí nghiệm NASA PSI mà web đang dùng
+  (`apps/web/public/data/index.json`, `tables/PSI-xx.json`), LLM không viết số. Các loại: `oxygen_ranges` (dải O₂ từng
+  nghiên cứu, kèm vạch 20,9% và mức Moon base 30%), `run_counts`, `fuel_runs`, `flex_burn_time` (thời gian cháy giọt
+  FLEX theo O₂, trung vị theo mức O₂, chỉ khi có ≥3 lần đốt). Mỗi biểu đồ có ghi chú giới hạn dữ liệu và bảng số.
+- **Mô hình Module 5** (tool `predict_burn_time`, `assistant/burn_model.py`): mô hình FLEX của Nhi
+  (`ml_modelling/*.joblib`), trả dự đoán + khoảng 90% + cảnh báo ngoài miền dữ liệu train. Cần
+  `pip install -r requirements-ml.txt` (scikit-learn đúng bản 1.6.1 lúc train); thiếu thì tool tự ẩn.
+- **Điều hướng** (`navigation` trong câu trả lời): gợi ý mở Data analytics đúng bảng (`?view=lab&dataset=flex`),
+  thư viện thí nghiệm (`?view=explorer&id=PSI-69`), Knowledge map, 3D chamber, notebook của mô hình.
+- **Bộ test mới** trong `eval/questions.jsonl`: `plain` (ngôn ngữ đời thường), `false_premise` (tiền đề sai, kỳ vọng
+  `correct`: phải nói tiền đề sai ở đầu câu trả lời) và `chart` (2 câu mẫu để thuyết trình + 1 câu dự đoán).
+
 ## Knowledge graph (thiết bị, vật liệu, sự cố lịch sử)
 
 Chatbot dùng graph của nhóm (`apps/web/public/data/graph.json`, trang Knowledge Map: nghiên cứu, chương trình,

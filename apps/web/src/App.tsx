@@ -2,22 +2,26 @@ import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import type { MouseEvent } from "react";
 import { InvestigationDetail } from "./components/InvestigationDetail";
 import { SideNav } from "./components/SideNav";
+import { ThemeSwitcher } from "./design";
 import { getFacets, getSummary } from "./lib/data";
 import { isPlainClick, linkHandler, readRoute, routeUrl } from "./lib/route";
 import type { Route } from "./lib/route";
 import { AssistantPage } from "./pages/AssistantPage";
+import { ChamberPage } from "./pages/ChamberPage";
 import { ExplorerPage } from "./pages/ExplorerPage";
 import { ForecastPage } from "./pages/ForecastPage";
 // The graph library is large; load it only when the knowledge map is opened.
 const KnowledgeMapPage = lazy(() => import("./pages/KnowledgeMapPage").then((m) => ({ default: m.KnowledgeMapPage })));
 import { OverviewPage } from "./pages/OverviewPage";
 import { PlaceholderPage } from "./pages/PlaceholderPage";
+const DataAnalyticsPage = lazy(() => import("./pages/DataAnalyticsPage").then((m) => ({ default: m.DataAnalyticsPage })));
 import type { Facets, Summary } from "./types";
 
 export default function App() {
   const [route, setRoute] = useState<Route>(readRoute);
   const [summary, setSummary] = useState<Summary | null>(null);
   const [facets, setFacets] = useState<Facets | null>(null);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   useEffect(() => {
     const onPop = () => setRoute(readRoute());
@@ -54,11 +58,13 @@ export default function App() {
   if (route.id) {
     page = (
       <InvestigationDetail id={route.id} backHref={routeUrl({ ...route, id: null })}
-        backLabel={route.view === "explorer" ? "Back to the experiment library" : route.view === "assistant" ? "Back to the research assistant" : route.view === "map" ? "Back to the knowledge map" : "Back to the overview"}
+        backLabel={route.view === "explorer" ? "Back to the experiment library" : route.view === "assistant" ? "Back to the research assistant" : route.view === "map" ? "Back to the knowledge map" : route.view === "lab" ? "Back to data analytics" : "Back to the overview"}
         onBack={backToList} onOpen={openInvestigation} />
     );
   } else if (route.view === "overview") {
     page = <OverviewPage summary={summary} onLink={onLink} />;
+  } else if (route.view === "chamber") {
+    page = <ChamberPage onLink={onLink} />;
   } else if (route.view === "map") {
     page = <Suspense fallback={<p className="state" role="status">Loading the knowledge map…</p>}><KnowledgeMapPage onLink={onLink} /></Suspense>;
   } else if (route.view === "assistant") {
@@ -67,14 +73,22 @@ export default function App() {
     page = <ExplorerPage route={route} navigate={navigate} summary={summary} facets={facets} onOpen={openInvestigation} />;
   } else if (route.view === "forecast") {
     page = <ForecastPage />;
+  } else if (route.view === "lab") {
+    page = <Suspense fallback={<p className="state" role="status">Loading data analytics…</p>}><DataAnalyticsPage onLink={onLink} initialDataset={route.dataset ?? undefined} /></Suspense>;
   } else {
     page = <PlaceholderPage view={route.view} onLink={onLink} />;
   }
 
   return (
-    <div className="layout">
-      <SideNav current={route.id ? null : route.view} onLink={onLink} />
+    <div className={sidebarCollapsed ? "layout is-collapsed" : "layout"}>
+      <SideNav
+        current={route.id ? null : route.view}
+        onLink={onLink}
+        collapsed={sidebarCollapsed}
+        onToggleCollapse={() => setSidebarCollapsed((v) => !v)}
+      />
       <div className="content">
+        <ThemeSwitcher />
         <main>{page}</main>
         <footer>
           <span>Flame Atlas, a NASA Space Apps Challenge 2026 project for “Flame in Freefall”</span>

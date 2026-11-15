@@ -1,0 +1,6 @@
+# Tùy chọn – mô hình dự đoán thời gian cháy của Module 5 (ml_modelling/*.joblib).
+# Mô hình được lưu bằng scikit-learn 1.6.1: phiên bản khác không nạp được. Không cài thì tool predict_burn_time tự ẩn.
+scikit-learn==1.6.1
+joblib
+pandas
+xgboost

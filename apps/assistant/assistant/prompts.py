@@ -63,18 +63,76 @@ STRICT RULES (guardrails):
    (Apollo 1, Apollo 13, Mir 1997) connect – e.g. "which experiments used the CIR", "what was involved in the
    Mir fire", "which studies tested Nomex" – call explore_graph with the entity. Report each link with its tag.
    A link only means a NASA sentence mentions both; never present it as a cause unless the cited text says so.
+16. Numbers and charts: when the user asks about quantities that the experiment tables hold – oxygen levels
+   tested, number of runs, runs per fuel/material, or how FLEX droplet burn time changed with oxygen – call
+   chart_data (kind = oxygen_ranges | run_counts | fuel_runs | flex_burn_time). The chart is shown under your
+   answer: summarise the pattern in 2-4 sentences with its tags and state the limits in its notes. Never invent
+   numbers that are not in a tool result.
+17. Predictions: predict_burn_time is a machine-learning estimate from the Module 5 model trained on FLEX
+   droplet tests (n-heptane, methanol). Use it only when the user asks to estimate/predict a burn time under
+   given conditions. Always say it is an estimate, give the 90% interval and any out-of-range warning, and cite
+   its [P#] tag. For other fuels or materials say the model does not cover them.
+18. Wrong premises: if the question assumes something the evidence contradicts (wrong experiment, fuel, date,
+   place or outcome), this is NOT a refusal: do not start with the refusal marker. Start with "Actually, …",
+   state what the sources really say (e.g. the suppressants FLEX actually tested, the real date or place) with
+   citations, then answer the corrected question. Never accept a false premise just because the user stated it.
+19. Plain language: when the question is written in everyday words, answer in everyday words; explain any
+   technical term you must use in a few words (e.g. "microgravity (near-weightlessness)").
 """
 
 def active_tools() -> list[dict]:
     """Tools offered to the LLM. predict_flammability is hidden until a real model is configured
     (PREDICT_IMPORT), so a placeholder prediction can never appear in an answer."""
-    from . import config
-    if config.PREDICT_IMPORT:
-        return TOOLS
-    return [t for t in TOOLS if t["function"]["name"] != "predict_flammability"]
+    from . import burn_model, config
+    hidden = set() if config.PREDICT_IMPORT else {"predict_flammability"}
+    if not burn_model.available():
+        hidden.add("predict_burn_time")
+    return [t for t in TOOLS if t["function"]["name"] not in hidden]
 
 
 TOOLS = [
+    {
+        "type": "function",
+        "function": {
+            "name": "chart_data",
+            "description": "Chart computed from the NASA PSI experiment tables (numbers are exact, not generated). "
+                           "Kinds: oxygen_ranges (O2 % range tested per investigation, with Earth-air and Moon-base "
+                           "reference lines), run_counts (runs per investigation), fuel_runs (runs per fuel/material "
+                           "in one investigation), flex_burn_time (FLEX droplet burn time vs oxygen, by fuel).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "kind": {"type": "string", "enum": ["oxygen_ranges", "run_counts", "fuel_runs", "flex_burn_time"]},
+                    "investigations": {"type": "array", "items": {"type": "string"},
+                                       "description": "optional PSI ids or acronyms to include (default: all)"},
+                    "investigation": {"type": "string", "description": "for fuel_runs: one PSI id or acronym"},
+                    "fuel": {"type": "string", "description": "for flex_burn_time: heptane or methanol (default both)"},
+                },
+                "required": ["kind"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "predict_burn_time",
+            "description": "Module 5 machine-learning model (trained on 268 NASA FLEX droplet tests): estimated burn "
+                           "time of an n-heptane or methanol droplet for given conditions, with a 90% interval and "
+                           "an out-of-training-range check.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "fuel": {"type": "string", "enum": ["heptane", "methanol"]},
+                    "o2_percent": {"type": "number", "description": "oxygen in the chamber, percent (FLEX: 12-34)"},
+                    "pressure_atm": {"type": "number", "description": "chamber pressure in atm (default 1)"},
+                    "helium_percent": {"type": "number", "description": "helium diluent percent (default 0)"},
+                    "co2_percent": {"type": "number", "description": "CO2 diluent percent (default 0)"},
+                    "droplet_diameter_mm": {"type": "number", "description": "initial droplet diameter, mm (default 3)"},
+                },
+                "required": ["fuel", "o2_percent"],
+            },
+        },
+    },
     {
         "type": "function",
         "function": {

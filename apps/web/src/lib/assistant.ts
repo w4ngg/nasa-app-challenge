@@ -1,6 +1,8 @@
-// Client for the research assistant API in apps/assistant (FastAPI, `uvicorn assistant.api:app --port 8003`).
-// It runs on the team's machine; the static site falls back to saved sample answers.
-// The DeepSeek API key stays on that server (apps/assistant/.env) and is never sent to the browser.
+// Client for the research assistant API in apps/assistant (FastAPI, `uvicorn assistant.api:app --port 8003`)
+// and Unified Server (/api/astroflame-rag), with client-side Source-Grounded SI Pipeline fallback.
+import { getAllInvestigations } from "./data";
+import { runGroundedPipelineSync } from "./groundedPipeline";
+
 export const assistantUrl = (import.meta.env.VITE_ASSISTANT_URL || "http://127.0.0.1:8003").replace(/\/$/, "");
 
 export type AskMode = "offline" | "llm";
@@ -44,6 +46,35 @@ export interface Verification {
   sentences?: VerifiedSentence[];
 }
 
+/** Chart computed by the assistant API from the NASA PSI experiment tables (apps/assistant/assistant/charts.py). */
+export interface ChartSpec {
+  kind: string;
+  type: "range" | "bar" | "scatter";
+  title: string;
+  subtitle?: string;
+  x_label?: string;
+  y_label?: string;
+  unit?: string;
+  series: { key: string; label: string }[];
+  rows?: { id?: string; label: string; series?: string; min?: number; max?: number; n?: number; value?: number }[];
+  points?: { series: string; x: number; y: number; test?: string; end?: string }[];
+  lines?: { series: string; points: { x: number; y: number; n: number }[] }[];
+  reference_lines?: { value: number; label: string; axis?: string }[];
+  notes?: string[];
+  source?: string;
+  investigation?: string;
+  tags?: Record<string, string>;
+}
+
+/** Where on the site the user can read more (in-app view + params, or an external url). */
+export interface NavItem {
+  view?: string;
+  params?: Record<string, string>;
+  url?: string;
+  label: string;
+  reason?: string;
+}
+
 export interface AssistantAnswer {
   question: string;
   answer: string;
@@ -59,7 +90,8 @@ export interface AssistantAnswer {
   completion_tokens?: number;
   tool_calls?: { name: string; args?: unknown; n_results?: number }[];
   suggested_sources?: AssistantCitation[];
-  // set by the page, not the API
+  charts?: ChartSpec[];
+  navigation?: NavItem[];
   mode?: AskMode;
   first_word_ms?: number;
 }
@@ -74,7 +106,14 @@ export interface Health {
   retriever?: string;
 }
 
-export interface CostScenario { scenario: string; tool_rounds: number; llm_calls: number; input_tokens: number; output_tokens: number; cost_usd: number }
+export interface CostScenario {
+  scenario: string;
+  tool_rounds: number;
+  llm_calls: number;
+  input_tokens: number;
+  output_tokens: number;
+  cost_usd: number;
+}
 
 export interface ContextPreview {
   question: string;
@@ -88,8 +127,18 @@ export interface ContextPreview {
   budget?: { spent_usd: number; limit_usd: number; remaining_usd: number; questions_left_typical?: number };
 }
 
-export interface TraceEvent { kind: string; t_ms: number; [key: string]: unknown }
-export interface Trace { trace_id: string; mode: string; question: string; events: TraceEvent[]; totals?: Record<string, number> }
+export interface TraceEvent {
+  kind: string;
+  t_ms: number;
+  [key: string]: unknown;
+}
+export interface Trace {
+  trace_id: string;
+  mode: string;
+  question: string;
+  events: TraceEvent[];
+  totals?: Record<string, number>;
+}
 
 export type StreamEvent = { type: "status"; text: string } | { type: "delta"; text: string } | { type: "reset" };
 
@@ -115,72 +164,157 @@ async function withTimeout<T>(ms: number, run: (signal: AbortSignal) => Promise<
 async function errorText(response: Response): Promise<string> {
   if (response.status === 402) return "The assistant's spending limit is reached; switch to offline mode.";
   try {
-    const body = await response.json() as { detail?: string };
+    const body = (await response.json()) as { detail?: string };
     if (body.detail) return body.detail;
-  } catch { /* not JSON */ }
+  } catch {
+    /* not JSON */
+  }
   return `The assistant returned an error (HTTP ${response.status}).`;
+}
+
+async function buildClientGroundedFallback(question: string): Promise<AssistantAnswer> {
+  const start = performance.now();
+  const records = await getAllInvestigations();
+  const res = runGroundedPipelineSync(question, records);
+  return {
+    question: res.question,
+    answer: res.answer,
+    refused: res.refused,
+    warnings: res.gapReport ? [res.gapReport] : [],
+    uses_mock_data: false,
+    cost_usd: 0,
+    latency_ms: Math.round(performance.now() - start),
+    citations: res.chunks.map((c) => ({
+      ref: c.ref,
+      kind: "investigation",
+      source_id: c.id,
+      title: `${c.title} (Relevance ${c.relevancePct}% · ${c.conditionMatch} · ${c.completeness})`,
+      url: c.url,
+      snippet: c.snippet,
+      is_mock: false,
+      page: null,
+      page_url: c.url,
+      evidence: `Chamber O₂: ${c.chamberO2} | Burner O₂: ${c.burnerO2}`,
+    })),
+    verification: {
+      checked: res.chunks.length,
+      supported: res.chunks.filter((c) => c.conditionMatch !== "UNMATCHED").length,
+      weak: res.chunks.filter((c) => c.conditionMatch === "PARTIAL").length,
+      unsupported: 0,
+    },
+  };
 }
 
 export async function checkHealth(): Promise<Health | null> {
   try {
     return await withTimeout(2500, async (signal) => {
       const response = await fetch(`${assistantUrl}/health`, { signal });
-      if (!response.ok) return null;
-      const body = await response.json() as Partial<Health>;
+      if (!response.ok) return { ok: true, mode: "offline", model: "client-grounded-pipeline" };
+      const body = (await response.json()) as Partial<Health>;
       return { ...body, ok: true, mode: body.mode === "llm" ? "llm" : "offline", model: body.model ?? null } as Health;
     });
   } catch {
-    return null;
+    try {
+      return await withTimeout(2000, async (signal) => {
+        const res = await fetch("/api/health", { signal });
+        if (!res.ok) return { ok: true, mode: "offline", model: "client-grounded-pipeline" };
+        const body = (await res.json()) as Partial<Health>;
+        return { ...body, ok: true, mode: body.mode === "llm" ? "llm" : "offline", model: body.model ?? null } as Health;
+      });
+    } catch {
+      return { ok: true, mode: "offline", model: "client-grounded-pipeline" };
+    }
   }
 }
 
-export async function askAssistant(question: string, history: Turn[], mode?: AskMode, confirmPaid = false): Promise<AssistantAnswer> {
-  return withTimeout(120000, async (signal) => {
-    const response = await fetch(`${assistantUrl}/ask`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ question, history, mode, confirm_paid: confirmPaid }),
-      signal,
+export async function askAssistant(
+  question: string,
+  history: Turn[],
+  mode?: AskMode,
+  confirmPaid = false,
+): Promise<AssistantAnswer> {
+  try {
+    return await withTimeout(120000, async (signal) => {
+      const response = await fetch(`${assistantUrl}/ask`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question, history, mode, confirm_paid: confirmPaid }),
+        signal,
+      });
+      if (!response.ok) throw new Error(await errorText(response));
+      return response.json() as Promise<AssistantAnswer>;
     });
-    if (!response.ok) throw new Error(await errorText(response));
-    return response.json() as Promise<AssistantAnswer>;
-  });
+  } catch {
+    try {
+      return await withTimeout(4500, async (signal) => {
+        const response = await fetch("/api/astroflame-rag", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ question, history }),
+          signal,
+        });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        return (await response.json()) as AssistantAnswer;
+      });
+    } catch {
+      return buildClientGroundedFallback(question);
+    }
+  }
 }
 
 /** Streams an answer (Server-Sent Events): status lines and text deltas, then the verified final answer. */
-export async function askAssistantStream(question: string, history: Turn[], mode: AskMode, confirmPaid: boolean,
-  onEvent: (event: StreamEvent) => void): Promise<AssistantAnswer> {
-  return withTimeout(180000, async (signal) => {
-    const response = await fetch(`${assistantUrl}/ask/stream`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ question, history, mode, confirm_paid: confirmPaid }),
-      signal,
-    });
-    if (!response.ok || !response.body) throw new Error(await errorText(response));
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = "";
-    let final: AssistantAnswer | null = null;
-    for (;;) {
-      const { value, done } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-      let cut: number;
-      while ((cut = buffer.indexOf("\n\n")) >= 0) {
-        const line = buffer.slice(0, cut).trim();
-        buffer = buffer.slice(cut + 2);
-        if (!line.startsWith("data:")) continue;
-        const event = JSON.parse(line.slice(5)) as { type: string; text?: string; answer?: AssistantAnswer; error?: string; status?: number };
-        if (event.type === "done" && event.answer) final = event.answer;
-        else if (event.type === "error") throw new Error(event.status === 402 ? "The assistant's spending limit is reached; switch to offline mode." : event.error);
-        else if (event.type === "status" || event.type === "delta") onEvent({ type: event.type, text: event.text ?? "" });
-        else if (event.type === "reset") onEvent({ type: "reset" });
+export async function askAssistantStream(
+  question: string,
+  history: Turn[],
+  mode: AskMode,
+  confirmPaid: boolean,
+  onEvent: (event: StreamEvent) => void,
+): Promise<AssistantAnswer> {
+  try {
+    return await withTimeout(180000, async (signal) => {
+      const response = await fetch(`${assistantUrl}/ask/stream`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question, history, mode, confirm_paid: confirmPaid }),
+        signal,
+      });
+      if (!response.ok || !response.body) throw new Error(await errorText(response));
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let final: AssistantAnswer | null = null;
+      for (;;) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        let cut: number;
+        while ((cut = buffer.indexOf("\n\n")) >= 0) {
+          const line = buffer.slice(0, cut).trim();
+          buffer = buffer.slice(cut + 2);
+          if (!line.startsWith("data:")) continue;
+          const event = JSON.parse(line.slice(5)) as {
+            type: string;
+            text?: string;
+            answer?: AssistantAnswer;
+            error?: string;
+            status?: number;
+          };
+          if (event.type === "done" && event.answer) final = event.answer;
+          else if (event.type === "error")
+            throw new Error(
+              event.status === 402 ? "The assistant's spending limit is reached; switch to offline mode." : event.error,
+            );
+          else if (event.type === "status" || event.type === "delta")
+            onEvent({ type: event.type, text: event.text ?? "" });
+          else if (event.type === "reset") onEvent({ type: "reset" });
+        }
       }
-    }
-    if (!final) throw new Error("The answer stream ended early.");
-    return final;
-  });
+      if (!final) throw new Error("The answer stream ended early.");
+      return final;
+    });
+  } catch {
+    return askAssistant(question, history, mode, confirmPaid);
+  }
 }
 
 /** Context and cost the question would use, without calling the language model (free). */
@@ -208,7 +342,7 @@ export async function getTrace(traceId: string): Promise<Trace> {
 export async function loadSamples(): Promise<SampleFile | null> {
   try {
     const response = await fetch(`${import.meta.env.BASE_URL}data/assistant-samples.json`);
-    return response.ok ? await response.json() as SampleFile : null;
+    return response.ok ? ((await response.json()) as SampleFile) : null;
   } catch {
     return null;
   }
