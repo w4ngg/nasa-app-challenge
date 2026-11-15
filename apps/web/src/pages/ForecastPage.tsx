@@ -9,17 +9,18 @@ type ForecastResult = {
   prediction_meaning: string;
   predicted_burn_time_s: number;
   interval: { coverage: number; lower_s: number; upper_s: number; method: string };
+  imputed_inputs: Record<string, number>;
 };
 
-type Field = { name: string; label: string; type: "number" | "text"; hint?: string; step?: string };
+type Field = { name: string; label: string; type: "number" | "select"; hint?: string; step?: string; options?: string[] };
 
 const forms: Record<Source, { title: string; note: string; fields: Field[]; defaults: Record<string, string> }> = {
   "PSI-159": {
     title: "PSI-159 · Burner",
     note: "The result estimates duration conditional on natural extinction (SE).",
     fields: [
-      { name: "flame_type", label: "Flame type", type: "text", hint: "Normal or Inverse" },
-      { name: "fuel", label: "Fuel", type: "text", hint: "For example: ethane" },
+      { name: "flame_type", label: "Flame type", type: "select", options: ["Normal", "Inverse"] },
+      { name: "fuel", label: "Fuel", type: "select", options: ["ethane", "propane", "butane", "30% ethane", "30% propane", "30% butane", "50% butane"] },
       { name: "pressure_bar", label: "Pressure", type: "number", step: "0.01", hint: "bar" },
       { name: "o2_fraction", label: "O₂ fraction", type: "number", step: "0.001", hint: "0–1" },
       { name: "fuel_fraction", label: "Fuel fraction", type: "number", step: "0.001", hint: "0–1" },
@@ -27,14 +28,14 @@ const forms: Record<Source, { title: string; note: string; fields: Field[]; defa
       { name: "tad_k", label: "Tad", type: "number", step: "1", hint: "K" },
       { name: "zst", label: "Zst", type: "number", step: "0.001" },
     ],
-    defaults: { flame_type: "Normal", fuel: "ethane", pressure_bar: "1", o2_fraction: "0.21", fuel_fraction: "0", hc_flow_mg_s: "1", tad_k: "300", zst: "0.05" },
+    defaults: { flame_type: "Normal", fuel: "ethane", pressure_bar: "", o2_fraction: "", fuel_fraction: "", hc_flow_mg_s: "", tad_k: "", zst: "" },
   },
   "PSI-69": {
     title: "PSI-69 · Droplet",
     note: "The result estimates observed duration under the historical protocol.",
     fields: [
-      { name: "flame_type", label: "Flame type", type: "text", hint: "Droplet" },
-      { name: "fuel", label: "Fuel", type: "text", hint: "methanol or heptane" },
+      { name: "flame_type", label: "Flame type", type: "select", options: ["Droplet"] },
+      { name: "fuel", label: "Fuel", type: "select", options: ["methanol", "heptane"] },
       { name: "pressure_bar", label: "Pressure", type: "number", step: "0.01", hint: "bar" },
       { name: "o2_fraction", label: "O₂ fraction", type: "number", step: "0.001", hint: "0–1" },
       { name: "n2_fraction", label: "N₂ fraction", type: "number", step: "0.001", hint: "0–1" },
@@ -42,7 +43,7 @@ const forms: Record<Source, { title: string; note: string; fields: Field[]; defa
       { name: "he_fraction", label: "He fraction", type: "number", step: "0.001", hint: "0–1" },
       { name: "initial_droplet_diameter_mm", label: "Initial droplet diameter", type: "number", step: "0.01", hint: "mm" },
     ],
-    defaults: { flame_type: "Droplet", fuel: "methanol", pressure_bar: "1.013", o2_fraction: "0.21", n2_fraction: "0.79", co_fraction: "0", he_fraction: "0", initial_droplet_diameter_mm: "1" },
+    defaults: { flame_type: "Droplet", fuel: "methanol", pressure_bar: "", o2_fraction: "", n2_fraction: "", co_fraction: "", he_fraction: "", initial_droplet_diameter_mm: "" },
   },
 };
 
@@ -133,14 +134,20 @@ export function ForecastPage() {
       <div className="forecast-grid">
         <form className="panel forecast-form" onSubmit={submit} noValidate>
           <div className="panel-head"><span className="panel-num" aria-hidden="true">2</span><h2>Enter pre-test conditions</h2></div>
-          <p className="panel-lede">All fields are required by the serialized {source} model. Post-test measurements are intentionally excluded.</p>
+          <p className="panel-lede">Flame type and fuel are recorded training values. Type the numbers you know; blank numbers use the model's fitted median.</p>
           <div className="forecast-fields">
             {config.fields.map((field) => (
               <label key={field.name} className="forecast-field" htmlFor={`forecast-${field.name}`}>
                 <span>{field.label}</span>
-                <input id={`forecast-${field.name}`} type={field.type} required step={field.step}
-                  value={inputs[field.name] ?? ""} onChange={(event) => setInputs((current) => ({ ...current, [field.name]: event.target.value }))} />
-                {field.hint && <small>{field.hint}</small>}
+                {field.type === "select" ? (
+                  <select id={`forecast-${field.name}`} value={inputs[field.name] ?? ""} onChange={(event) => setInputs((current) => ({ ...current, [field.name]: event.target.value }))}>
+                    {field.options?.map((option) => <option key={option} value={option}>{option}</option>)}
+                  </select>
+                ) : (
+                  <input id={`forecast-${field.name}`} type="text" inputMode="decimal" value={inputs[field.name] ?? ""}
+                    placeholder="Leave blank to use the median" onChange={(event) => setInputs((current) => ({ ...current, [field.name]: event.target.value }))} />
+                )}
+                <small>{field.type === "number" ? `${field.hint ? `${field.hint} · ` : ""}Blank uses the fitted median` : "Recorded training values only"}</small>
               </label>
             ))}
           </div>
@@ -167,6 +174,9 @@ export function ForecastPage() {
                 </div>
                 <p>This is a marginal interval calibrated from grouped out-of-fold residuals, not a safety threshold.</p>
               </div>
+              {Object.keys(result.imputed_inputs).length > 0 && (
+                <p className="forecast-imputed"><strong>Median-filled:</strong> {Object.entries(result.imputed_inputs).map(([name, value]) => `${name.replace(/_/g, " ")} = ${value}`).join("; ")}</p>
+              )}
               <dl className="forecast-meta">
                 <div><dt>Model</dt><dd>{result.model.replace(/_/g, " ")}</dd></div>
                 <div><dt>Prediction means</dt><dd>{result.prediction_meaning}</dd></div>

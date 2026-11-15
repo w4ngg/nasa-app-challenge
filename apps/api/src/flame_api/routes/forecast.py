@@ -39,6 +39,7 @@ class BurnTimeForecastResponse(BaseModel):
     prediction_meaning: str
     predicted_burn_time_s: float
     interval: PredictionInterval
+    imputed_inputs: dict[str, float] = Field(default_factory=dict)
 
 
 class ForecastUnavailable(RuntimeError):
@@ -94,12 +95,25 @@ class ForecastService:
             }
         return {"sources": result}
 
+    @staticmethod
+    def numeric_defaults(model: Any) -> dict[str, float]:
+        """Read the numeric medians fitted inside the shipped preprocessing pipeline."""
+        try:
+            preprocessor = model.regressor_.named_steps["preprocessor"]
+            names = preprocessor.transformers_[0][2]
+            medians = preprocessor.named_transformers_["numeric"].named_steps["imputer"].statistics_
+            return {str(name): float(value) for name, value in zip(names, medians, strict=True)}
+        except (AttributeError, KeyError, IndexError) as error:
+            raise ForecastUnavailable("Forecast model numeric defaults are unavailable.") from error
+
     def predict(self, request: BurnTimeForecastRequest) -> BurnTimeForecastResponse:
         artifact = self._load()
         spec = self.source_metadata(request.source)
+        model = artifact["models"][request.source]
         features = list(spec.get("features", []))
         numeric_features = set(spec.get("numeric_features", []))
-        missing = [name for name in features if request.inputs.get(name) is None]
+        defaults = self.numeric_defaults(model)
+        missing = [name for name in features if name not in numeric_features and not request.inputs.get(name)]
         unexpected = sorted(set(request.inputs) - set(features))
         if missing or unexpected:
             problems: list[str] = []
@@ -110,9 +124,14 @@ class ForecastService:
             raise ValueError("; ".join(problems))
 
         values: dict[str, str | float] = {}
+        imputed: dict[str, float] = {}
         for name in features:
-            value = request.inputs[name]
+            value = request.inputs.get(name)
             if name in numeric_features:
+                if value is None or (isinstance(value, str) and not value.strip()):
+                    values[name] = defaults[name]
+                    imputed[name] = defaults[name]
+                    continue
                 if isinstance(value, bool):
                     raise ValueError(f"{name} must be a number")
                 try:
@@ -137,7 +156,6 @@ class ForecastService:
                 raise ValueError("PSI-69 initial gas fractions must not sum to more than 1")
 
         try:
-            model = artifact["models"][request.source]
             prediction = float(np.asarray(model.predict(pd.DataFrame([values], columns=features)), dtype=float)[0])
         except Exception as error:  # pragma: no cover - model errors depend on the serialized estimator
             logger.exception("Forecast inference failed for %s", request.source)
@@ -158,6 +176,7 @@ class ForecastService:
             model=str(spec["champion"]),
             prediction_meaning=str(spec["prediction_meaning"]),
             predicted_burn_time_s=prediction,
+            imputed_inputs=imputed,
             interval=PredictionInterval(
                 coverage=coverage,
                 lower_s=max(prediction - radius, 0.0),
