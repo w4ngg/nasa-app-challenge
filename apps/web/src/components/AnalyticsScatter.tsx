@@ -9,11 +9,11 @@ export function rowGroup(row: AnalyticsRow, group: string): string {
   return group === "material" ? row.material : group ? row.categories[group] : "All rows";
 }
 
-function domain(values: number[]): [number, number] {
+function domain(values: number[], minimum: number): [number, number] {
   const low = Math.min(...values);
   const high = Math.max(...values);
   const pad = (high - low || Math.abs(low) || 1) * .08;
-  return [Math.max(0, low - pad), high + pad];
+  return [Math.max(minimum, low - pad), high + pad];
 }
 
 export function AnalyticsScatter({ rows, x, y, group, selected, onSelect, selectionHint = "Select a point to inspect its complete source row below." }: {
@@ -25,8 +25,8 @@ export function AnalyticsScatter({ rows, x, y, group, selected, onSelect, select
   const groups = [...new Set(rows.map((r) => rowGroup(r, group)))].sort();
   const current = rows.find((r) => r.key === active) ?? rows.find((r) => r.key === selected);
   if (!rows.length) return <div className="state analytics-empty"><h3>No points to plot</h3><p>Choose another pair of measured quantities or widen the filters. Rows without exact numeric values remain available in the table.</p></div>;
-  const [x0, x1] = domain(rows.map((r) => r.cells[x.key].value!));
-  const [y0, y1] = domain(rows.map((r) => r.cells[y.key].value!));
+  const [x0, x1] = domain(rows.map((r) => r.cells[x.key].value!), x.min);
+  const [y0, y1] = domain(rows.map((r) => r.cells[y.key].value!), y.min);
   const px = (value: number) => 88 + (value - x0) / (x1 - x0) * 742;
   const py = (value: number) => 332 - (value - y0) / (y1 - y0) * 298;
   const ticks = (low: number, high: number) => Array.from({ length: 5 }, (_, i) => low + (high - low) * i / 4);

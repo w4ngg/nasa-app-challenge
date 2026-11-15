@@ -61,6 +61,20 @@
 .analytics-source, #analytics-measurements { scroll-margin-top: 20px; }
 .analytics-source .sources { margin-top: 0; margin-bottom: 18px; overflow-wrap: anywhere; }
 .analytics-source-prompt { padding: 14px 0; color: var(--muted); font-size: 14px; line-height: 1.6; }
+.analytics-record-check { display: flex; gap: 9px; align-items: center; font-size: 14px; }
+.analytics-record-table td, .analytics-record-table th { white-space: normal; min-width: 140px; max-width: 280px; overflow-wrap: anywhere; line-height: 1.6; }
+.analytics-record-table td:first-child { min-width: 70px; }
+.analytics-record-table th[scope="row"] .link-button { white-space: normal; text-align: left; }
+.analytics-record-table .muted { color: var(--muted); font-size: 12px; }
+.analytics-record-counts { margin: 18px 0 24px; }
+.analytics-record-counts figcaption { font-size: 14px; font-weight: 500; line-height: 1.6; }
+.analytics-record-counts ol { list-style: none; margin: 14px 0 0; padding: 0; }
+.analytics-record-counts button { display: grid; grid-template-columns: minmax(90px, 160px) minmax(40px, 1fr) 36px; gap: 12px; align-items: center; width: 100%; padding: 8px 10px; border: 0; border-radius: 0; text-align: left; background: var(--surface); color: var(--ink); font-size: 13px; }
+.analytics-record-counts button:hover, .analytics-record-counts button[aria-pressed="true"] { background: var(--o2-soft); }
+.analytics-record-counts small { display: block; color: var(--muted); font-size: 11px; font-weight: 400; margin-top: 2px; }
+.analytics-record-counts strong { text-align: right; font-variant-numeric: tabular-nums; }
+.analytics-count-track { display: block; background: var(--raised); height: 12px; }
+.analytics-count-track > span { display: block; background: var(--link); height: 100%; }
 .analytics-raw-fields { margin: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); border-top: 1px solid var(--line); }
 .analytics-raw-fields > div { border-bottom: 1px solid var(--line); padding: 12px 16px 12px 0; }
 .analytics-raw-fields dt { font-size: 12px; color: var(--muted); line-height: 1.5; }
@@ -74,9 +88,9 @@
 .flex-summary-intro h3 { margin-bottom: 6px; }
 .flex-summary-intro p { font-size: 14px; color: var(--ink-soft); line-height: 1.65; max-width: 65ch; }
 .flex-summary-intro > :last-child { display: grid; gap: 9px; flex: none; font-size: 13px; text-align: center; }
-.flex-summary-panel { position: fixed; inset: 0 0 0 auto; margin: 0; width: min(620px, 100vw); max-width: 100vw; height: 100dvh; max-height: 100dvh; padding: 0; border: 0; border-left: 1px solid var(--line); background: var(--surface); color: var(--ink); overflow-y: auto; overscroll-behavior: contain; }
+.flex-summary-panel { position: fixed; inset: 0 0 0 auto; margin: 0; width: min(620px, 100vw); max-width: 100vw; height: 100dvh; max-height: 100dvh; padding: 0; border: 0; border-left: 1px solid var(--line); background: var(--panel, var(--page)); color: var(--ink); overflow-y: auto; overscroll-behavior: contain; }
 .flex-summary-panel::backdrop { background: #16161655; }
-.flex-summary-header { position: sticky; top: 0; z-index: 1; padding: 22px 26px; background: var(--surface); border-bottom: 1px solid var(--line); display: flex; gap: 20px; align-items: flex-start; justify-content: space-between; }
+.flex-summary-header { position: sticky; top: 0; z-index: 1; padding: 22px 26px; background: var(--panel, var(--page)); border-bottom: 1px solid var(--line); display: flex; gap: 20px; align-items: flex-start; justify-content: space-between; }
 .flex-summary-header .eyebrow { font-size: 12px; margin-bottom: 5px; }
 .flex-summary-header h2 { font-size: 25px; font-weight: 600; letter-spacing: -.02em; margin-bottom: 5px; }
 .flex-summary-header > div > p:last-child { color: var(--muted); font-size: 13px; line-height: 1.6; }
@@ -126,6 +140,19 @@
 .flex-sources small, .flex-context small { display: block; font-size: 11px; margin-top: 3px; color: var(--muted); line-height: 1.5; }
 .flex-context ul { margin-top: 12px; }
 .flex-summary-body > button { justify-self: start; font-size: 13px; }
+.bass-evidence { margin-top: 14px; }
+.bass-evidence > .analytics-field { font-size: 13px; max-width: 360px; }
+.bass-summary-panel select { padding: 9px 10px; border: 1px solid var(--line-strong); border-radius: 7px; font: inherit; color: var(--ink); background: var(--surface); }
+.bass-summary-panel .table-scroll { margin-top: 12px; }
+.bass-summary-panel .table-scroll th[scope="row"] { position: static; }
+.bass-chart { margin: 12px 0; }
+.bass-chart > svg { display: block; width: 100%; height: auto; }
+.bass-chart text { font-family: inherit; font-size: 12px; fill: var(--ink-soft); }
+.bass-chart-mark { fill: var(--link); }
+.bass-chart-point { cursor: pointer; }
+.bass-chart-point:focus-visible { outline: none; }
+.bass-chart-point:hover .analytics-hit, .bass-chart-point:focus .analytics-hit { stroke: var(--link); stroke-width: 2; fill: var(--o2-soft); }
+.bass-chart .analytics-point-readout { font-size: 12px; }
 @media (max-width: 1100px) {
   .analytics-axis-controls { grid-template-columns: 1fr 1fr; }
   .analytics-axis-controls > :last-child { grid-column: 1 / -1; max-width: 320px; }

@@ -2,7 +2,9 @@ import { useEffect, useMemo, useState } from "react";
 import type { MouseEvent } from "react";
 import { AnalyticsScatter } from "../components/AnalyticsScatter";
 import { SaffireSamples } from "../components/SaffireSamples";
+import { ExperimentRecords } from "../components/ExperimentRecords";
 import { FlexSummaryPanel } from "../components/FlexSummaryPanel";
+import { BassSummaryPanel } from "../components/BassSummaryPanel";
 import {
   analyticsCsv, analyticsDatasets, comparisonNotes, displayNumber, emptyAnalyticsFilters,
   filterError, filterRows, metricLabel, normalizeTable, plotRows,
@@ -11,8 +13,11 @@ import type { AnalyticsFilters, AnalyticsRow, DatasetSpec } from "../lib/analyti
 import { getInvestigation } from "../lib/data";
 import { viewUrl } from "../lib/route";
 import { readSaffire } from "../lib/saffire";
+import { readExperimentRecords } from "../lib/experiment-records";
 import { flexAssetUrl, loadFlexSummaries, summaryForRow } from "../lib/flex";
 import type { FlexIndex } from "../lib/flex";
+import { bassAssetUrl, bassSummaryForRow, loadBassSummaries } from "../lib/bass";
+import type { BassIndex } from "../lib/bass";
 import type { InvestigationDetail } from "../types";
 import "./data-analytics.css";
 
@@ -38,6 +43,7 @@ export function DataAnalyticsPage({ onLink, initialDataset }: { onLink: Link; in
       const table = result.tables.find((t) => t.file_name === spec.file);
       if (!table) throw new Error("The reviewed experiment table is unavailable.");
       if (spec.mode === "sample_comparison") readSaffire(table);
+      else if (spec.mode === "source_records") readExperimentRecords(table, spec);
       else normalizeTable(table, spec); // Fail closed if a future export changes the reviewed schema.
       setLoaded({ key: datasetKey, detail: result });
     }).catch((reason: unknown) => {
@@ -50,7 +56,7 @@ export function DataAnalyticsPage({ onLink, initialDataset }: { onLink: Link; in
     <div className="page analytics-page">
       <header className="page-header">
         <h1>Data analytics</h1>
-        <p>Explore recorded measurements, compare individual tests and trace each value to its source table.</p>
+        <p>Explore measurements, test conditions and source summaries. Compare records and trace each value to its experiment table.</p>
       </header>
       <section className="panel analytics-dataset" aria-labelledby="dataset-heading">
         <h2 id="dataset-heading">1. Choose an experiment table</h2>
@@ -58,11 +64,12 @@ export function DataAnalyticsPage({ onLink, initialDataset }: { onLink: Link; in
           <select value={datasetKey} onChange={(event) => setDatasetKey(event.target.value)}>{analyticsDatasets.map((d) => <option value={d.key} key={d.key}>{d.name} ({d.id})</option>)}</select>
         </label>
         <p className="analytics-description">{spec.description}</p>
-        <p className="field-help">This MVP supports {analyticsDatasets.length} reviewed tables across {new Set(analyticsDatasets.map((d) => d.id)).size} investigations. Other investigations remain available in the <a href={viewUrl("explorer")} onClick={onLink}>experiment library</a>.</p>
+        <p className="field-help">{analyticsDatasets.length} source tables across {new Set(analyticsDatasets.map((d) => d.id)).size} investigations. Tables open as numeric plots, sample comparisons, condition coverage, daily summaries or inventories according to their contents. Investigations without an experiment table remain in the <a href={viewUrl("explorer")} onClick={onLink}>experiment library</a>.</p>
       </section>
       {error ? <section className="panel state" role="alert"><h2>Could not load the experiment table</h2><p>{error}</p><button onClick={() => setAttempt((a) => a + 1)}>Try again</button></section>
         : loaded?.key === datasetKey ? spec.mode === "sample_comparison"
           ? <SaffireSamples key={datasetKey} detail={loaded.detail} spec={spec} />
+          : spec.mode === "source_records" ? <ExperimentRecords key={datasetKey} detail={loaded.detail} spec={spec} />
           : <AnalyticsWorkspace key={datasetKey} detail={loaded.detail} spec={spec} />
           : <p className="state" role="status">Loading the source table…</p>}
     </div>
@@ -83,15 +90,17 @@ function AnalyticsWorkspace({ detail, spec }: { detail: InvestigationDetail; spe
   const [notice, setNotice] = useState("");
   const [summaryOpen, setSummaryOpen] = useState(false);
   const [flexIndex, setFlexIndex] = useState<FlexIndex | null>(null);
+  const [bassIndex, setBassIndex] = useState<BassIndex | null>(null);
   const [summaryError, setSummaryError] = useState("");
   const [summaryAttempt, setSummaryAttempt] = useState(0);
 
   useEffect(() => {
-    if (spec.id !== "PSI-69") return;
+    if (!["PSI-69", "PSI-25"].includes(spec.id)) return;
     let cancelled = false;
     setSummaryError("");
-    loadFlexSummaries().then((index) => { if (!cancelled) setFlexIndex(index); })
-      .catch((reason: unknown) => { if (!cancelled) setSummaryError(reason instanceof Error ? reason.message : "Could not load the FLEX experiment summaries."); });
+    const failed = (reason: unknown) => { if (!cancelled) setSummaryError(reason instanceof Error ? reason.message : "Could not load the experiment summaries."); };
+    if (spec.id === "PSI-69") loadFlexSummaries().then((index) => { if (!cancelled) setFlexIndex(index); }).catch(failed);
+    else loadBassSummaries().then((index) => { if (!cancelled) setBassIndex(index); }).catch(failed);
     return () => { cancelled = true; };
   }, [spec.id, summaryAttempt]);
 
@@ -106,7 +115,12 @@ function AnalyticsWorkspace({ detail, spec }: { detail: InvestigationDetail; spe
   const shown = tableRows.slice(safePage * pageSize, (safePage + 1) * pageSize);
   const selected = filtered.find((r) => r.key === selectedKey);
   const selectedSummary = selected && flexIndex ? summaryForRow(flexIndex, selected, table) : null;
+  const selectedBassSummary = selected && bassIndex ? bassSummaryForRow(bassIndex, selected, table) : null;
   const matchedSummaries = useMemo(() => flexIndex ? rows.filter((r) => summaryForRow(flexIndex, r, table)).length : 0, [flexIndex, rows, table]);
+  const matchedBassSummaries = useMemo(() => bassIndex ? rows.flatMap((r) => {
+    const entry = bassSummaryForRow(bassIndex, r, table); return entry ? [entry] : [];
+  }) : [], [bassIndex, rows, table]);
+  const hasSummary = spec.id === "PSI-69" || spec.id === "PSI-25";
   const compared = filtered.filter((r) => comparedKeys.includes(r.key));
   const xMetric = spec.metrics.find((m) => m.key === x)!;
   const yMetric = spec.metrics.find((m) => m.key === y)!;
@@ -115,7 +129,7 @@ function AnalyticsWorkspace({ detail, spec }: { detail: InvestigationDetail; spe
   const categories = [...new Set(rows.map((r) => r.categories[category.key]))].sort();
   const hasPressure = spec.metrics.some((m) => m.key === "pressure");
   const pressureMetric = spec.metrics.find((m) => m.key === "pressure");
-  const oxygenMetric = spec.metrics.find((m) => m.key === "o2")!;
+  const oxygenMetric = spec.metrics.find((m) => m.key === "o2");
   const ignition = spec.categories.find((c) => c.key === "ignition");
   const ignitionValues = [...new Set(rows.map((r) => r.categories.ignition))].filter(Boolean).sort();
   const materialLabel = spec.materialColumn === "Fuel" ? "Fuel" : "Material description (source)";
@@ -127,7 +141,7 @@ function AnalyticsWorkspace({ detail, spec }: { detail: InvestigationDetail; spe
     setSelectedKey(row.key);
     setTableMode("all");
     setPage(Math.floor(filtered.indexOf(row) / pageSize));
-    if (spec.id === "PSI-69") setSummaryOpen(true);
+    if (hasSummary) setSummaryOpen(true);
   };
   const axisChange = (key: string, axis: "x" | "y") => {
     if (axis === "x") setX(key); else setY(key);
@@ -157,6 +171,13 @@ function AnalyticsWorkspace({ detail, spec }: { detail: InvestigationDetail; spe
     setTableMode("all"); setPage(Math.floor(rows.indexOf(row) / pageSize));
     setSelectedKey(row.key); setSummaryOpen(true); setNotice("");
   };
+  const bassExample = () => {
+    const row = rows.find((r) => r.testId === "M8");
+    if (!row) return;
+    setFilters({ ...emptyAnalyticsFilters }); setX("o2"); setY("finalO2"); setGroup("pi");
+    setTableMode("all"); setPage(Math.floor(rows.indexOf(row) / pageSize));
+    setSelectedKey(row.key); setSummaryOpen(true); setNotice("");
+  };
   const qualityReasons = [...new Set(excluded.flatMap((r) => [x, y].map((k) => r.cells[k].issue).filter(Boolean)))];
 
   return (
@@ -171,13 +192,13 @@ function AnalyticsWorkspace({ detail, spec }: { detail: InvestigationDetail; spe
             <select value={filters.category} onChange={(event) => changes({ category: event.target.value })}><option value="">All {category.label.toLowerCase()} values</option>{categories.map((c) => <option key={c}>{c}</option>)}</select>
           </label>
           {ignition && <label className="analytics-field">{ignition.label}<select value={filters.ignition} onChange={(event) => changes({ ignition: event.target.value })}><option value="">All hot-ignition values</option>{ignitionValues.map((value) => <option key={value}>{value}</option>)}</select></label>}
-          <NumericRange label={metricLabel(oxygenMetric)} name="o2" min={filters.o2Min} max={filters.o2Max}
-            invalid={Boolean(error?.startsWith("O₂"))} onChange={(low, high) => changes({ o2Min: low, o2Max: high })} />
+          {oxygenMetric && <NumericRange label={metricLabel(oxygenMetric)} name="o2" min={filters.o2Min} max={filters.o2Max}
+            invalid={Boolean(error?.startsWith("O₂"))} onChange={(low, high) => changes({ o2Min: low, o2Max: high })} />}
           {hasPressure && <NumericRange label={metricLabel(pressureMetric!)} name="pressure" min={filters.pressureMin} max={filters.pressureMax}
             invalid={Boolean(error?.startsWith("Pressure"))} onChange={(low, high) => changes({ pressureMin: low, pressureMax: high })} />}
         </div>
         {error && <p className="field-error" id="analytics-filter-error" role="alert">{error}</p>}
-        <p className="field-help">Bounds are inclusive. An active numeric filter excludes rows missing that condition. Blank bounds leave that condition unrestricted.</p>
+        <p className="field-help">{oxygenMetric || hasPressure ? "Bounds are inclusive. An active numeric filter excludes rows missing that condition. Blank bounds leave that condition unrestricted." : "This table has no numeric oxygen or pressure columns. Filter by source descriptions and choose its recorded quantities below."}</p>
         {spec.id === "PSI-69" && <button className="link-button analytics-example" onClick={example}>Try a focused subset: methanol · 21% O₂ · 740–780 mmHg · extinction</button>}
       </section>
 
@@ -186,9 +207,11 @@ function AnalyticsWorkspace({ detail, spec }: { detail: InvestigationDetail; spe
         <div className="analytics-axis-controls">
           <label className="analytics-field">X axis<select value={x} onChange={(event) => axisChange(event.target.value, "x")}>{spec.metrics.map((m) => <option value={m.key} key={m.key}>{metricLabel(m)}</option>)}</select></label>
           <label className="analytics-field">Y axis<select value={y} onChange={(event) => axisChange(event.target.value, "y")}>{spec.metrics.map((m) => <option value={m.key} key={m.key}>{metricLabel(m)}</option>)}</select></label>
-          <label className="analytics-field">Group points by<select value={group} onChange={(event) => setGroup(event.target.value)}><option value="">No grouping</option>{spec.materialColumn === "Fuel" && <option value="material">Fuel</option>}{spec.categories.map((c) => <option value={c.key} key={c.key}>{c.label}</option>)}</select></label>
+          <label className="analytics-field">Group points by<select value={group} onChange={(event) => setGroup(event.target.value)}><option value="">No grouping</option>{materials.length <= 6 && <option value="material">Material / fuel</option>}{spec.categories.filter((c) => c.groupable !== false && new Set(rows.map((r) => r.categories[c.key])).size <= 6).map((c) => <option value={c.key} key={c.key}>{c.label}</option>)}</select></label>
         </div>
         <p className="analytics-counts" role="status"><strong>{plotted.length}</strong> plotted · <strong>{filtered.length}</strong> rows match filters · {rows.length - filtered.length} filtered out · {rows.length} source rows</p>
+        {["PSI-10", "PSI-101", "PSI-39", "PSI-107"].includes(spec.id) && <p className="analytics-quality">{spec.limits}</p>}
+        {rows.some((r) => r.warnings.length) && <p className="field-help">{filtered.filter((r) => r.warnings.length).length} matching rows have source review flags. Repeated records are retained; inspect their raw rows before treating points as independent tests.</p>}
         {spec.id === "PSI-69" && <div className="flex-summary-intro">
           <div><h3>Read the experiment behind each point</h3>
             {summaryError ? <p role="alert">{summaryError} <button className="link-button" onClick={() => setSummaryAttempt((n) => n + 1)}>Try again</button></p>
@@ -197,20 +220,28 @@ function AnalyticsWorkspace({ detail, spec }: { detail: InvestigationDetail; spe
           </div>
           <div><button onClick={flexExample}>Explore FLEX-035</button>{flexIndex && <a href={flexAssetUrl("summaries.json")} download="PSI-69-experiment-summaries.json">Download all summaries</a>}</div>
         </div>}
+        {spec.id === "PSI-25" && <div className="flex-summary-intro">
+          <div><h3>Read the experiment behind each point</h3>
+            {summaryError ? <p role="alert">{summaryError} <button className="link-button" onClick={() => setSummaryAttempt((n) => n + 1)}>Try again</button></p>
+              : bassIndex ? <p>{matchedBassSummaries.length} matched catalog summaries · {matchedBassSummaries.filter((s) => s.reported_result).length} with reported results · {matchedBassSummaries.filter((s) => s.researcher_notes).length} with reviewed NASA notes. Select a point or test number for source readings, available results and review flags. Sources are CSV and report text.</p>
+                : <p role="status">Loading the BASS-II experiment summaries…</p>}
+          </div>
+          <div><button onClick={bassExample}>Explore BASS-II M8</button>{bassIndex && <a href={bassAssetUrl("summaries.json")} download="PSI-25-experiment-summaries.json">Download all BASS-II summaries</a>}</div>
+        </div>}
         {table.note && <p className="analytics-quality">{table.note}</p>}
         {spec.id === "PSI-159" && <p className="analytics-quality">Zero recorded burn times are retained. Use Hot ignition and Test end to distinguish outcomes. Pressure is approximate; peak burner temperature is not flame temperature.</p>}
         {excluded.length > 0 && <p className="analytics-quality">{excluded.length} matching rows are excluded from this plot: {qualityReasons.join("; ").toLowerCase()}. <a href="#analytics-measurements" onClick={() => { setTableMode("excluded"); setPage(0); }}>Review excluded rows</a>.</p>}
         {x === y && <p className="analytics-quality">Both axes show the same quantity. Choose different quantities to explore their relationship.</p>}
         {filtered.length > 0 && <AnalyticsScatter key={`${spec.id}-${x}-${y}-${group}`} rows={plotted} x={xMetric} y={yMetric} group={group} selected={selectedKey} onSelect={selectPlotRow}
-          selectionHint={spec.id === "PSI-69" ? "Select a point to read its experiment summary and source evidence." : undefined} />}
+          selectionHint={hasSummary ? "Select a point to read its experiment summary and source evidence." : undefined} />}
         {filtered.length === 0 && <div className="state analytics-empty"><h3>{error ? "Correct the filter bounds" : "No rows match these conditions"}</h3><p>Adjust or reset the filters to see recorded measurements.</p><button onClick={() => changes({ ...emptyAnalyticsFilters })}>Reset filters</button></div>}
         <p className="field-help">Each point is one source-table row. Axes fit the visible values. Overlapping points can be inspected individually in the table. A pattern here does not establish cause, a safe operating limit or a prediction.</p>
-        {selected && <p className="analytics-notice">Test {selected.testId} is selected. {spec.id === "PSI-69" && <><button className="link-button" onClick={() => setSummaryOpen(true)}>Read experiment summary</button> · </>}<a href="#analytics-source">Inspect its complete source row</a>.</p>}
+        {selected && <p className="analytics-notice">Test {selected.testId} is selected. {hasSummary && <><button className="link-button" onClick={() => setSummaryOpen(true)}>Read experiment summary</button> · </>}<a href="#analytics-source">Inspect its complete source row</a>.</p>}
       </section>
 
       <section className="panel" id="analytics-measurements" aria-labelledby="measurements-heading">
         <div className="analytics-section-head"><h2 id="measurements-heading">4. Inspect and compare test rows</h2><button disabled={!filtered.length || Boolean(error)} onClick={exportCsv}>Export filtered CSV ({filtered.length})</button></div>
-        <p className="panel-lede">{spec.id === "PSI-69" ? "Open a test to read its experiment summary and source evidence." : "Open a test to see every source field."} Select up to three rows for a descriptive comparison.</p>
+        <p className="panel-lede">{hasSummary ? "Open a test to read its experiment summary and source evidence." : "Open a test to see every source field."} Select up to three rows for a descriptive comparison.</p>
         <div className="segmented" aria-label="Rows shown in the table"><button aria-pressed={tableMode === "all"} onClick={() => { setTableMode("all"); setPage(0); }}>All matching ({filtered.length})</button><button aria-pressed={tableMode === "excluded"} onClick={() => { setTableMode("excluded"); setPage(0); }}>Excluded from plot ({excluded.length})</button></div>
         {notice && <p className="analytics-notice" role="status">{notice}</p>}
         <div className="table-scroll" tabIndex={0} role="region" aria-label="Filtered measurements">
@@ -222,7 +253,7 @@ function AnalyticsWorkspace({ detail, spec }: { detail: InvestigationDetail; spe
               <td title={row.material}>{row.material}</td><td>{row.categories[category.key]}</td>{ignition && <td>{row.categories.ignition}</td>}
               <td>{displayNumber(row.cells[x].value)}{row.cells[x].issue && <small>{row.cells[x].issue}</small>}</td>
               <td>{displayNumber(row.cells[y].value)}{row.cells[y].issue && <small>{row.cells[y].issue}</small>}</td>
-              <td>{plottedKeys.has(row.key) ? "Plotted" : "Excluded: X or Y unavailable"}</td>
+              <td>{plottedKeys.has(row.key) ? "Plotted" : "Excluded: X or Y unavailable"}{row.warnings.length > 0 && <small>{row.warnings.length} source review flags · inspect row</small>}</td>
             </tr>)}{!shown.length && <tr><td colSpan={7 + (ignition ? 1 : 0)}>No rows in this view.</td></tr>}</tbody>
           </table>
         </div>
@@ -248,13 +279,16 @@ function AnalyticsWorkspace({ detail, spec }: { detail: InvestigationDetail; spe
         {table.note && <p className="sources">Source note: {table.note}</p>}
         {selected ? <>
           <div className="analytics-section-head"><h3>Source row {selected.key} · Test {selected.testId}</h3><button className="link-button" onClick={() => setSelectedKey(null)}>Close row</button></div>
+          {selected.warnings.length > 0 && <ul className="analytics-comparison-notes">{selected.warnings.map((w) => <li key={w}>{w}</li>)}</ul>}
           <dl className="analytics-raw-fields">{table.columns.map((column, index) => <div key={column}><dt>{column}</dt><dd>{selected.raw[index] || <span className="muted">Empty source cell</span>}</dd></div>)}</dl>
         </> : <p className="analytics-source-prompt">Select a chart point or “Test” in the table to inspect the complete, unmodified source row.</p>}
         <details className="analytics-method"><summary>How numeric values and exports are handled</summary>
-          <ul><li>Only scalar numeric cells inside physical bounds enter the plot. Values such as “~6”, lists and ranges keep their original text and are not treated as exact points. CFI-G pressure is explicitly labelled approximate in the interface and CSV.</li><li>FLEX and CFI-G oxygen fractions are multiplied by 100 to obtain mol %. BASS-II oxygen is already vol %. CFI-G inverse-flame oxygen is burner-fed. Pressure stays in each source unit: mmHg for FLEX, bar for CFI-G. Tables are analysed separately.</li><li>CSV exports contain all rows matching the filters, whether plotted or excluded, with the selected axes, filters, normalized values, quality flags, original cells and source links. Text that could be interpreted as a spreadsheet formula receives an apostrophe prefix.</li><li>No values are imputed, no sensor outliers are silently corrected, and no predictive model or inferred uncertainty is added.</li></ul>
+          <ul><li>Only scalar numeric cells inside the adapter’s declared bounds enter the plot. Values such as “~6”, lists and ranges keep their original text and are not treated as exact points. Negative SPICE air rates await source review; CFI-G pressure is explicitly labelled approximate.</li><li>Declared mole-fraction columns are multiplied by 100 to obtain mol %. BASS-II oxygen is already vol %. Inverse-flame oxygen is burner-fed. Pressure stays in the source unit shown on the axis; CFI explicitly parses the atm suffix. Tables are analysed separately.</li><li>CSV exports contain all rows matching the filters, whether plotted or excluded, with the selected axes, filters, normalized values, quality flags, original cells and source links. Text that could be interpreted as a spreadsheet formula receives an apostrophe prefix.</li><li>No values are imputed, no sensor outliers are silently corrected, and no predictive model or inferred uncertainty is added.</li></ul>
         </details>
       </section>
       {spec.id === "PSI-69" && selected && summaryOpen && <FlexSummaryPanel testId={selected.testId} entry={selectedSummary} index={flexIndex}
+        error={summaryError} onClose={() => setSummaryOpen(false)} onRetry={() => setSummaryAttempt((n) => n + 1)} />}
+      {spec.id === "PSI-25" && selected && summaryOpen && <BassSummaryPanel testId={selected.testId} entry={selectedBassSummary} index={bassIndex}
         error={summaryError} onClose={() => setSummaryOpen(false)} onRetry={() => setSummaryAttempt((n) => n + 1)} />}
     </>
   );
